@@ -16,7 +16,7 @@ export default function LeadOffcanvas({ open, onClose }) {
             onClick={(e) => e.stopPropagation()}
             >
             {/* Header */}
-            <div className="flex items-center justify-between border-b px-6 py-4">
+            <div className="flex items-center justify-between border-b px-6 py-4 bg-orange-50 text-orange-400">
                 <h2 className="text-xl font-semibold">Add New Lead</h2>
 
                 <button

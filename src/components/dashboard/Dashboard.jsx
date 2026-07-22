@@ -7,7 +7,7 @@ import {
 
 const stats = [
   {
-    title: "TOTAL USERS",
+    title: "total lead",
     value: 5,
     icon: <Users size={28} className="text-blue-600" />,
     bg: "bg-blue-100",
@@ -75,42 +75,15 @@ const leads = [
 
 export default function Dashboard() {
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-
-      {/* Stats */}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-
-        {stats.map((item) => (
-          <div
-            key={item.title}
-            className="bg-white rounded-3xl shadow-sm p-6 flex items-center gap-5"
-          >
-            <div className={`${item.bg} p-5 rounded-2xl`}>
-              {item.icon}
-            </div>
-
-            <div>
-              <p className="text-gray-500 text-sm font-semibold">
-                {item.title}
-              </p>
-
-              <h2 className="text-4xl font-bold mt-1">
-                {item.value}
-              </h2>
-            </div>
-          </div>
-        ))}
-
-      </div>
+    <div className="p-4 bg-gray-50 min-h-screen">
 
       {/* Tables */}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
         {/* Recent Users */}
 
-        <div className="bg-white rounded-3xl shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
 
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold">
@@ -159,7 +132,7 @@ export default function Dashboard() {
 
         {/* Recent Leads */}
 
-        <div className="bg-white rounded-3xl shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
 
           <div className="flex justify-between items-center mb-6">
 

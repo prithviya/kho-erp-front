@@ -75,7 +75,7 @@ const [selectedLead, setSelectedLead] = useState(null);
             return (
             <div
                 key={item.title}
-                className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 transition "
             >
                 <div>
                 <p className="text-sm font-medium text-gray-500">
@@ -95,15 +95,15 @@ const [selectedLead, setSelectedLead] = useState(null);
             );
         })}
         </div>
-        <div>
+        <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" >
             <div className="flex items-center justify-between">
-                <h4 className="mt-6 text-lg font-semibold text-gray-900">
+                <h4 className="text-lg font-semibold text-gray-900">
                     Lead Pipeline
                 </h4>
 
                 <button
                     onClick={() => setOpen(true)}
-                    className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
                 >
                     Add New Lead
                 </button>
@@ -111,26 +111,26 @@ const [selectedLead, setSelectedLead] = useState(null);
 
 
             <div className="overflow-x-auto">
-                <table className="mt-6 w-full border-collapse rounded-lg border border-gray-200 text-left text-sm">
+                <table className="mt-6 w-full border-collapse rounded-2xl">
                     <thead className="bg-gray-100">
-                    <tr>
-                        <th className="px-6 py-3 font-semibold text-gray-900">#</th>
-                        <th className="px-6 py-3 font-semibold text-gray-900">Lead Name</th>
-                        <th className="px-6 py-3 font-semibold text-gray-900">Email</th>
-                        <th className="px-6 py-3 font-semibold text-gray-900">Phone No</th>
-                        <th className="px-6 py-3 font-semibold text-gray-900">Source</th>
-                        <th className="px-6 py-3 font-semibold text-gray-900">Status</th>
-                        <th className="px-6 py-3 font-semibold text-gray-900">
+                    <tr className="text-left">
+                        <th className="p-3 text-sm font-medium">#</th>
+                        <th className="p-3 text-sm font-medium">Lead Name</th>
+                        <th className="p-3 text-sm font-medium">Email</th>
+                        <th className="p-3 text-sm font-medium">Phone No</th>
+                        <th className="p-3 text-sm font-medium">Source</th>
+                        <th className="p-3 text-sm font-medium">Status</th>
+                        <th className="p-3 text-sm font-medium">
                         Next Follow-up
                         </th>
-                        <th className="px-6 py-3 text-center font-semibold text-gray-900">
+                        <th className="p-3 text-sm font-medium">
                         Action
                         </th>
                     </tr>
                     </thead>
 
                     <tbody>
-                    <tr className="border-t hover:bg-gray-50">
+                    <tr className="border-t hover:bg-gray-50 text-left">
                         <td className="px-6 py-4">1</td>
                         <td className="px-6 py-4 font-medium text-gray-900">John Doe</td>
                         <td className="px-6 py-4">john.doe@example.com</td>
@@ -143,7 +143,7 @@ const [selectedLead, setSelectedLead] = useState(null);
                         </td>
                         <td className="px-6 py-4">2023-07-15</td>
                         <td className="px-6 py-4">
-                           <div className="flex justify-center gap-2">
+                           <div className="flex justify-left gap-2">
 
                                 {/* Edit Button */}
                                 <button

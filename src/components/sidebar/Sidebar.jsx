@@ -9,10 +9,8 @@ import {
   BadgeCheck,
   FileUser,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import Dashboard from "../dashboard/Dashboard";
-import LeadOverview from "../Lead/LeadOverview";
-import Report from "../Lead/Report";
+import { useLocation, useNavigate } from "react-router-dom";
+import logo from "../../assets/kho.webp";
 
 const menu = [
   {
@@ -22,7 +20,6 @@ const menu = [
         name: "Dashboard",
         icon: LayoutDashboard,
         path: "/dashboard",
-        active: true,
       },
     ],
   },
@@ -61,19 +58,27 @@ const menu = [
       {
         name: "User Management",
         icon: Users,
+        path: "/user-management",
       },
+      {
+        name: "CIF Form",
+        icon: Users,
+        path: "/cif-form",
+      }
     ],
   },
   {
-    title: "HRM",
+    title: "CAREER",
     items: [
       {
         name: "Opening",
         icon: Briefcase,
+        path: '/job-opening',
       },
       {
         name: "Job Applications",
         icon: FileUser,
+        path: '/job-applications',
       },
       {
         name: "Recruitment",
@@ -93,9 +98,13 @@ const menu = [
 
 export default function Sidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <aside className="w-72 h-screen bg-white border-r-1 border-r-gray-400 flex flex-col justify-between">
+      <div className="border-b border-gray-400 py-4 font-semibold text-center text-black-600 text-2xl">
+        <img src={logo} alt="Company Logo" className="mx-auto" style={{width: '100px', height: '50px' }}/>
+      </div>
       <div className="p-5 overflow-y-auto">
         {menu.map((section) => (
           <div key={section.title} className="mb-8">
@@ -106,17 +115,19 @@ export default function Sidebar() {
             <div className="space-y-2">
               {section.items.map((item) => {
                 const Icon = item.icon;
+                const isActive = item.path && location.pathname === item.path;
 
                 return (
                   <button
                     key={item.name}
-                    onClick={() => navigate(item.path)}
+                    type="button"
+                    onClick={() => item.path && navigate(item.path)}
+                    disabled={!item.path}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                      item.active
+                      isActive
                         ? "bg-orange-50 text-orange-500"
                         : "text-gray-800 hover:bg-gray-100"
-                    }`}
-                  >
+                    } ${!item.path ? "cursor-not-allowed opacity-50" : ""}`}>
                     <Icon size={20} />
                     <span className="font-medium">{item.name}</span>
                   </button>
