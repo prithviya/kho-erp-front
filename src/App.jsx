@@ -14,9 +14,9 @@ import Cif from './components/cifForm/ciform';
 import JobOpening from './components/Career/job';
 import RecruitmentProcess from './components/Career/recruitmentProcess';
 import Onboarding from './components/Career/onboarding';
-import EmployeeManagement from './components/Career/employee';
-
-
+import Employee from './components/Career/employee';
+import Salary from './components/SalaryPay/Salary';
+import Leave from './components/SalaryPay/leave';
 function App() {
   return (
     <Router>
@@ -36,8 +36,10 @@ function App() {
             <Route path="/job" element={<JobOpening />} />
             <Route path="/recruitment-process" element={<RecruitmentProcess />} />
             <Route path="/onboarding" element={<Onboarding/>} />
-            <Route path="/employee" element={<EmployeeManagement/>} />
+            <Route path="/employee" element={<Employee/>} />
 
+            <Route path="/payroll" element={<Salary />} />
+            <Route path="/leave" element={<Leave />} />
           </Routes>
         </div>
       </div>

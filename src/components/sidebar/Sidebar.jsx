@@ -1,6 +1,6 @@
 import {
   LayoutDashboard,
-  Users,
+  Users, Puzzle,
   ChartNoAxesCombined,
   KanbanSquare,
   ClipboardCheck,
@@ -8,6 +8,7 @@ import {
   UserPlus,
   BadgeCheck,
   FileUser,
+  HandCoins
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/kho.webp";
@@ -67,6 +68,7 @@ const menu = [
       }
     ],
   },
+  
   {
     title: "CAREER",
     items: [
@@ -91,24 +93,27 @@ const menu = [
         path: '/onboarding',
       },
       {
-        name: "Team Members",
-        icon: Users,
-        path: '/employee-management',
+        name: "Workforce",
+        icon: Puzzle,
+        path: '/employee',
       },
     ],
   },
-  {
-    title: "HRM",
+{
+    title: "Payroll",
     items: [
       {
-        name: "Payroll System",
-        icon: Savings,
-        path: '/payroll',
+        name: "Payroll",
+        icon: HandCoins,
+        path: "/payroll",
       },
-      
-      
+      {
+        name: "leave",
+        icon: Users,
+        path: "/leave",
+      }
     ],
-  },
+  }
 ];
 
 export default function Sidebar() {
