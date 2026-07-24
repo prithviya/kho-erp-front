@@ -73,25 +73,40 @@ const menu = [
       {
         name: "Opening",
         icon: Briefcase,
-        path: '/job-opening',
+        path: '/job',
       },
-      {
-        name: "Job Applications",
-        icon: FileUser,
-        path: '/job-applications',
-      },
+      // {
+      //   name: "Job Applications",
+      //   icon: FileUser,
+      //   path: '/job-applications',
+      // },
       {
         name: "Recruitment",
         icon: UserPlus,
+        path: '/recruitment-process',
       },
       {
         name: "Onboarding",
         icon: BadgeCheck,
+        path: '/onboarding',
       },
       {
-        name: "Employee Management",
+        name: "Team Members",
         icon: Users,
+        path: '/employee-management',
       },
+    ],
+  },
+  {
+    title: "HRM",
+    items: [
+      {
+        name: "Payroll System",
+        icon: Savings,
+        path: '/payroll',
+      },
+      
+      
     ],
   },
 ];

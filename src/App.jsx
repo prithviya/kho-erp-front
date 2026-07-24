@@ -1,4 +1,6 @@
 import React from 'react';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+
 import Login from './components/loginpage/Login';
 import Dashboard from './components/dashboard/Dashboard';
 import Sidebar from './components/sidebar/Sidebar';
@@ -10,8 +12,11 @@ import UserManagement from './components/UserManagement/UserRole';
 import Cif from './components/cifForm/ciform';
 
 import JobOpening from './components/Career/job';
+import RecruitmentProcess from './components/Career/recruitmentProcess';
+import Onboarding from './components/Career/onboarding';
+import EmployeeManagement from './components/Career/employee';
 
-import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+
 function App() {
   return (
     <Router>
@@ -28,7 +33,10 @@ function App() {
             <Route path="/user-management" element={<UserManagement />} />
             <Route path="/cif-form" element={<Cif />} />
 
-            <Route path="/job-opening" element={<JobOpening />} />
+            <Route path="/job" element={<JobOpening />} />
+            <Route path="/recruitment-process" element={<RecruitmentProcess />} />
+            <Route path="/onboarding" element={<Onboarding/>} />
+            <Route path="/employee" element={<EmployeeManagement/>} />
 
           </Routes>
         </div>

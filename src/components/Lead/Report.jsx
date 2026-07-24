@@ -1,4 +1,8 @@
-import React from 'react'
+import React from 'react';
+import {
+  Eye, 
+  Pencil } from "lucide-react";
+
 
 function Report() {
   return (
@@ -85,43 +89,61 @@ function Report() {
 
             </div>
        
-            {/* Display the filtered leads in a table */}
-            <table className="mt-6 w-full border-collapse rounded-lg text-left text-sm">
-                <thead className="bg-gray-100">
-                <tr>
-                    <th className="px-6 py-3 font-semibold text-gray-900">#</th>
-                    <th className="px-6 py-3 font-semibold text-gray-900">Lead Name</th>
-                    <th className="px-6 py-3 font-semibold text-gray-900">Email</th>
-                    <th className="px-6 py-3 font-semibold text-gray-900">Source</th>
-                    <th className="px-6 py-3 font-semibold text-gray-900">Status</th>
-                    <th className="px-6 py-3 font-semibold text-gray-900">
-                    Budget
-                    </th>
-                    <th className="px-6 py-3 text-center font-semibold text-gray-900">
-                    Created Date
-                    </th>
-                </tr>
-                </thead>
+            <div className="rounded-lg border border-gray-200 bg-white overflow-hidden mt-3">
+                <div className="overflow-x-auto">
+                    {/* Display the filtered leads in a table */}
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                        <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lead Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Budget</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                        </thead>
 
-                <tbody>
-                <tr className="hover:bg-gray-50">
-                    <td className="px-6 py-4">1</td>
-                    <td className="px-6 py-4 font-medium text-gray-900">John Doe</td>
-                    <td className="px-6 py-4">john.doe@example.com</td>
-                    <td className="px-6 py-4">Website</td>
-                    <td className="px-6 py-4">
-                    <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700">
-                        Contacted
-                    </span>
-                    </td>
-                    <td>
-                        5000
-                    </td>
-                    <td className="px-6 py-4">2023-07-15</td>
-                   
-                </tr>
-                </tbody>
-            </table>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                
+                            <tr className="hover:bg-gray-100 transition-colors">
+                                <td className="px-4 py-3 text-sm text-gray-700">1</td>
+                                <td className="px-4 py-3 text-sm text-gray-700">John Doe</td>
+                                <td className="px-4 py-3 text-sm text-gray-700">john.doe@example.com</td>
+                                <td className="px-4 py-3 text-sm text-gray-700">Website</td>
+                                <td className="px-4 py-3 text-sm text-gray-700"> <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700">Contacted</span></td>
+                                <td className="px-4 py-3 text-sm text-gray-700"> 5000</td>
+                                <td className="px-4 py-3 text-sm text-gray-700">2023-07-15</td>
+                                <td className="px-4 py-3 text-sm text-gray-700 flex gap-2">
+                                    <button
+                                        className="rounded-md bg-blue-100 p-2 text-blue-600 hover:bg-blue-200"
+                                        onClick={() => {
+                                            setSelectedLead(lead);
+                                            setEditOpen(true);
+                                        }}
+                                    >
+                                        <Pencil size={18} />
+                                    </button>
+
+
+                                    {/* View Button */}
+                                    <button
+                                        className="rounded-md bg-green-100 p-2 text-green-600 hover:bg-green-200"
+                                        onClick={() => {
+                                            setSelectedLead(lead);
+                                            setViewOpen(true);
+                                        }}
+                                    >
+                                        <Eye size={18} />
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
   )
