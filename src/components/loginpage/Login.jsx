@@ -2,6 +2,42 @@ import { useState } from "react";
 
 export default function Login() {
   const [showModal, setShowModal] = useState(false);
+  const [getEmail, setEmail] = useState('');
+  const [getPassword, setPassword] = useState('');
+  const user = 'http://localhost:5000/api/auth/';
+  console.log(user);
+  const LoginBtn = async (e) => {
+    e.preventDefault();
+    console.log("Login clicked");
+    let loginPayload = {
+      "email": getEmail,
+      "password": getPassword
+    }
+    console.log(loginPayload);
+    try {
+      const response = await fetch(`${user}login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(loginPayload),
+      });
+      if(response.ok){
+        const data = await response.json();
+        console.log(data);
+        alert("login successfully");
+        localStorage.setItem('userdetails',JSON.stringify(data));
+        // window.location='/dashboard';
+        
+      }
+      else{
+        const data = await response.json();
+        console.log(data);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   return (
     <>
@@ -22,6 +58,7 @@ export default function Login() {
 
                 <input
                   type="text"
+                  value={getEmail}  onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter username or email"
                   className="w-full border border-[#333333]/30 rounded-lg px-4 py-3 outline-none focus:border-[#333333] transition"
                 />
@@ -34,6 +71,7 @@ export default function Login() {
 
                 <input
                   type="password"
+                  value={getPassword}  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
                   className="w-full border border-[#333333]/30 rounded-lg px-4 py-3 outline-none focus:border-[#333333] transition"
                 />
@@ -41,23 +79,25 @@ export default function Login() {
 
               <div className="text-right">
                 <button
-                  type="button"
+                  type="button" 
                   onClick={() => setShowModal(true)}
                   className="text-sm text-[#333333] hover:underline"
                 >
                   Forgot Password?
                 </button>
+               
               </div>
 
               <button
                 type="submit"
+                onClick={LoginBtn}
                 className="w-full bg-[#333333] text-white py-3 rounded-lg hover:opacity-90 transition"
               >
                 Submit
               </button>
 
             </form>
-
+             
           </div>
         </div>
       </div>

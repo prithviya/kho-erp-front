@@ -46,6 +46,7 @@ const menu = [
       {
         name: "Project on Board",
         icon: KanbanSquare,
+        path: '/onboard-prjt',
       },
       {
         name: "Assign Task",
@@ -68,7 +69,6 @@ const menu = [
       }
     ],
   },
-  
   {
     title: "CAREER",
     items: [
@@ -99,7 +99,7 @@ const menu = [
       },
     ],
   },
-{
+  {
     title: "Payroll",
     items: [
       {

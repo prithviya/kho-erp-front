@@ -17,6 +17,8 @@ import Onboarding from './components/Career/onboarding';
 import Employee from './components/Career/employee';
 import Salary from './components/SalaryPay/Salary';
 import Leave from './components/SalaryPay/leave';
+import ProjectOnboarding from './components/project/onboardingPrjt';
+
 function App() {
   return (
     <Router>
@@ -24,11 +26,13 @@ function App() {
         <Sidebar />
         <div className="flex-1 bg-grey-100 min-h-screen">
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/dashboard" element={<Navigate to="/dashboard"  />} />
+            <Route path="/" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/lead-overview" element={<LeadOverview />} />
             <Route path="/report" element={<Report />} />
+
+            <Route path="/onboard-prjt" element={<ProjectOnboarding />} />
 
             <Route path="/user-management" element={<UserManagement />} />
             <Route path="/cif-form" element={<Cif />} />
