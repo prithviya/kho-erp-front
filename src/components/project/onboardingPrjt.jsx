@@ -24,28 +24,62 @@ const ProjectOnboarding = () => {
   });
 
   const [serviceDetails, setServiceDetails] = useState({});
+  const [showManagerDropdown, setShowManagerDropdown] = useState(false);
+  const [showSpocDropdown, setShowSpocDropdown] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleMultiSelect = (e, field) => {
-    const options = e.target.options;
-    const selected = [];
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].selected) {
-        selected.push(options[i].value);
+  const toggleManagerSelection = (member) => {
+    setFormData(prev => {
+      const current = prev.projectManager || [];
+      if (current.includes(member)) {
+        return { ...prev, projectManager: current.filter(m => m !== member) };
+      } else {
+        return { ...prev, projectManager: [...current, member] };
       }
-    }
-    setFormData(prev => ({ ...prev, [field]: selected }));
+    });
+  };
+
+  const toggleSpocSelection = (member) => {
+    setFormData(prev => {
+      const current = prev.spoc || [];
+      if (current.includes(member)) {
+        return { ...prev, spoc: current.filter(m => m !== member) };
+      } else {
+        return { ...prev, spoc: [...current, member] };
+      }
+    });
+  };
+
+  const removeManager = (member) => {
+    setFormData(prev => ({
+      ...prev,
+      projectManager: prev.projectManager.filter(m => m !== member)
+    }));
+  };
+
+  const removeSpoc = (member) => {
+    setFormData(prev => ({
+      ...prev,
+      spoc: prev.spoc.filter(m => m !== member)
+    }));
   };
 
   const handleServiceToggle = (service) => {
     setFormData(prev => {
       const currentServices = prev.services || [];
       if (currentServices.includes(service)) {
-        return { ...prev, services: currentServices.filter(s => s !== service) };
+        // Remove service and its details
+        const newServices = currentServices.filter(s => s !== service);
+        setServiceDetails(prevDetails => {
+          const newDetails = { ...prevDetails };
+          delete newDetails[service];
+          return newDetails;
+        });
+        return { ...prev, services: newServices };
       } else {
         return { ...prev, services: [...currentServices, service] };
       }
@@ -60,6 +94,26 @@ const ProjectOnboarding = () => {
         [field]: value
       }
     }));
+  };
+
+  const handlePlatformToggle = (service, platform) => {
+    setServiceDetails(prev => {
+      const current = prev[service] || {};
+      const currentPlatforms = current.platforms || [];
+      let newPlatforms;
+      if (currentPlatforms.includes(platform)) {
+        newPlatforms = currentPlatforms.filter(p => p !== platform);
+      } else {
+        newPlatforms = [...currentPlatforms, platform];
+      }
+      return {
+        ...prev,
+        [service]: {
+          ...current,
+          platforms: newPlatforms
+        }
+      };
+    });
   };
 
   const handleSubServiceToggle = (service, subService) => {
@@ -87,283 +141,179 @@ const ProjectOnboarding = () => {
     
     if (service === 'Website') {
       return (
-        <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Technology <span className="text-red-500">*</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => handleServiceDetailChange(service, 'technology', 'WordPress')}
-                className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                  details.technology === 'WordPress'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z"/>
-                  </svg>
-                  WordPress
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleServiceDetailChange(service, 'technology', 'Shopify')}
-                className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                  details.technology === 'Shopify'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z"/>
-                  </svg>
-                  Shopify
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleServiceDetailChange(service, 'technology', 'Custom')}
-                className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                  details.technology === 'Custom'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z"/>
-                  </svg>
-                  Custom
-                </div>
-              </button>
+            <div className="grid grid-cols-3 gap-1">
+              {['WordPress', 'Shopify', 'Custom'].map(tech => (
+                <button
+                  key={tech}
+                  type="button"
+                  onClick={() => handleServiceDetailChange(service, 'technology', tech)}
+                  className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
+                    details.technology === tech
+                      ? 'border-blue-600 bg-blue-100 text-blue-700 shadow-md'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                  }`}
+                >
+                  {tech}
+                </button>
+              ))}
             </div>
           </div>
 
           {details.technology === 'WordPress' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleServiceDetailChange(service, 'wpType', 'Theme')}
-                  className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                    details.wpType === 'Theme'
-                      ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex flex-col items-center">
-                    <span className="font-semibold">Theme</span>
-                    <span className="text-xs text-gray-500">Use pre-built theme</span>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleServiceDetailChange(service, 'wpType', 'Custom')}
-                  className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                    details.wpType === 'Custom'
-                      ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex flex-col items-center">
-                    <span className="font-semibold">Custom</span>
-                    <span className="text-xs text-gray-500">Custom theme development</span>
-                  </div>
-                </button>
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type <span className="text-red-500">*</span></label>
+                <div className="grid grid-cols-2 gap-1">
+                  {['Theme', 'Custom'].map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => handleServiceDetailChange(service, 'wpType', type)}
+                      className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
+                        details.wpType === type
+                          ? 'border-blue-600 bg-blue-100 text-blue-700 shadow-md'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-
-          {details.technology === 'WordPress' && details.wpType === 'Theme' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Theme Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={details.themeName || ''}
-                onChange={(e) => handleServiceDetailChange(service, 'themeName', e.target.value)}
-                placeholder="Enter theme name (e.g., Astra, Divi, GeneratePress)"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          )}
-
-          {details.technology === 'WordPress' && details.wpType === 'Custom' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Customization Details <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={details.customDetails || ''}
-                onChange={(e) => handleServiceDetailChange(service, 'customDetails', e.target.value)}
-                placeholder="Describe the custom features and functionality needed..."
-                rows="3"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+              {details.wpType === 'Theme' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Theme Name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={details.themeName || ''}
+                    onChange={(e) => handleServiceDetailChange(service, 'themeName', e.target.value)}
+                    placeholder="Enter theme name"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+              )}
+              {details.wpType === 'Custom' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customization Details <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={details.customDetails || ''}
+                    onChange={(e) => handleServiceDetailChange(service, 'customDetails', e.target.value)}
+                    placeholder="Describe custom features..."
+                    rows="2"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {details.technology === 'Shopify' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleServiceDetailChange(service, 'shopifyType', 'Theme')}
-                  className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                    details.shopifyType === 'Theme'
-                      ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex flex-col items-center">
-                    <span className="font-semibold">Theme</span>
-                    <span className="text-xs text-gray-500">Use pre-built theme</span>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleServiceDetailChange(service, 'shopifyType', 'Custom')}
-                  className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                    details.shopifyType === 'Custom'
-                      ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex flex-col items-center">
-                    <span className="font-semibold">Custom</span>
-                    <span className="text-xs text-gray-500">Custom development</span>
-                  </div>
-                </button>
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type <span className="text-red-500">*</span></label>
+                <div className="grid grid-cols-2 gap-1">
+                  {['Theme', 'Custom'].map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => handleServiceDetailChange(service, 'shopifyType', type)}
+                      className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
+                        details.shopifyType === type
+                          ? 'border-blue-600 bg-blue-100 text-blue-700 shadow-md'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-
-          {details.technology === 'Shopify' && details.shopifyType === 'Theme' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Theme Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={details.shopifyThemeName || ''}
-                onChange={(e) => handleServiceDetailChange(service, 'shopifyThemeName', e.target.value)}
-                placeholder="Enter theme name (e.g., Dawn, Brooklyn, Debut)"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          )}
-
-          {details.technology === 'Shopify' && details.shopifyType === 'Custom' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Customization Details <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={details.shopifyCustomDetails || ''}
-                onChange={(e) => handleServiceDetailChange(service, 'shopifyCustomDetails', e.target.value)}
-                placeholder="Describe the custom features and functionality needed..."
-                rows="3"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+              {details.shopifyType === 'Theme' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Theme Name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={details.shopifyThemeName || ''}
+                    onChange={(e) => handleServiceDetailChange(service, 'shopifyThemeName', e.target.value)}
+                    placeholder="Enter theme name"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+              )}
+              {details.shopifyType === 'Custom' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customization Details <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={details.shopifyCustomDetails || ''}
+                    onChange={(e) => handleServiceDetailChange(service, 'shopifyCustomDetails', e.target.value)}
+                    placeholder="Describe custom features..."
+                    rows="2"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {details.technology === 'Custom' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Technology Stack <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={details.techStack || ''}
-                onChange={(e) => handleServiceDetailChange(service, 'techStack', e.target.value)}
-                placeholder="e.g., React + Node.js, PHP + MySQL, etc."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          )}
-          {details.technology === 'Custom' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Project Requirements <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={details.customRequirements || ''}
-                onChange={(e) => handleServiceDetailChange(service, 'customRequirements', e.target.value)}
-                placeholder="Describe the project requirements, features, and functionality..."
-                rows="3"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tech Stack <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={details.techStack || ''}
+                  onChange={(e) => handleServiceDetailChange(service, 'techStack', e.target.value)}
+                  placeholder="e.g., React + Node.js"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Requirements <span className="text-red-500">*</span></label>
+                <textarea
+                  value={details.customRequirements || ''}
+                  onChange={(e) => handleServiceDetailChange(service, 'customRequirements', e.target.value)}
+                  placeholder="Describe requirements..."
+                  rows="2"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+            </>
           )}
 
-          {/* Pages Count */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Number of Pages <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              value={details.pages || ''}
-              onChange={(e) => handleServiceDetailChange(service, 'pages', e.target.value)}
-              placeholder="Enter number of pages"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+          
         </div>
       );
     }
 
     if (service === 'SEO') {
       return (
-        <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Keyword Count <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Keyword Count <span className="text-red-500">*</span></label>
               <input
                 type="number"
                 value={details.keywordCount || ''}
                 onChange={(e) => handleServiceDetailChange(service, 'keywordCount', e.target.value)}
-                placeholder="Number of keywords"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Keywords"
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Blog Count <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Blog Count <span className="text-red-500">*</span></label>
               <input
                 type="number"
                 value={details.blogCount || ''}
                 onChange={(e) => handleServiceDetailChange(service, 'blogCount', e.target.value)}
-                placeholder="Number of blogs"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Blogs"
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Target Locations (Optional)</label>
-            <input
-              type="text"
-              value={details.locations || ''}
-              onChange={(e) => handleServiceDetailChange(service, 'locations', e.target.value)}
-              placeholder="e.g., Chennai, India, Worldwide"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
           </div>
         </div>
       );
@@ -372,127 +322,92 @@ const ProjectOnboarding = () => {
     if (service === 'SMM') {
       const subServices = details.subServices || [];
       return (
-        <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Select Services <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className={`p-4 rounded-lg border-2 transition-all ${subServices.includes('Reels') ? 'border-blue-600 bg-blue-100' : 'border-gray-300 bg-white'}`}>
-                <label className="flex items-center gap-3 cursor-pointer">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Services <span className="text-red-500">*</span></label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className={`p-2 rounded-lg border-2 transition-all ${subServices.includes('Reels') ? 'border-blue-600 bg-blue-100' : 'border-gray-300 bg-white'}`}>
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={subServices.includes('Reels')}
                     onChange={() => handleSubServiceToggle(service, 'Reels')}
-                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <span className="font-medium text-gray-700">Reels</span>
+                  <span className="font-medium text-gray-700 text-sm">Reels</span>
                 </label>
                 {subServices.includes('Reels') && (
-                  <div className="mt-3 ml-8">
+                  <div className="mt-2">
                     <input
                       type="number"
                       value={details.reelsCount || ''}
                       onChange={(e) => handleServiceDetailChange(service, 'reelsCount', e.target.value)}
-                      placeholder="Number of Reels"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Count"
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                   </div>
                 )}
               </div>
-              <div className={`p-4 rounded-lg border-2 transition-all ${subServices.includes('Poster') ? 'border-blue-600 bg-blue-100' : 'border-gray-300 bg-white'}`}>
-                <label className="flex items-center gap-3 cursor-pointer">
+              <div className={`p-2 rounded-lg border-2 transition-all ${subServices.includes('Poster') ? 'border-blue-600 bg-blue-100' : 'border-gray-300 bg-white'}`}>
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={subServices.includes('Poster')}
                     onChange={() => handleSubServiceToggle(service, 'Poster')}
-                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <span className="font-medium text-gray-700">Poster</span>
+                  <span className="font-medium text-gray-700 text-sm">Poster</span>
                 </label>
                 {subServices.includes('Poster') && (
-                  <div className="mt-3 ml-8">
+                  <div className="mt-2">
                     <input
                       type="number"
                       value={details.posterCount || ''}
                       onChange={(e) => handleServiceDetailChange(service, 'posterCount', e.target.value)}
-                      placeholder="Number of Posters"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Count"
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                   </div>
                 )}
               </div>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Platforms</label>
-            <select
-              value={details.platforms || ''}
-              onChange={(e) => handleServiceDetailChange(service, 'platforms', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Select Platforms</option>
-              <option value="Instagram">Instagram</option>
-              <option value="Facebook">Facebook</option>
-              <option value="YouTube">YouTube</option>
-              <option value="LinkedIn">LinkedIn</option>
-              <option value="All">All Platforms</option>
-            </select>
-          </div>
+          
         </div>
       );
     }
 
     if (service === 'Ads') {
+      const platforms = details.platforms || [];
       return (
-        <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Platform <span className="text-red-500">*</span></label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => handleServiceDetailChange(service, 'platform', 'Google Ads')}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                  details.platform === 'Google Ads'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                }`}
-              >
-                Google Ads
-              </button>
-              <button
-                type="button"
-                onClick={() => handleServiceDetailChange(service, 'platform', 'Meta Ads')}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                  details.platform === 'Meta Ads'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                }`}
-              >
-                Meta Ads
-              </button>
-              <button
-                type="button"
-                onClick={() => handleServiceDetailChange(service, 'platform', 'Both')}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                  details.platform === 'Both'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                }`}
-              >
-                Both
-              </button>
+            <div className="flex flex-wrap gap-1">
+              {['Google', 'Meta', 'LinkedIn'].map(platform => (
+                <button
+                  key={platform}
+                  type="button"
+                  onClick={() => handlePlatformToggle(service, platform)}
+                  className={`px-3 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
+                    platforms.includes(platform)
+                      ? 'border-blue-600 bg-blue-100 text-blue-700 shadow-md'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  {platform}
+                </button>
+              ))}
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Budget</label>
-            <input
-              type="text"
-              value={details.budget || ''}
-              onChange={(e) => handleServiceDetailChange(service, 'budget', e.target.value)}
-              placeholder="Enter budget amount"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            {platforms.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {platforms.map(platform => (
+                  <span key={platform} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                    {platform} ✓
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       );
@@ -500,53 +415,15 @@ const ProjectOnboarding = () => {
 
     if (service === 'Web App') {
       return (
-        <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Type <span className="text-red-500">*</span></label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => handleServiceDetailChange(service, 'appType', 'Web Application')}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                  details.appType === 'Web Application'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                }`}
-              >
-                Web App
-              </button>
-              <button
-                type="button"
-                onClick={() => handleServiceDetailChange(service, 'appType', 'Mobile App')}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                  details.appType === 'Mobile App'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                }`}
-              >
-                Mobile App
-              </button>
-              <button
-                type="button"
-                onClick={() => handleServiceDetailChange(service, 'appType', 'PWA')}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                  details.appType === 'PWA'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                }`}
-              >
-                PWA
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Technology Stack <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tech Stack <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={details.techStack || ''}
               onChange={(e) => handleServiceDetailChange(service, 'techStack', e.target.value)}
-              placeholder="e.g., React, Node.js, MongoDB"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., React, Node.js"
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
           <div>
@@ -555,113 +432,8 @@ const ProjectOnboarding = () => {
               value={details.features || ''}
               onChange={(e) => handleServiceDetailChange(service, 'features', e.target.value)}
               placeholder="List key features..."
-              rows="3"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-      );
-    }
-
-    // Media Services
-    if (['Videography', 'Video Editing', 'Photography', 'Video Production'].includes(service)) {
-      const icons = {
-        'Videography': '🎥',
-        'Video Editing': '✂️',
-        'Photography': '📸',
-        'Video Production': '🎬'
-      };
-      return (
-        <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {icons[service]} Description <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={details.description || ''}
-              onChange={(e) => handleServiceDetailChange(service, 'description', e.target.value)}
-              placeholder={`Enter ${service} details...`}
-              rows="3"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-              <input
-                type="text"
-                value={details.duration || ''}
-                onChange={(e) => handleServiceDetailChange(service, 'duration', e.target.value)}
-                placeholder="e.g., 2 weeks"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Number of Deliverables</label>
-              <input
-                type="number"
-                value={details.deliverables || ''}
-                onChange={(e) => handleServiceDetailChange(service, 'deliverables', e.target.value)}
-                placeholder="Number of deliverables"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Design Services
-    if (['Branding Logo', 'Brochure', 'Pamphlet', 'Social Media Designs', 'Marking collateral', 'UI/UX designer'].includes(service)) {
-      const icons = {
-        'Branding Logo': '🎨',
-        'Brochure': '📄',
-        'Pamphlet': '📃',
-        'Social Media Designs': '📱',
-        'Marking collateral': '📋',
-        'UI/UX designer': '🖌️'
-      };
-      return (
-        <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {icons[service]} Number of Designs <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              value={details.count || ''}
-              onChange={(e) => handleServiceDetailChange(service, 'count', e.target.value)}
-              placeholder="Number of designs needed"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Format</label>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              {['PDF', 'JPG', 'PNG', 'AI', 'PSD'].map(format => (
-                <button
-                  key={format}
-                  type="button"
-                  onClick={() => handleServiceDetailChange(service, 'format', format)}
-                  className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                    details.format === format
-                      ? 'border-blue-600 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
-                >
-                  {format}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
-            <textarea
-              value={details.notes || ''}
-              onChange={(e) => handleServiceDetailChange(service, 'notes', e.target.value)}
-              placeholder="Additional requirements..."
               rows="2"
- className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
         </div>
@@ -679,226 +451,334 @@ const ProjectOnboarding = () => {
     };
     console.log('Project Data:', fullData);
     alert('Project onboarded successfully!');
-    // Reset form or navigate
   };
 
+  const selectedServicesCount = (formData.services || []).length;
+
+  // Custom Dropdown Component for Project Manager
+  const ManagerDropdown = () => (
+    <div className="relative">
+      <div 
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-h-[42px] flex items-center flex-wrap gap-1"
+        onClick={() => setShowManagerDropdown(!showManagerDropdown)}
+      >
+        {formData.projectManager.length > 0 ? (
+          formData.projectManager.map((name, index) => (
+            <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+              {name}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeManager(name);
+                }}
+                className="hover:text-blue-900"
+              >
+                ×
+              </button>
+            </span>
+          ))
+        ) : (
+          <span className="text-gray-400 text-sm">Select Project Manager</span>
+        )}
+        <span className="ml-auto text-gray-400">▼</span>
+      </div>
+      
+      {showManagerDropdown && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {teamMembers.map((member) => (
+            <label
+              key={member.id}
+              className={`flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer ${
+                formData.projectManager.includes(member.name) ? 'bg-blue-50' : ''
+              }`}
+              onClick={() => toggleManagerSelection(member.name)}
+            >
+              <input
+                type="checkbox"
+                checked={formData.projectManager.includes(member.name)}
+                onChange={() => {}}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <div>
+                <div className="text-sm font-medium text-gray-700">{member.name}</div>
+                <div className="text-xs text-gray-500">{member.role}</div>
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // Custom Dropdown Component for SPOC
+  const SpocDropdown = () => (
+    <div className="relative">
+      <div 
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-h-[42px] flex items-center flex-wrap gap-1"
+        onClick={() => setShowSpocDropdown(!showSpocDropdown)}
+      >
+        {formData.spoc.length > 0 ? (
+          formData.spoc.map((name, index) => (
+            <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+              {name}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeSpoc(name);
+                }}
+                className="hover:text-green-900"
+              >
+                ×
+              </button>
+            </span>
+          ))
+        ) : (
+          <span className="text-gray-400 text-sm">Select SPOC</span>
+        )}
+        <span className="ml-auto text-gray-400">▼</span>
+      </div>
+      
+      {showSpocDropdown && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {teamMembers.map((member) => (
+            <label
+              key={member.id}
+              className={`flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer ${
+                formData.spoc.includes(member.name) ? 'bg-green-50' : ''
+              }`}
+              onClick={() => toggleSpocSelection(member.name)}
+            >
+              <input
+                type="checkbox"
+                checked={formData.spoc.includes(member.name)}
+                onChange={() => {}}
+                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+              />
+              <div>
+                <div className="text-sm font-medium text-gray-700">{member.name}</div>
+                <div className="text-xs text-gray-500">{member.role}</div>
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-4 px-4 sm:px-6 lg:px-8">
       <div className="">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Project Onboarding</h1>
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-900">🚀 Project Onboarding</h1>
           <p className="text-sm text-gray-500">Onboard new projects with required services</p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="bg-white rounded-lg shadow-lg p-6 space-y-8">
-            {/* Project Details */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                📋 Project Details
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Project Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="projectName"
-                    value={formData.projectName}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter project name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Company Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="companyName"
-                    value={formData.companyName}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter company name"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Project Manager - Multi Select */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                👤 Project Manager <span className="text-red-500">*</span>
-              </label>
-              <select
-                multiple
-                value={formData.projectManager}
-                onChange={(e) => handleMultiSelect(e, 'projectManager')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
-              >
-                {teamMembers.map(member => (
-                  <option key={member.id} value={member.name}>
-                    {member.name} - {member.role}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-400 mt-1">💡 Hold Ctrl/Cmd to select multiple</p>
-              {formData.projectManager.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.projectManager.map(name => (
-                    <span key={name} className="px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded-full">
-                      {name}
-                    </span>
+        <div className="flex gap-4">
+          {/* Left Sidebar - Services */}
+          <div className="w-64 flex-shrink-0">
+            <div className="bg-white rounded-xl shadow-lg p-4 sticky top-4 max-h-[calc(80vh-100px)] overflow-y-auto">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">📋 Selected Services</h3>
+              {formData.services && formData.services.length > 0 ? (
+                <div className="space-y-1">
+                  {formData.services.map(service => (
+                    <div key={service} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <span className="text-sm text-gray-700">{service}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleServiceToggle(service)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        ×
+                      </button>
+                    </div>
                   ))}
                 </div>
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-4">No services selected</p>
               )}
-            </div>
-
-            {/* SPOC - Multi Select */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                📞 SPOC (Single Point of Contact) <span className="text-red-500">*</span>
-              </label>
-              <select
-                multiple
-                value={formData.spoc}
-                onChange={(e) => handleMultiSelect(e, 'spoc')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
-              >
-                {teamMembers.map(member => (
-                  <option key={member.id} value={member.name}>
-                    {member.name} - {member.role}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-400 mt-1">💡 Hold Ctrl/Cmd to select multiple</p>
-              {formData.spoc.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.spoc.map(name => (
-                    <span key={name} className="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Required Services */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                🛠️ Required Services
-              </h2>
               
-              {/* Digital Marketing */}
-              <div className="mb-6">
-                <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center gap-2">
-                  📊 Digital Marketing
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                  {['Website', 'SEO', 'SMM', 'Ads', 'Web App'].map(service => (
-                    <label key={service} className={`flex items-center gap-2 p-3 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-all ${
-                      (formData.services || []).includes(service)
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 bg-white'
-                    }`}>
-                      <input
-                        type="checkbox"
-                        checked={(formData.services || []).includes(service)}
-                        onChange={() => handleServiceToggle(service)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">{service}</span>
-                    </label>
-                  ))}
+              {/* Progress */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <span>Progress</span>
+                  <span>{selectedServicesCount}/15</span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-600 transition-all duration-500 rounded-full"
+                    style={{ width: `${Math.min((selectedServicesCount / 15) * 100, 100)}%` }}
+                  />
                 </div>
               </div>
-
-              {/* Media */}
-              <div className="mb-6">
-                <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center gap-2">
-                  🎬 Media
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {['Videography', 'Video Editing', 'Photography', 'Video Production'].map(service => (
-                    <label key={service} className={`flex items-center gap-2 p-3 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-all ${
-                      (formData.services || []).includes(service)
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 bg-white'
-                    }`}>
-                      <input
-                        type="checkbox"
-                        checked={(formData.services || []).includes(service)}
-                        onChange={() => handleServiceToggle(service)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">{service}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Design */}
-              <div>
-                <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center gap-2">
-                  🎨 Design
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                  {['Branding Logo', 'Brochure', 'Pamphlet', 'Social Media Designs', 'Marking collateral', 'UI/UX designer'].map(service => (
-                    <label key={service} className={`flex items-center gap-2 p-3 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-all ${
-                      (formData.services || []).includes(service)
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 bg-white'
-                    }`}>
-                      <input
-                        type="checkbox"
-                        checked={(formData.services || []).includes(service)}
-                        onChange={() => handleServiceToggle(service)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">{service}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Service Details - Dynamic Fields */}
-              {formData.services && formData.services.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-md font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    📝 Service Details
-                  </h3>
-                  <div className="space-y-4">
-                    {formData.services.map(service => (
-                      <div key={service} className="border-2 border-gray-200 rounded-lg overflow-hidden">
-                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                          <h4 className="text-sm font-semibold text-gray-800">{service}</h4>
-                        </div>
-                        <div className="p-4">
-                          {renderServiceFields(service)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end pt-4 border-t border-gray-200">
-              <button
-                type="submit"
-                className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors duration-200 flex items-center gap-2"
-              >
-                <span>🚀</span> Onboard Project
-              </button>
             </div>
           </div>
-        </form>
+
+          {/* Right Content */}
+          <div className="flex-1">
+            <form onSubmit={handleSubmit}>
+              <div className="bg-white rounded-xl shadow-lg p-6 space-y-5">
+                {/* Project Details */}
+                <div>
+                 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Project Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="projectName"
+                        value={formData.projectName}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter project name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Company Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="companyName"
+                        value={formData.companyName}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter company name"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className='grid grid-cols-2 md:grid-cols-2 gap-4'>
+                    {/* Project Manager */}
+                    <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        👤 Project Manager <span className="text-red-500">*</span>
+                    </label>
+                    <ManagerDropdown />
+                    </div>
+
+                    {/* SPOC */}
+                    <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        📞 SPOC <span className="text-red-500">*</span>
+                    </label>
+                    <SpocDropdown />
+                    </div>
+                </div>
+
+                {/* Required Services */}
+                <div>
+                  <h2 className="text-md font-semibold text-gray-800 mb-3">🛠️ Required Services</h2>
+                  
+                  {/* Digital Marketing */}
+                  <div className="mb-3">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">📊 Digital Marketing</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {['Website', 'SEO', 'SMM', 'Ads', 'Web App'].map(service => (
+                        <label key={service} className={`flex items-center gap-2 px-3 py-2 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-all text-sm ${
+                          (formData.services || []).includes(service)
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 bg-white'
+                        }`}>
+                          <input
+                            type="checkbox"
+                            checked={(formData.services || []).includes(service)}
+                            onChange={() => handleServiceToggle(service)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="font-medium text-gray-700">{service}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Media */}
+                  <div className="mb-3">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">🎬 Media</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {['Videography', 'Video Editing', 'Photography', 'Video Production'].map(service => (
+                        <label key={service} className={`flex items-center gap-2 px-3 py-2 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-all text-sm ${
+                          (formData.services || []).includes(service)
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 bg-white'
+                        }`}>
+                          <input
+                            type="checkbox"
+                            checked={(formData.services || []).includes(service)}
+                            onChange={() => handleServiceToggle(service)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="font-medium text-gray-700">{service}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Design */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">🎨 Design</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                      {['Branding Logo', 'Brochure', 'Pamphlet', 'Social Media Designs', 'Marking collateral', 'UI/UX designer'].map(service => (
+                        <label key={service} className={`flex items-center gap-2 px-3 py-2 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-all text-sm ${
+                          (formData.services || []).includes(service)
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 bg-white'
+                        }`}>
+                          <input
+                            type="checkbox"
+                            checked={(formData.services || []).includes(service)}
+                            onChange={() => handleServiceToggle(service)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="font-medium text-gray-700">{service}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Service Details */}
+                {formData.services && formData.services.length > 0 && (
+                  <div>
+                    <h2 className="text-md font-semibold text-gray-800 mb-3">📝 Service Details</h2>
+                    <div className="space-y-3 max-h-40 overflow-y-auto pr-1">
+                      {formData.services
+                        .filter(service => ['Website', 'SEO', 'SMM', 'Ads', 'Web App'].includes(service))
+                        .map(service => (
+                          <div key={service} className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                            <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex justify-between items-center">
+                              <h4 className="text-sm font-semibold text-gray-800">{service}</h4>
+                              <span className="text-xs text-gray-400">Required</span>
+                            </div>
+                            <div className="p-3">
+                              {renderServiceFields(service)}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Submit Button */}
+                <div className="flex justify-end pt-4 border-t border-gray-200">
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors duration-200 flex items-center gap-2 text-sm font-medium"
+                  >
+                    <span>🚀</span> Onboard Project
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );

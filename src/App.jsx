@@ -18,7 +18,7 @@ import Employee from './components/Career/employee';
 import Salary from './components/SalaryPay/Salary';
 import Leave from './components/SalaryPay/leave';
 import ProjectOnboarding from './components/project/onboardingPrjt';
-
+import Project from './components/project/projectDetail';
 function App() {
   return (
     <Router>
@@ -33,7 +33,7 @@ function App() {
             <Route path="/report" element={<Report />} />
 
             <Route path="/onboard-prjt" element={<ProjectOnboarding />} />
-
+            <Route path="/project-overview" element={<Project />} />
             <Route path="/user-management" element={<UserManagement />} />
             <Route path="/cif-form" element={<Cif />} />
 

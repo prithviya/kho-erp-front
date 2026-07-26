@@ -8,7 +8,7 @@ import {
   UserPlus,
   BadgeCheck,
   FileUser,
-  HandCoins
+  HandCoins,Logs
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/kho.webp";
@@ -47,6 +47,11 @@ const menu = [
         name: "Project on Board",
         icon: KanbanSquare,
         path: '/onboard-prjt',
+      },
+      {
+        name: "Project Details",
+        icon: Logs,
+        path: '/project-overview'
       },
       {
         name: "Assign Task",
