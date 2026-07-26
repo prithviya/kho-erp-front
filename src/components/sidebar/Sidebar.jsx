@@ -1,166 +1,132 @@
-import {
-  LayoutDashboard,
-  Users, Puzzle,
-  ChartNoAxesCombined,
-  KanbanSquare,
-  ClipboardCheck,
-  Briefcase,
-  UserPlus,
-  BadgeCheck,
-  FileUser,
-  HandCoins
-} from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
-import logo from "../../assets/kho.webp";
-
-const menu = [
-  {
-    title: "MAIN",
-    items: [
-      {
-        name: "Dashboard",
-        icon: LayoutDashboard,
-        path: "/dashboard",
-      },
-    ],
-  },
-  {
-    title: "CRM",
-    items: [
-      {
-        name: "Lead Management",
-        icon: Users,
-        path: "/lead-overview",
-      },
-
-      {
-        name: "Report",
-        icon: ChartNoAxesCombined,
-        path: "/report",
-      },
-    ],
-  },
-  {
-    title: "PROJECT",
-    items: [
-      {
-        name: "Project on Board",
-        icon: KanbanSquare,
-        path: '/onboard-prjt',
-      },
-      {
-        name: "Assign Task",
-        icon: ClipboardCheck,
-      },
-    ],
-  },
-  {
-    title: "SYSTEM ADMIN",
-    items: [
-      {
-        name: "User Management",
-        icon: Users,
-        path: "/user-management",
-      },
-      {
-        name: "CIF Form",
-        icon: Users,
-        path: "/cif-form",
-      }
-    ],
-  },
-  {
-    title: "CAREER",
-    items: [
-      {
-        name: "Opening",
-        icon: Briefcase,
-        path: '/job',
-      },
-      // {
-      //   name: "Job Applications",
-      //   icon: FileUser,
-      //   path: '/job-applications',
-      // },
-      {
-        name: "Recruitment",
-        icon: UserPlus,
-        path: '/recruitment-process',
-      },
-      {
-        name: "Onboarding",
-        icon: BadgeCheck,
-        path: '/onboarding',
-      },
-      {
-        name: "Workforce",
-        icon: Puzzle,
-        path: '/employee',
-      },
-    ],
-  },
-  {
-    title: "Payroll",
-    items: [
-      {
-        name: "Payroll",
-        icon: HandCoins,
-        path: "/payroll",
-      },
-      {
-        name: "leave",
-        icon: Users,
-        path: "/leave",
-      }
-    ],
-  }
-];
-
+import { useEffect, useState } from "react";
+import { Menu } from "lucide-react";
+import SidebarHeader from "./SidebarHeader";
+import SidebarFooter from "./SidebarFooter";
+import SidebarItem from "./SidebarItem";
+import menu from "./menu";
 export default function Sidebar() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  return (
-    <aside className="w-72 h-screen bg-white border-r-1 border-r-gray-400 flex flex-col justify-between">
-      <div className="border-b border-gray-400 py-4 font-semibold text-center text-black-600 text-2xl">
-        <img src={logo} alt="Company Logo" className="mx-auto" style={{width: '100px', height: '50px' }}/>
-      </div>
-      <div className="p-5 overflow-y-auto">
-        {menu.map((section) => (
-          <div key={section.title} className="mb-8">
-            <h3 className="text-xs font-bold tracking-[2px] text-gray-400 mb-4">
-              {section.title}
-            </h3>
-
-            <div className="space-y-2">
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.path && location.pathname === item.path;
-
-                return (
-                  <button
-                    key={item.name}
-                    type="button"
-                    onClick={() => item.path && navigate(item.path)}
-                    disabled={!item.path}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                      isActive
-                        ? "bg-orange-50 text-orange-500"
-                        : "text-gray-800 hover:bg-gray-100"
-                    } ${!item.path ? "cursor-not-allowed opacity-50" : ""}`}>
-                    <Icon size={20} />
-                    <span className="font-medium">{item.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="border-t py-4 text-center text-gray-400 text-sm">
-        ERP v1.0
-      </div>
-    </aside>
-  );
+    const [collapsed, setCollapsed] = useState(false);
+    const [mobileOpen, setMobileOpen] = useState(false);
+    // Responsive
+    useEffect(() => {
+        const resize = () => {
+            if (window.innerWidth < 768) {
+                setCollapsed(false);
+            }
+            else if (window.innerWidth < 1024) {
+                setCollapsed(true);
+            }
+            else {
+                setCollapsed(false);
+            }
+        };
+        resize();
+        window.addEventListener("resize", resize);
+        return () => window.removeEventListener("resize", resize);
+    }, []);
+    const toggleSidebar = () => {
+        setCollapsed(!collapsed);
+    };
+    return (
+        <>
+            {/* Mobile Hamburger */}
+            <button
+                onClick={() => setMobileOpen(true)}
+                className="fixed top-4 left-4 z-50 lg:hidden bg-white rounded-lg shadow-md p-2"
+            >
+                <Menu size={22} />
+            </button>
+            {/* Overlay */}
+            {
+                mobileOpen && (
+                    <div
+                        onClick={() => setMobileOpen(false)}
+                        className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+                    />
+                )
+            }
+            <aside
+                className={`
+                fixed
+                lg:relative
+                z-50
+                top-0
+                left-0
+                h-screen
+                bg-white
+                border-r
+                border-slate-200
+                flex
+                flex-col
+                transition-all
+                duration-300
+                ${
+                    mobileOpen
+                        ?
+                        "translate-x-0"
+                        :
+                        "-translate-x-full lg:translate-x-0"
+                }
+                ${
+                    collapsed
+                        ?
+                        "lg:w-20"
+                        :
+                        "w-64"
+                }
+                `}
+            >
+                <SidebarHeader
+                    collapsed={collapsed}
+                    toggleSidebar={toggleSidebar}
+                    mobileOpen={mobileOpen}
+                    setMobileOpen={setMobileOpen}
+                />
+                {/* Menu */}
+                <div className="flex-1 px-3 py-2">
+                    {
+                        menu.map(section => (
+                            <div
+                                key={section.title}
+                                className="mb-5"
+                            >
+                                {
+                                    !collapsed && (
+                                        <h4
+                                            className="
+                                            text-[11px]
+                                            uppercase
+                                            tracking-[0.18em]
+                                            text-slate-400
+                                            font-semibold
+                                            px-3
+                                            mb-2
+                                            "
+                                        >
+                                            {section.title}
+                                        </h4>
+                                    )
+                                }
+                                <div className="space-y-1">
+                                    {
+                                        section.items.map(item => (
+                                            <SidebarItem
+                                                key={item.name}
+                                                item={item}
+                                                collapsed={collapsed}
+                                                mobileClose={setMobileOpen}
+                                            />
+                                        ))
+                                    }
+                                </div>
+                            </div>
+                        ))
+                    }
+                </div>
+                <SidebarFooter
+                    collapsed={collapsed}
+                />
+            </aside>
+        </>
+    );
 }

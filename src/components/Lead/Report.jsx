@@ -2,14 +2,11 @@ import React from 'react';
 import {
   Eye, 
   Pencil } from "lucide-react";
-
-
 function Report() {
   return (
     <div className="p-4">
        <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-5">
             <div className="mb-1 flex items-end gap-4">
-
                 {/* Company Name */}
                 <div className="flex-1">
                     <label className="mb-2 block text-xs font-semibold uppercase text-gray-900">
@@ -26,7 +23,6 @@ function Report() {
                         />
                     </div>
                 </div>
-
                 {/* Contact Person */}
                 <div className="flex-1">
                     <label className="mb-2 block text-xs font-semibold uppercase text-gray-900">
@@ -43,13 +39,11 @@ function Report() {
                         />
                     </div>
                 </div>
-
                 {/* Lead Status */}
                 <div className="flex-1">
                     <label className="mb-2 block text-xs font-semibold uppercase text-gray-900">
                         Lead Status
                     </label>
-
                     <select className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500">
                         <option>All Statuses</option>
                         <option>New Lead</option>
@@ -61,13 +55,11 @@ function Report() {
                         <option>On Hold</option>
                     </select>
                 </div>
-
                 {/* Lead Source */}
                 <div className="flex-1">
                     <label className="mb-2 block text-xs font-semibold uppercase text-gray-600">
                         Lead Source
                     </label>
-
                     <select className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500">
                         <option>All Sources</option>
                         <option>Website</option>
@@ -77,7 +69,6 @@ function Report() {
                         <option>Google</option>
                     </select>
                 </div>
-
                 {/* Search Button */}
                 <div>
                     <button
@@ -86,9 +77,7 @@ function Report() {
                         🔍 Search
                     </button>
                 </div>
-
             </div>
-       
             <div className="rounded-lg border border-gray-200 bg-white overflow-hidden mt-3">
                 <div className="overflow-x-auto">
                     {/* Display the filtered leads in a table */}
@@ -105,9 +94,7 @@ function Report() {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                         </thead>
-
                         <tbody className="bg-white divide-y divide-gray-200">
-                
                             <tr className="hover:bg-gray-100 transition-colors">
                                 <td className="px-4 py-3 text-sm text-gray-700">1</td>
                                 <td className="px-4 py-3 text-sm text-gray-700">John Doe</td>
@@ -126,8 +113,6 @@ function Report() {
                                     >
                                         <Pencil size={18} />
                                     </button>
-
-
                                     {/* View Button */}
                                     <button
                                         className="rounded-md bg-green-100 p-2 text-green-600 hover:bg-green-200"
@@ -148,5 +133,4 @@ function Report() {
     </div>
   )
 }
-
 export default Report

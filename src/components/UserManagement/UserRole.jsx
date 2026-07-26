@@ -1,10 +1,8 @@
 import React, { useState } from "react";
 import AddRole from "./AddRole";
 import { Eye, Pencil } from "lucide-react";
-
 function UserRole() {
     const [openModal, setOpenModal] = useState(false);
-
     return (
         <div className="p-6">
             <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-5">
@@ -12,7 +10,6 @@ function UserRole() {
                 <h1 className="text-2xl font-bold">
                     User Role Management
                 </h1>
-
                 <button
                     onClick={() => setOpenModal(true)}
                     className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
@@ -34,7 +31,6 @@ function UserRole() {
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-
                         <tbody className="bg-white divide-y divide-gray-200">
                             <tr className="hover:bg-gray-100 transition-colors"> 
                                 <td className="px-4 py-3 text-sm text-gray-700">1</td>
@@ -47,10 +43,8 @@ function UserRole() {
                                         Active
                                     </span>
                                 </td>
-
                                 <td className="px-4 py-3 text-sm text-gray-700">
                                     <div className="flex justify-left gap-2">
-
                                         {/* Edit Button */}
                                         <button
                                             className="rounded-md bg-blue-100 p-2 text-blue-600 hover:bg-blue-200"
@@ -61,8 +55,6 @@ function UserRole() {
                                         >
                                             <Pencil size={18} />
                                         </button>
-
-
                                         {/* View Button */}
                                         <button
                                             className="rounded-md bg-green-100 p-2 text-green-600 hover:bg-green-200"
@@ -73,7 +65,6 @@ function UserRole() {
                                         >
                                             <Eye size={18} />
                                         </button>
-
                                     </div>
                                 </td>
                             </tr>
@@ -81,7 +72,6 @@ function UserRole() {
                     </table>
                 </div>
             </div>
-
             <AddRole
                 openModal={openModal}
                 setOpenModal={setOpenModal}
@@ -90,5 +80,4 @@ function UserRole() {
         </div>
     );
 }
-
 export default UserRole;

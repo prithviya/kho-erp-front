@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-
 const LeaveManagement = () => {
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -7,7 +6,6 @@ const LeaveManagement = () => {
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [editIndex, setEditIndex] = useState(null);
   const [activeTab, setActiveTab] = useState('summary');
-
   const [leaveSummary] = useState({
     casualLeave: { available: 5, booked: 5 },
     leaveWithoutPay: { available: 12, booked: 0 },
@@ -17,7 +15,6 @@ const LeaveManagement = () => {
     totalHours: 7.75,
     absent: 0,
   });
-
   const [leaveRequests, setLeaveRequests] = useState([
     {
       id: 1,
@@ -173,7 +170,6 @@ const LeaveManagement = () => {
       endTime: null,
     },
   ]);
-
   const [formData, setFormData] = useState({
     leaveType: '',
     date: '',
@@ -185,7 +181,6 @@ const LeaveManagement = () => {
     startTime: '',
     endTime: '',
   });
-
   const [editFormData, setEditFormData] = useState({
     leaveType: '',
     date: '',
@@ -198,7 +193,6 @@ const LeaveManagement = () => {
     startTime: '',
     endTime: '',
   });
-
   const getStatusBadge = (status) => {
     const colors = {
       'Approved': 'bg-green-100 text-green-800',
@@ -207,17 +201,14 @@ const LeaveManagement = () => {
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-
   const handleEditInputChange = (e) => {
     const { name, value } = e.target;
     setEditFormData(prev => ({ ...prev, [name]: value }));
   };
-
   const getDurationLabel = (duration) => {
     const labels = {
       'Full Day': 'Full Day',
@@ -226,36 +217,29 @@ const LeaveManagement = () => {
     };
     return labels[duration] || duration;
   };
-
   const getDaysTaken = (leaveType, duration, session, quarter) => {
     if (leaveType === 'Permission') return null;
-    
     if (leaveType === 'On The Duty') {
       if (duration === 'Full Day') return '1 Day(s)';
       if (duration === 'Half Day') return '0.5 Day(s)';
       if (duration === 'Quarter Day') return '0.25 Day(s)';
     }
-    
     if (leaveType === 'Casual Leave' || leaveType === 'Leave Without Pay') {
       if (duration === 'Full Day') return '1 Day(s)';
       if (duration === 'Half Day') return '0.5 Day(s)';
     }
-    
     return '1 Day(s)';
   };
-
   const getLeavePeriod = (date, leaveType, duration, session, quarter, startTime, endTime) => {
     if (leaveType === 'Permission') {
       return `${date} (${startTime} - ${endTime})`;
     }
-    
     if (leaveType === 'Casual Leave' || leaveType === 'Leave Without Pay') {
       if (duration === 'Half Day') {
         return `${date} (${session})`;
       }
       return date;
     }
-    
     if (leaveType === 'On The Duty') {
       if (duration === 'Half Day') {
         return `${date} (${session})`;
@@ -265,13 +249,10 @@ const LeaveManagement = () => {
       }
       return date;
     }
-    
     return date;
   };
-
   const handleApplyLeave = (e) => {
     e.preventDefault();
-    
     const daysTaken = getDaysTaken(formData.leaveType, formData.leaveDuration, formData.session, formData.quarter);
     const leavePeriod = getLeavePeriod(
       formData.date, 
@@ -282,7 +263,6 @@ const LeaveManagement = () => {
       formData.startTime,
       formData.endTime
     );
-
     const newLeave = {
       id: leaveRequests.length + 1,
       employeeId: 'KHO026',
@@ -314,7 +294,6 @@ const LeaveManagement = () => {
       endTime: '',
     });
   };
-
   const calculateHours = (start, end) => {
     if (!start || !end) return 0;
     const startTime = new Date(`2000-01-01 ${start}`);
@@ -322,12 +301,10 @@ const LeaveManagement = () => {
     const diff = (endTime - startTime) / (1000 * 60 * 60);
     return Math.round(diff * 100) / 100;
   };
-
   const handleView = (leave) => {
     setSelectedLeave(leave);
     setShowViewModal(true);
   };
-
   const handleEdit = (leave, index) => {
     setSelectedLeave(leave);
     setEditIndex(index);
@@ -345,11 +322,9 @@ const LeaveManagement = () => {
     });
     setShowEditModal(true);
   };
-
   const handleUpdate = (e) => {
     e.preventDefault();
     const updatedLeaves = [...leaveRequests];
-    
     const daysTaken = getDaysTaken(editFormData.leaveType, editFormData.leaveDuration, editFormData.session, editFormData.quarter);
     const leavePeriod = getLeavePeriod(
       editFormData.date, 
@@ -360,7 +335,6 @@ const LeaveManagement = () => {
       editFormData.startTime,
       editFormData.endTime
     );
-
     updatedLeaves[editIndex] = {
       ...updatedLeaves[editIndex],
       leaveType: editFormData.leaveType,
@@ -380,13 +354,11 @@ const LeaveManagement = () => {
     setSelectedLeave(null);
     setEditIndex(null);
   };
-
   const handleDelete = (index) => {
     if (window.confirm('Are you sure you want to delete this leave request?')) {
       setLeaveRequests(leaveRequests.filter((_, i) => i !== index));
     }
   };
-
   const renderDurationFields = (leaveType) => {
     if (leaveType === 'On The Duty') {
       return (
@@ -408,7 +380,6 @@ const LeaveManagement = () => {
               <option value="Quarter Day">Quarter Day</option>
             </select>
           </div>
-          
           {formData.leaveDuration === 'Half Day' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -427,7 +398,6 @@ const LeaveManagement = () => {
               </select>
             </div>
           )}
-          
           {formData.leaveDuration === 'Quarter Day' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -451,7 +421,6 @@ const LeaveManagement = () => {
         </div>
       );
     }
-
     if (leaveType === 'Casual Leave' || leaveType === 'Leave Without Pay') {
       return (
         <div className="space-y-3">
@@ -471,7 +440,6 @@ const LeaveManagement = () => {
               <option value="Half Day">Half Day</option>
             </select>
           </div>
-          
           {formData.leaveDuration === 'Half Day' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -493,7 +461,6 @@ const LeaveManagement = () => {
         </div>
       );
     }
-
     if (leaveType === 'Permission') {
       return (
         <div className="grid grid-cols-2 gap-4">
@@ -526,10 +493,8 @@ const LeaveManagement = () => {
         </div>
       );
     }
-
     return null;
   };
-
   const renderEditDurationFields = (leaveType) => {
     if (leaveType === 'On The Duty') {
       return (
@@ -551,7 +516,6 @@ const LeaveManagement = () => {
               <option value="Quarter Day">Quarter Day</option>
             </select>
           </div>
-          
           {editFormData.leaveDuration === 'Half Day' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -570,7 +534,6 @@ const LeaveManagement = () => {
               </select>
             </div>
           )}
-          
           {editFormData.leaveDuration === 'Quarter Day' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -594,7 +557,6 @@ const LeaveManagement = () => {
         </div>
       );
     }
-
     if (leaveType === 'Casual Leave' || leaveType === 'Leave Without Pay') {
       return (
         <div className="space-y-3">
@@ -614,7 +576,6 @@ const LeaveManagement = () => {
               <option value="Half Day">Half Day</option>
             </select>
           </div>
-          
           {editFormData.leaveDuration === 'Half Day' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -636,7 +597,6 @@ const LeaveManagement = () => {
         </div>
       );
     }
-
     if (leaveType === 'Permission') {
       return (
         <div className="grid grid-cols-2 gap-4">
@@ -669,10 +629,8 @@ const LeaveManagement = () => {
         </div>
       );
     }
-
     return null;
   };
-
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="">
@@ -681,7 +639,6 @@ const LeaveManagement = () => {
           <h1 className="text-2xl font-bold text-gray-900">Leave Management</h1>
           <p className="text-sm text-gray-500">Manage leave requests and summary</p>
         </div>
-
         {/* Tabs */}
         <div className="flex gap-4 mb-6 border-b border-gray-200">
           <button
@@ -705,7 +662,6 @@ const LeaveManagement = () => {
             Leave Requests
           </button>
         </div>
-
         {/* Leave Summary Tab */}
         {activeTab === 'summary' && (
           <>
@@ -731,7 +687,6 @@ const LeaveManagement = () => {
                 </button>
               </div>
             </div>
-
             {/* Leave Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white rounded-lg shadow-md p-6">
@@ -747,7 +702,6 @@ const LeaveManagement = () => {
                   </div>
                 </div>
               </div>
-
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-sm font-medium text-gray-500">Leave Without Pay</h3>
                 <div className="mt-2 flex justify-between items-end">
@@ -761,7 +715,6 @@ const LeaveManagement = () => {
                   </div>
                 </div>
               </div>
-
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-sm font-medium text-gray-500">Permission</h3>
                 <div className="mt-2 flex justify-between items-end">
@@ -775,7 +728,6 @@ const LeaveManagement = () => {
                   </div>
                 </div>
               </div>
-
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-sm font-medium text-gray-500">On The Duty</h3>
                 <div className="mt-2 flex justify-between items-end">
@@ -792,7 +744,6 @@ const LeaveManagement = () => {
             </div>
           </>
         )}
-
         {/* Leave Requests Tab */}
         {activeTab === 'requests' && (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -870,7 +821,6 @@ const LeaveManagement = () => {
           </div>
         )}
       </div>
-
       {/* Apply Leave Modal */}
       {showApplyModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -928,10 +878,8 @@ const LeaveManagement = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                       />
                     </div>
-                    
                     {/* Dynamic Fields based on leave type */}
                     {renderDurationFields(formData.leaveType)}
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Team Email ID
@@ -980,7 +928,6 @@ const LeaveManagement = () => {
           </div>
         </div>
       )}
-
       {/* View Modal */}
       {showViewModal && selectedLeave && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -1041,28 +988,24 @@ const LeaveManagement = () => {
                     <label className="text-sm font-medium text-gray-500">Date of Request</label>
                     <p className="text-gray-900">{selectedLeave.dateOfRequest}</p>
                   </div>
-                  
                   {selectedLeave.leaveDuration && (
                     <div>
                       <label className="text-sm font-medium text-gray-500">Duration</label>
                       <p className="text-gray-900">{selectedLeave.leaveDuration}</p>
                     </div>
                   )}
-                  
                   {selectedLeave.session && (
                     <div>
                       <label className="text-sm font-medium text-gray-500">Session</label>
                       <p className="text-gray-900">{selectedLeave.session}</p>
                     </div>
                   )}
-                  
                   {selectedLeave.quarter && (
                     <div>
                       <label className="text-sm font-medium text-gray-500">Quarter</label>
                       <p className="text-gray-900">{selectedLeave.quarter}</p>
                     </div>
                   )}
-                  
                   {selectedLeave.startTime && (
                     <>
                       <div>
@@ -1075,7 +1018,6 @@ const LeaveManagement = () => {
                       </div>
                     </>
                   )}
-                  
                   <div className="col-span-2">
                     <label className="text-sm font-medium text-gray-500">Reason</label>
                     <p className="text-gray-900">{selectedLeave.reason || 'N/A'}</p>
@@ -1094,7 +1036,6 @@ const LeaveManagement = () => {
           </div>
         </div>
       )}
-
       {/* Edit Modal */}
       {showEditModal && selectedLeave && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -1159,10 +1100,8 @@ const LeaveManagement = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                       />
                     </div>
-                    
                     {/* Dynamic Edit Fields based on leave type */}
                     {renderEditDurationFields(editFormData.leaveType)}
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Status
@@ -1220,5 +1159,4 @@ const LeaveManagement = () => {
     </div>
   );
 };
-
 export default LeaveManagement;

@@ -1,12 +1,9 @@
 import { X } from "lucide-react";
 import { useState } from "react";
-
 export default function EditLead({ open, onClose, lead }) {
-
   const [status, setStatus] = useState(
     lead?.status || "New Lead"
   );
-
   const progress = {
     "New Lead": 10,
     "Contacted": 30,
@@ -16,11 +13,7 @@ export default function EditLead({ open, onClose, lead }) {
     "Converted": 100,
     "On Hold": 20,
   };
-
-
   if (!open) return null;
-
-
   return (
     <>
       {/* Overlay */}
@@ -32,8 +25,6 @@ export default function EditLead({ open, onClose, lead }) {
           transition-opacity
         "
       />
-
-
       {/* Offcanvas */}
       <div
         className="
@@ -43,44 +34,29 @@ export default function EditLead({ open, onClose, lead }) {
           flex flex-col
         "
       >
-
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
-
           <h2 className="text-xl font-semibold">
             Edit Lead
           </h2>
-
-
           <button
             onClick={onClose}
             className="rounded-lg p-2 hover:bg-gray-100"
           >
             <X size={20}/>
           </button>
-
         </div>
-
-
-
         {/* Status Progress */}
         <div className="border-b px-6 py-4">
-
           <div className="mb-2 flex justify-between text-sm">
-
             <span className="font-medium">
               Lead Status
             </span>
-
             <span className="text-gray-500">
               {status}
             </span>
-
           </div>
-
-
           <div className="h-2 rounded-full bg-gray-200">
-
             <div
               className="
                 h-2 rounded-full 
@@ -91,25 +67,16 @@ export default function EditLead({ open, onClose, lead }) {
                 width:`${progress[status]}%`
               }}
             />
-
           </div>
-
         </div>
-
-
-
         {/* Form */}
         <div className="flex-1 overflow-y-auto">
-
           <form className="space-y-5 p-6">
-
-
             {/* Company */}
             <div>
               <label className="mb-2 block text-sm font-medium">
                 Company Name
               </label>
-
               <input
                 type="text"
                 defaultValue={lead?.company || ""}
@@ -119,73 +86,49 @@ export default function EditLead({ open, onClose, lead }) {
                 "
               />
             </div>
-
-
-
             {/* Contact */}
             <div>
               <label className="mb-2 block text-sm font-medium">
                 Contact Person
               </label>
-
               <input
                 type="text"
                 defaultValue={lead?.name || ""}
                 className="w-full rounded-lg border px-4 py-2"
               />
-
             </div>
-
-
-
             {/* Phone */}
             <div>
-
               <label className="mb-2 block text-sm font-medium">
                 Phone Number
               </label>
-
               <input
                 type="text"
                 defaultValue={lead?.phone || ""}
                 className="w-full rounded-lg border px-4 py-2"
               />
-
             </div>
-
-
-
             {/* Email */}
             <div>
-
               <label className="mb-2 block text-sm font-medium">
                 Email
               </label>
-
               <input
                 type="email"
                 defaultValue={lead?.email || ""}
                 className="w-full rounded-lg border px-4 py-2"
               />
-
             </div>
-
-
-
             {/* Status */}
             <div>
-
               <label className="mb-2 block text-sm font-medium">
                 Status
               </label>
-
-
               <select
                 value={status}
                 onChange={(e)=>setStatus(e.target.value)}
                 className="w-full rounded-lg border px-4 py-2"
               >
-
                 <option>New Lead</option>
                 <option>Contacted</option>
                 <option>Discussion</option>
@@ -193,72 +136,43 @@ export default function EditLead({ open, onClose, lead }) {
                 <option>Negotiation</option>
                 <option>Converted</option>
                 <option>On Hold</option>
-
               </select>
-
             </div>
-
-
-
-
             {/* Budget */}
             <div>
-
               <label className="mb-2 block text-sm font-medium">
                 Estimated Budget
               </label>
-
-
               <input
                 type="number"
                 defaultValue={lead?.budget || ""}
                 className="w-full rounded-lg border px-4 py-2"
               />
-
             </div>
-
-
-
-
             {/* Followup */}
             <div>
-
               <label className="mb-2 block text-sm font-medium">
                 Next Follow-up Date
               </label>
-
-
               <input
                 type="date"
                 defaultValue={lead?.followup || ""}
                 className="w-full rounded-lg border px-4 py-2"
               />
-
             </div>
-
-
-
             {/* Notes */}
             <div>
-
               <label className="mb-2 block text-sm font-medium">
                 Notes
               </label>
-
-
               <textarea
                 rows="3"
                 defaultValue={lead?.notes || ""}
                 className="w-full rounded-lg border px-4 py-2"
               />
-
             </div>
-
-
-
             {/* Buttons */}
             <div className="flex justify-end gap-3 border-t pt-4">
-
               <button
                 type="button"
                 onClick={onClose}
@@ -266,8 +180,6 @@ export default function EditLead({ open, onClose, lead }) {
               >
                 Cancel
               </button>
-
-
               <button
                 className="
                 rounded-lg bg-blue-600 
@@ -277,18 +189,10 @@ export default function EditLead({ open, onClose, lead }) {
               >
                 Update Lead
               </button>
-
-
             </div>
-
-
           </form>
-
         </div>
-
-
       </div>
-
     </>
   );
 }

@@ -1,8 +1,6 @@
 import { X } from "lucide-react";
-
 export default function LeadOffcanvas({ open, onClose }) {
   if (!open) return null;
-
   return (
     <>
       <div
@@ -18,7 +16,6 @@ export default function LeadOffcanvas({ open, onClose }) {
             {/* Header */}
             <div className="flex items-center justify-between border-b px-6 py-4 bg-orange-50 text-orange-400">
                 <h2 className="text-xl font-semibold">Add New Lead</h2>
-
                 <button
                 onClick={onClose}
                 className="rounded-lg p-2 hover:bg-gray-100"
@@ -26,7 +23,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                 <X size={20} />
                 </button>
             </div>
-
             {/* Scrollable Form */}
             <div className="flex-1 overflow-y-auto">
                 <form className="space-y-5 p-6">
@@ -41,7 +37,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
                         />
                     </div>
-
                     {/* Contact */}
                     <div>
                         <label className="mb-2 block text-sm font-medium">
@@ -53,7 +48,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         className="w-full rounded-lg border border-gray-300 px-4 py-2"
                         />
                     </div>
-
                     {/* Phone */}
                     <div>
                         <label className="mb-2 block text-sm font-medium">
@@ -65,7 +59,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         className="w-full rounded-lg border border-gray-300 px-4 py-2"
                         />
                     </div>
-
                     {/* Email */}
                     <div>
                         <label className="mb-2 block text-sm font-medium">
@@ -77,7 +70,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         className="w-full rounded-lg border border-gray-300 px-4 py-2"
                         />
                     </div>
-
                     {/* Lead Source */}
                     <div>
                         <label className="mb-2 block text-sm font-medium">
@@ -91,13 +83,11 @@ export default function LeadOffcanvas({ open, onClose }) {
                         <option>Google</option>
                         </select>
                     </div>
-
                     {/* Services */}
                     <div>
                         <label className="mb-3 block text-sm font-medium">
                         Required Services
                         </label>
-
                         <div className="grid grid-cols-2 gap-2">
                         {[
                             "Website",
@@ -123,7 +113,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         ))}
                         </div>
                     </div>
-
                     {/* Budget */}
                     <div>
                         <label className="mb-2 block text-sm font-medium">
@@ -135,7 +124,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         className="w-full rounded-lg border border-gray-300 px-4 py-2"
                         />
                     </div>
-
                     {/* Follow Up */}
                     <div>
                         <label className="mb-2 block text-sm font-medium">
@@ -146,7 +134,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         className="w-full rounded-lg border border-gray-300 px-4 py-2"
                         />
                     </div>
-
                     {/* Project */}
                     <div>
                         <label className="mb-2 block text-sm font-medium">
@@ -158,7 +145,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         className="w-full rounded-lg border border-gray-300 px-4 py-2"
                         />
                     </div>
-
                     {/* CRM Executive */}
                     <div>
                         <label className="mb-2 block text-sm font-medium">
@@ -170,7 +156,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         <option>Sarah</option>
                         </select>
                     </div>
-
                     {/* Notes */}
                     <div>
                         <label className="mb-2 block text-sm font-medium">
@@ -182,7 +167,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         className="w-full rounded-lg border border-gray-300 px-4 py-2"
                         />
                     </div>
-
                     {/* Buttons */}
                     <div className="flex justify-end gap-3 border-t pt-4">
                         <button
@@ -192,7 +176,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                         >
                         Cancel
                         </button>
-
                         <button
                         type="submit"
                         className="rounded-lg bg-blue-600 px-5 py-2 text-white hover:bg-blue-700"
@@ -203,7 +186,6 @@ export default function LeadOffcanvas({ open, onClose }) {
                 </form>
             </div>
         </div>
-
     </>
   );
 }

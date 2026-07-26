@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-
 const ProjectOnboarding = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [showProjectForm, setShowProjectForm] = useState(false);
-  
   const [teamMembers] = useState([
     { id: 1, name: 'John Doe', email: 'john@company.com', role: 'Project Manager' },
     { id: 2, name: 'Jane Smith', email: 'jane@company.com', role: 'Senior Developer' },
@@ -14,7 +12,6 @@ const ProjectOnboarding = () => {
     { id: 7, name: 'Robert Wilson', email: 'robert@company.com', role: 'Video Editor' },
     { id: 8, name: 'Lisa Anderson', email: 'lisa@company.com', role: 'UI/UX Designer' },
   ]);
-
   const [formData, setFormData] = useState({
     projectName: '',
     companyName: '',
@@ -22,14 +19,11 @@ const ProjectOnboarding = () => {
     spoc: [],
     services: [],
   });
-
   const [serviceDetails, setServiceDetails] = useState({});
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-
   const handleMultiSelect = (e, field) => {
     const options = e.target.options;
     const selected = [];
@@ -40,7 +34,6 @@ const ProjectOnboarding = () => {
     }
     setFormData(prev => ({ ...prev, [field]: selected }));
   };
-
   const handleServiceToggle = (service) => {
     setFormData(prev => {
       const currentServices = prev.services || [];
@@ -51,7 +44,6 @@ const ProjectOnboarding = () => {
       }
     });
   };
-
   const handleServiceDetailChange = (service, field, value) => {
     setServiceDetails(prev => ({
       ...prev,
@@ -61,7 +53,6 @@ const ProjectOnboarding = () => {
       }
     }));
   };
-
   const handleSubServiceToggle = (service, subService) => {
     setServiceDetails(prev => {
       const current = prev[service] || {};
@@ -81,10 +72,8 @@ const ProjectOnboarding = () => {
       };
     });
   };
-
   const renderServiceFields = (service) => {
     const details = serviceDetails[service] || {};
-    
     if (service === 'Website') {
       return (
         <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -143,7 +132,6 @@ const ProjectOnboarding = () => {
               </button>
             </div>
           </div>
-
           {details.technology === 'WordPress' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -181,7 +169,6 @@ const ProjectOnboarding = () => {
               </div>
             </div>
           )}
-
           {details.technology === 'WordPress' && details.wpType === 'Theme' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -196,7 +183,6 @@ const ProjectOnboarding = () => {
               />
             </div>
           )}
-
           {details.technology === 'WordPress' && details.wpType === 'Custom' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -211,7 +197,6 @@ const ProjectOnboarding = () => {
               />
             </div>
           )}
-
           {details.technology === 'Shopify' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -249,7 +234,6 @@ const ProjectOnboarding = () => {
               </div>
             </div>
           )}
-
           {details.technology === 'Shopify' && details.shopifyType === 'Theme' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -264,7 +248,6 @@ const ProjectOnboarding = () => {
               />
             </div>
           )}
-
           {details.technology === 'Shopify' && details.shopifyType === 'Custom' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -279,7 +262,6 @@ const ProjectOnboarding = () => {
               />
             </div>
           )}
-
           {details.technology === 'Custom' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -308,7 +290,6 @@ const ProjectOnboarding = () => {
               />
             </div>
           )}
-
           {/* Pages Count */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -325,7 +306,6 @@ const ProjectOnboarding = () => {
         </div>
       );
     }
-
     if (service === 'SEO') {
       return (
         <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -368,7 +348,6 @@ const ProjectOnboarding = () => {
         </div>
       );
     }
-
     if (service === 'SMM') {
       const subServices = details.subServices || [];
       return (
@@ -442,7 +421,6 @@ const ProjectOnboarding = () => {
         </div>
       );
     }
-
     if (service === 'Ads') {
       return (
         <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -497,7 +475,6 @@ const ProjectOnboarding = () => {
         </div>
       );
     }
-
     if (service === 'Web App') {
       return (
         <div className="space-y-4 mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -562,7 +539,6 @@ const ProjectOnboarding = () => {
         </div>
       );
     }
-
     // Media Services
     if (['Videography', 'Video Editing', 'Photography', 'Video Production'].includes(service)) {
       const icons = {
@@ -610,7 +586,6 @@ const ProjectOnboarding = () => {
         </div>
       );
     }
-
     // Design Services
     if (['Branding Logo', 'Brochure', 'Pamphlet', 'Social Media Designs', 'Marking collateral', 'UI/UX designer'].includes(service)) {
       const icons = {
@@ -667,10 +642,8 @@ const ProjectOnboarding = () => {
         </div>
       );
     }
-
     return null;
   };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     const fullData = {
@@ -681,7 +654,6 @@ const ProjectOnboarding = () => {
     alert('Project onboarded successfully!');
     // Reset form or navigate
   };
-
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="">
@@ -690,7 +662,6 @@ const ProjectOnboarding = () => {
           <h1 className="text-2xl font-bold text-gray-900">Project Onboarding</h1>
           <p className="text-sm text-gray-500">Onboard new projects with required services</p>
         </div>
-
         <form onSubmit={handleSubmit}>
           <div className="bg-white rounded-lg shadow-lg p-6 space-y-8">
             {/* Project Details */}
@@ -729,7 +700,6 @@ const ProjectOnboarding = () => {
                 </div>
               </div>
             </div>
-
             {/* Project Manager - Multi Select */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -758,7 +728,6 @@ const ProjectOnboarding = () => {
                 </div>
               )}
             </div>
-
             {/* SPOC - Multi Select */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -787,13 +756,11 @@ const ProjectOnboarding = () => {
                 </div>
               )}
             </div>
-
             {/* Required Services */}
             <div>
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 🛠️ Required Services
               </h2>
-              
               {/* Digital Marketing */}
               <div className="mb-6">
                 <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center gap-2">
@@ -817,7 +784,6 @@ const ProjectOnboarding = () => {
                   ))}
                 </div>
               </div>
-
               {/* Media */}
               <div className="mb-6">
                 <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center gap-2">
@@ -841,7 +807,6 @@ const ProjectOnboarding = () => {
                   ))}
                 </div>
               </div>
-
               {/* Design */}
               <div>
                 <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center gap-2">
@@ -865,7 +830,6 @@ const ProjectOnboarding = () => {
                   ))}
                 </div>
               </div>
-
               {/* Service Details - Dynamic Fields */}
               {formData.services && formData.services.length > 0 && (
                 <div className="mt-6">
@@ -887,7 +851,6 @@ const ProjectOnboarding = () => {
                 </div>
               )}
             </div>
-
             {/* Submit Button */}
             <div className="flex justify-end pt-4 border-t border-gray-200">
               <button
@@ -903,5 +866,4 @@ const ProjectOnboarding = () => {
     </div>
   );
 };
-
 export default ProjectOnboarding;
