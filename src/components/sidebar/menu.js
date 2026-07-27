@@ -3,13 +3,14 @@ import {
     Users,
     ChartNoAxesCombined,
     KanbanSquare,
+    Waypoints,
     ClipboardCheck,
     Briefcase,
     UserPlus,
     BadgeCheck,
     Puzzle,
     HandCoins,
-    FileUser
+    FileUser,
 } from "lucide-react";
 const menu = [
     {
@@ -54,7 +55,14 @@ const menu = [
                 roles: ["SUPER_ADMIN", "ADMIN"]
             },
             {
-                name: "Assign Task",
+                name: "Project details",
+                title: "Project details",
+                icon: Waypoints,
+                path: "/prjt-details",
+                roles: ["SUPER_ADMIN", "ADMIN"]
+            },
+            {
+                name: "Work Allocation",
                 title: "Assign Task",
                 icon: ClipboardCheck,
                 path: "/tasks",

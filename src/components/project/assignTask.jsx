@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 
-const ProjectManagement = () => {
-  const [showEditModal, setShowEditModal] = useState(false);
+const AssignTask = () => {
   const [showViewModal, setShowViewModal] = useState(false);
-  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [editIndex, setEditIndex] = useState(null);
-  const [assignIndex, setAssignIndex] = useState(null);
-  const [activeTab, setActiveTab] = useState('projects');
+  const [activeTab, setActiveTab] = useState('all');
 
   const [teamMembers] = useState([
     { id: 1, name: 'John Doe', email: 'john@company.com', role: 'Project Manager' },
@@ -20,7 +18,8 @@ const ProjectManagement = () => {
     { id: 8, name: 'Lisa Anderson', email: 'lisa@company.com', role: 'UI/UX Designer' },
   ]);
 
-  const [projects, setProjects] = useState([
+  // Assigned projects data
+  const [assignedProjects, setAssignedProjects] = useState([
     {
       id: 1,
       projectName: 'E-Commerce Website',
@@ -47,8 +46,7 @@ const ProjectManagement = () => {
       },
       createdAt: '2026-07-20',
       assignedTo: ['Emily Davis', 'David Brown'],
-      reportingHead: 'John Doe',
-      status: 'In Progress'
+      reportingHead: 'John Doe'
     },
     {
       id: 2,
@@ -66,8 +64,7 @@ const ProjectManagement = () => {
       },
       createdAt: '2026-07-15',
       assignedTo: ['Robert Wilson'],
-      reportingHead: 'Mike Johnson',
-      status: 'Completed'
+      reportingHead: 'Mike Johnson'
     },
     {
       id: 3,
@@ -79,21 +76,7 @@ const ProjectManagement = () => {
       serviceDetails: {},
       createdAt: '2026-07-10',
       assignedTo: ['Lisa Anderson'],
-      reportingHead: 'Jane Smith',
-      status: 'Pending'
-    },
-    {
-      id: 4,
-      projectName: 'Video Production',
-      companyName: 'Media House',
-      projectManager: ['Robert Wilson'],
-      spoc: ['Mike Johnson'],
-      services: ['Videography', 'Video Editing', 'Video Production'],
-      serviceDetails: {},
-      createdAt: '2026-07-05',
-      assignedTo: [],
-      reportingHead: 'Robert Wilson',
-      status: 'In Progress'
+      reportingHead: 'Jane Smith'
     }
   ]);
 
@@ -103,16 +86,14 @@ const ProjectManagement = () => {
     projectManager: [],
     spoc: [],
     services: [],
+    assignedTo: [],
+    reportingHead: '',
   });
 
   const [serviceDetails, setServiceDetails] = useState({});
   const [showManagerDropdown, setShowManagerDropdown] = useState(false);
   const [showSpocDropdown, setShowSpocDropdown] = useState(false);
   const [showAssignDropdown, setShowAssignDropdown] = useState(false);
-  const [assignData, setAssignData] = useState({
-    assignedTo: [],
-    reportingHead: '',
-  });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -142,7 +123,7 @@ const ProjectManagement = () => {
   };
 
   const toggleAssignSelection = (member) => {
-    setAssignData(prev => {
+    setFormData(prev => {
       const current = prev.assignedTo || [];
       if (current.includes(member)) {
         return { ...prev, assignedTo: current.filter(m => m !== member) };
@@ -167,7 +148,7 @@ const ProjectManagement = () => {
   };
 
   const removeAssign = (member) => {
-    setAssignData(prev => ({
+    setFormData(prev => ({
       ...prev,
       assignedTo: prev.assignedTo.filter(m => m !== member)
     }));
@@ -771,38 +752,16 @@ const ProjectManagement = () => {
       projectManager: project.projectManager || [],
       spoc: project.spoc || [],
       services: project.services || [],
+      assignedTo: project.assignedTo || [],
+      reportingHead: project.reportingHead || '',
     });
     setServiceDetails(project.serviceDetails || {});
     setShowEditModal(true);
   };
 
-  const handleAssign = (project, index) => {
-    setSelectedProject(project);
-    setAssignIndex(index);
-    setAssignData({
-      assignedTo: project.assignedTo || [],
-      reportingHead: project.reportingHead || '',
-    });
-    setShowAssignModal(true);
-  };
-
-  const handleAssignSubmit = (e) => {
-    e.preventDefault();
-    const updatedProjects = [...projects];
-    updatedProjects[assignIndex] = {
-      ...updatedProjects[assignIndex],
-      assignedTo: assignData.assignedTo,
-      reportingHead: assignData.reportingHead,
-    };
-    setProjects(updatedProjects);
-    setShowAssignModal(false);
-    setSelectedProject(null);
-    setAssignIndex(null);
-  };
-
   const handleUpdate = (e) => {
     e.preventDefault();
-    const updatedProjects = [...projects];
+    const updatedProjects = [...assignedProjects];
     updatedProjects[editIndex] = {
       ...updatedProjects[editIndex],
       projectName: formData.projectName,
@@ -811,17 +770,13 @@ const ProjectManagement = () => {
       spoc: formData.spoc,
       services: formData.services,
       serviceDetails: serviceDetails,
+      assignedTo: formData.assignedTo,
+      reportingHead: formData.reportingHead,
     };
-    setProjects(updatedProjects);
+    setAssignedProjects(updatedProjects);
     setShowEditModal(false);
     setSelectedProject(null);
     setEditIndex(null);
-  };
-
-  const handleDelete = (index) => {
-    if (window.confirm('Are you sure you want to delete this project?')) {
-      setProjects(projects.filter((_, i) => i !== index));
-    }
   };
 
   // Custom Dropdown Component for Project Manager
@@ -936,11 +891,11 @@ const ProjectManagement = () => {
     </div>
   );
 
-  // Custom Dropdown Component for Assign
+  // Custom Dropdown Component for Assign To
   const AssignDropdown = ({ value, onChange, onRemove }) => (
     <div className="relative">
       <div 
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-h-[42px] flex items-center flex-wrap gap-1"
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white min-h-[42px] flex items-center flex-wrap gap-1"
         onClick={() => setShowAssignDropdown(!showAssignDropdown)}
       >
         {value && value.length > 0 ? (
@@ -992,169 +947,80 @@ const ProjectManagement = () => {
     </div>
   );
 
-  // Tasks Tab - Shows assigned projects only
-  const TasksTab = () => {
-    const assignedProjects = projects.filter(p => p.assignedTo && p.assignedTo.length > 0);
-
-    return (
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reporting Head</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SPOC</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {assignedProjects.length > 0 ? (
-                assignedProjects.map((project, index) => (
-                  <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-gray-900">{project.projectName}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {project.assignedTo && project.assignedTo.map((name, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-gray-700">{project.reportingHead || 'N/A'}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {project.spoc && project.spoc.map((name, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {project.services && project.services.map((service, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">
-                            {service}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        project.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                        project.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {project.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleView(project)}
-                          className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md hover:bg-green-200 transition-colors"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleEdit(project, index)}
-                          className="px-2 py-1 bg-orange-200 text-orange-700 text-xs rounded-md hover:bg-orange-300 transition-colors"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
-                    No assigned projects found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 py-4 px-4 sm:px-6 lg:px-8">
       <div className="">
         {/* Header */}
-        {/* <div className="mb-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">📊 Project Management</h1>
-            <p className="text-sm text-gray-500">View and manage all projects</p>
+        <div className="mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">📋 My Tasks</h1>
+              <p className="text-sm text-gray-500">Projects assigned to you</p>
+            </div>
+            <div className="flex gap-4 text-sm">
+              <span className="bg-white px-3 py-1 rounded-full shadow-sm">
+                Total: <span className="font-semibold">{assignedProjects.length}</span>
+              </span>
+            </div>
           </div>
-        </div> */}
+        </div>
 
-        {/* Tabs */}
-        <div className="flex gap-4 mb-4 border-b border-gray-200">
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3 mb-4">
           <button
-            onClick={() => setActiveTab('projects')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'projects'
-                ? 'border-b-2 border-gray-800 text-gray-900'
-                : 'text-gray-500 hover:text-gray-700'
+            onClick={() => setActiveTab('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'all'
+                ? 'bg-gray-800 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-100 shadow-sm'
             }`}
           >
-            Projects
-          </button>
-          <button
-            onClick={() => setActiveTab('tasks')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'tasks'
-                ? 'border-b-2 border-gray-800 text-gray-900'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            My Tasks
-            <span className="ml-1 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
-              {projects.filter(p => p.assignedTo && p.assignedTo.length > 0).length}
-            </span>
+            All Tasks
           </button>
         </div>
 
-        {/* Projects Tab */}
-        {activeTab === 'projects' && (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project Manager</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {projects.map((project, index) => (
+        {/* Tasks Table */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reporting Head</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SPOC</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {assignedProjects
+                  .filter(project => {
+                    if (activeTab === 'all') return true;
+                    return true;
+                  })
+                  .map((project, index) => (
                     <tr key={project.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
                         <p className="text-sm font-medium text-gray-900">{project.projectName}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-gray-700">{project.companyName}</p>
+                        <p className="text-xs text-gray-500">{project.companyName}</p>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {project.projectManager && project.projectManager.map((name, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                          {project.assignedTo && project.assignedTo.map((name, i) => (
+                            <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-gray-700">{project.reportingHead || 'N/A'}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {project.spoc && project.spoc.map((name, i) => (
+                            <span key={i} className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
                               {name}
                             </span>
                           ))}
@@ -1163,47 +1029,50 @@ const ProjectManagement = () => {
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {project.services && project.services.map((service, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">
+                            <span key={i} className="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">
                               {service}
                             </span>
                           ))}
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-sm text-gray-700">{project.createdAt}</p>
-                      </td>
-                      <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleView(project)}
-                            className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md hover:bg-green-200 transition-colors"
+                            className="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-md hover:bg-green-200 transition-colors flex items-center gap-1"
                           >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
                             View
                           </button>
                           <button
                             onClick={() => handleEdit(project, index)}
-                            className="px-2 py-1 bg-orange-200 text-orange-700 text-xs rounded-md hover:bg-orange-300 transition-colors"
+                            className="px-3 py-1 bg-orange-200 text-orange-700 text-xs rounded-md hover:bg-orange-300 transition-colors flex items-center gap-1"
                           >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
                             Edit
-                          </button>
-                          <button
-                            onClick={() => handleAssign(project, index)}
-                            className="px-2 py-1 bg-violet-200 text-violet-700 text-xs rounded-md hover:bg-violet-300 transition-colors"
-                          >
-                            Assign
                           </button>
                         </div>
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+              </tbody>
+            </table>
           </div>
-        )}
 
-        {/* Tasks Tab */}
-        {activeTab === 'tasks' && <TasksTab />}
+          {/* Empty State */}
+          {assignedProjects.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">📭</div>
+              <h3 className="text-lg font-medium text-gray-900">No tasks assigned</h3>
+              <p className="text-sm text-gray-500">You don't have any assigned projects yet.</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* View Modal */}
@@ -1217,7 +1086,7 @@ const ProjectManagement = () => {
             <div className="relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl z-10">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-800">📋 Project Details</h2>
+                  <h2 className="text-xl font-semibold text-gray-800">📋 Task Details</h2>
                   <button
                     onClick={() => setShowViewModal(false)}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -1259,36 +1128,22 @@ const ProjectManagement = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Created Date</label>
-                    <p className="text-gray-900">{selectedProject.createdAt}</p>
-                  </div>
-                  <div>
                     <label className="text-sm font-medium text-gray-500">Reporting Head</label>
                     <p className="text-gray-900">{selectedProject.reportingHead || 'N/A'}</p>
                   </div>
-                  {selectedProject.assignedTo && selectedProject.assignedTo.length > 0 && (
-                    <div className="col-span-2">
-                      <label className="text-sm font-medium text-gray-500">Assigned To</label>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {selectedProject.assignedTo.map((name, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Status</label>
-                    <p className="mt-1">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        selectedProject.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                        selectedProject.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {selectedProject.status}
-                      </span>
-                    </p>
+                    <label className="text-sm font-medium text-gray-500">Assigned To</label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedProject.assignedTo && selectedProject.assignedTo.map((name, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Created Date</label>
+                    <p className="text-gray-900">{selectedProject.createdAt}</p>
                   </div>
                 </div>
 
@@ -1346,7 +1201,7 @@ const ProjectManagement = () => {
             <div className="relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl z-10">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-800">✏️ Edit Project</h2>
+                  <h2 className="text-xl font-semibold text-gray-800">✏️ Edit Task</h2>
                   <button
                     onClick={() => {
                       setShowEditModal(false);
@@ -1415,6 +1270,36 @@ const ProjectManagement = () => {
                         onChange={toggleSpocSelection}
                         onRemove={removeSpoc}
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        👥 Assigned To <span className="text-red-500">*</span>
+                      </label>
+                      <AssignDropdown 
+                        value={formData.assignedTo}
+                        onChange={toggleAssignSelection}
+                        onRemove={removeAssign}
+                      />
+                      <p className="text-xs text-gray-400 mt-1">💡 Select team members assigned to this project</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        📋 Reporting Head <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="reportingHead"
+                        value={formData.reportingHead}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select Reporting Head</option>
+                        {teamMembers.map(member => (
+                          <option key={member.id} value={member.name}>{member.name} - {member.role}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
@@ -1522,129 +1407,7 @@ const ProjectManagement = () => {
                       type="submit"
                       className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm"
                     >
-                      Update Project
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Assign Modal */}
-      {showAssignModal && selectedProject && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div 
-            className="fixed inset-0 bg-black/50 transition-opacity"
-            onClick={() => {
-              setShowAssignModal(false);
-              setSelectedProject(null);
-              setAssignIndex(null);
-            }}
-          ></div>
-          <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl z-10">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-800">👥 Assign Project</h2>
-                  <button
-                    onClick={() => {
-                      setShowAssignModal(false);
-                      setSelectedProject(null);
-                      setAssignIndex(null);
-                    }}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div className="px-6 py-6">
-                <form onSubmit={handleAssignSubmit}>
-                  <div className="space-y-4">
-                    {/* Project Info - Disabled/Read-only */}
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2">📋 Project Information</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-xs font-medium text-gray-500">Project Name</label>
-                          <p className="text-sm font-semibold text-gray-900">{selectedProject.projectName}</p>
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-500">SPOC</label>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {selectedProject.spoc && selectedProject.spoc.map((name, i) => (
-                              <span key={i} className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                                {name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-gray-500">Services</label>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {selectedProject.services && selectedProject.services.map((service, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">
-                              {service}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Reporting Head */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Reporting Head <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={assignData.reportingHead}
-                        onChange={(e) => setAssignData(prev => ({ ...prev, reportingHead: e.target.value }))}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select Reporting Head</option>
-                        {teamMembers.map(member => (
-                          <option key={member.id} value={member.name}>{member.name} - {member.role}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Assign To - Multiple Select */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Assign To <span className="text-red-500">*</span>
-                      </label>
-                      <AssignDropdown 
-                        value={assignData.assignedTo}
-                        onChange={toggleAssignSelection}
-                        onRemove={removeAssign}
-                      />
-                      <p className="text-xs text-gray-400 mt-1">💡 Select team members to assign this project</p>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAssignModal(false);
-                        setSelectedProject(null);
-                        setAssignIndex(null);
-                      }}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors text-sm"
-                    >
-                      Assign Project
+                      Update Task
                     </button>
                   </div>
                 </form>
@@ -1657,4 +1420,4 @@ const ProjectManagement = () => {
   );
 };
 
-export default ProjectManagement;
+export default AssignTask;

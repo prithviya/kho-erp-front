@@ -6,6 +6,7 @@ import Report from "../components/Lead/Report";
 import UserManagement from "../components/UserManagement/UserRole";
 import ProjectOnboarding from "../components/project/onboardingPrjt";
 import ProjectDetail from "../components/project/ProjectDetail";
+import AssignTask from "../components/project/assignTask";
 import JobOpening from "../components/Career/job";
 import RecruitmentProcess from "../components/Career/recruitmentProcess";
 import Onboarding from "../components/Career/onboarding";
@@ -38,7 +39,8 @@ export default function AppRoutes() {
                 <Route path="/lead-overview" element={<LeadOverview />} />
                 <Route path="/report" element={<Report />} />
                 <Route path="/onboard-prjt" element={<ProjectOnboarding />} />
-                <Route path="/tasks" element={<ProjectDetail />} />
+                <Route path="/prjt-details" element={<ProjectDetail />} />
+                <Route path="/tasks" element={<AssignTask />} />
                 <Route path="/user-management" element={<UserManagement />} />
                 <Route path="/cif-form" element={<Cif />} />
                 <Route path="/job" element={<JobOpening />} />

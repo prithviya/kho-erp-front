@@ -14,7 +14,7 @@ export default function AppLayout() {
                 <AppHeader
                     toggleSidebar={() => setMobileSidebar(true)}
                 />
-                <main className="flex-1 overflow-auto p-6">
+                <main className="flex-1 p-3">
                     <Outlet />
                 </main>
             </div>

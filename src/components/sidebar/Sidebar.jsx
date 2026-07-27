@@ -83,7 +83,7 @@ export default function Sidebar() {
                     setMobileOpen={setMobileOpen}
                 />
                 {/* Menu */}
-                <div className="flex-1 px-3 py-2">
+                <div className="flex-1 px-3 py-2 overflow-auto">
                     {
                         menu.map(section => (
                             <div

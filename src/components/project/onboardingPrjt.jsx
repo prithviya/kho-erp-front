@@ -554,10 +554,10 @@ const ProjectOnboarding = () => {
     <div className="min-h-screen bg-gray-50 py-4 px-4 sm:px-6 lg:px-8">
       <div className="">
         {/* Header */}
-        <div className="mb-4">
+        {/* <div className="mb-4">
           <h1 className="text-2xl font-bold text-gray-900">🚀 Project Onboarding</h1>
           <p className="text-sm text-gray-500">Onboard new projects with required services</p>
-        </div>
+        </div> */}
 
         <div className="flex gap-4">
           {/* Left Sidebar - Services */}
