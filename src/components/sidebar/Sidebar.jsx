@@ -49,7 +49,7 @@ export default function Sidebar() {
                 className={`
                 fixed
                 lg:relative
-                z-50
+                z-5
                 top-0
                 left-0
                 h-screen
