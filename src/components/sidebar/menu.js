@@ -11,6 +11,7 @@ import {
     Puzzle,
     HandCoins,
     FileUser,
+    Network,
 } from "lucide-react";
 const menu = [
     {
@@ -82,6 +83,13 @@ const menu = [
                 roles: ["SUPER_ADMIN"]
             },
             {
+                name: "Master",
+                title:"Master Setting",
+                icon: Network,
+                path:"/master",
+                roles:["SUPER_ADMIN"]
+            },
+            {
                 name: "CIF Form",
                 title: "CIF Form",
                 icon: FileUser,
@@ -136,5 +144,6 @@ const menu = [
             }
         ]
     }
+    
 ];
 export default menu;

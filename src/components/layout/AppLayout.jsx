@@ -1,5 +1,6 @@
 import Sidebar from "../sidebar/Sidebar";
 import AppHeader from "./AppHeader";
+import Chatbot from "./chatbot"
 import { Outlet } from "react-router-dom";
 import { useState } from "react";
 export default function AppLayout() {
@@ -17,6 +18,7 @@ export default function AppLayout() {
                 <main className="flex-1 p-3">
                     <Outlet />
                 </main>
+                <Chatbot/>
             </div>
         </div>
     );

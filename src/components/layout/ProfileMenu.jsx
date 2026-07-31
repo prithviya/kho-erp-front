@@ -36,6 +36,7 @@ export default function ProfileMenu({
                 <Settings size={18} />
                 Settings
             </button>
+            
             <hr />
             <button
                 onClick={logout}
