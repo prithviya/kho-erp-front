@@ -65,6 +65,15 @@ const leadService = {
     deleteLead(id) {
         return request(`/lead/${id}`, { method: "DELETE" });
     },
+    createServiceCategory(data) {
+        return request("/service-categories", { method: "POST", body: JSON.stringify(data) });
+    },
+    createService(data) {
+        return request("/services", { method: "POST", body: JSON.stringify(data) });
+    },
+    createLeadSource(data) {
+        return request("/lead-sources", { method: "POST", body: JSON.stringify(data) });
+    },
 
     // Lookup data for the create/edit form
     getLeadSources() { return request("/lead-sources"); },
