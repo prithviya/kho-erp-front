@@ -1,61 +1,4 @@
-import { getSession, setSession, clearSession } from "../utils/session";
-
-const BASE_URL = import.meta.env.VITE_API_URL;
-
-async function request(url, options = {}, retry = true) {
-    const session = getSession();
-    const headers = {
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-    };
-    if (session?.accessToken) {
-        headers.Authorization = `Bearer ${session.accessToken}`;
-    }
-    const response = await fetch(`${BASE_URL}${url}`, {
-        ...options,
-        headers
-    });
-    // Token Expired
-    if (response.status === 401 && retry && session?.refreshToken) {
-        const refreshed = await refreshToken(session.refreshToken);
-        if (refreshed.success) {
-            const newSession = {
-                ...session,
-                accessToken: refreshed.data.accessToken,
-                refreshToken: refreshed.data.refreshToken
-            };
-            setSession(newSession);
-            return request(url, options, false);
-        }
-        clearSession();
-        window.location.href = "/";
-        return;
-    }
-    const result = await response.json();
-    if (!response.ok) {
-        throw new Error(result.message || "Something went wrong.");
-    }
-    return result;
-}
-
-async function refreshToken(refreshTokenValue) {
-    try {
-        const response = await fetch(`${BASE_URL}/auth/refresh-token`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                refreshToken: refreshTokenValue
-            })
-        });
-        return await response.json();
-    } catch {
-        return {
-            success: false
-        };
-    }
-}
+import { request } from "./apiClient";
 
 const authService = {
     login(data) {
@@ -105,12 +48,9 @@ const authService = {
             method: "DELETE"
         });
     },
-    logout(refreshToken) {
+    logout() {
         return request("/auth/logout", {
-            method: "POST",
-            body: JSON.stringify({
-                refreshToken
-            })
+            method: "POST"
         });
     },
     logoutAll() {

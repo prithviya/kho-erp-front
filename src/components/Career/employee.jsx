@@ -1,82 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
+import employeeService from '../../services/employee.service';
 
 const Employee = () => {
-  const [employees, setEmployees] = useState([
-    {
-      id: 'KHO-015',
-      name: 'Anthony Franklin',
-      email: 'gowtham134@gmail.com',
-      department: 'Content',
-      group: 'Accusamus expedita i',
-      head: 'Prabu NS',
-      dob: '25 Feb 2022',
-      doj: '04 Sep 2015',
-      status: 'Active',
-      userAccount: false,
-    },
-    {
-      id: 'KHO-016',
-      name: 'Sarah Johnson',
-      email: 'sarah.j@company.com',
-      department: 'Designer',
-      group: 'Creative Team',
-      head: 'Michael Chen',
-      dob: '15 Mar 1990',
-      doj: '12 Jan 2020',
-      status: 'Active',
-      userAccount: true,
-    },
-    {
-      id: 'KHO-017',
-      name: 'David Williams',
-      email: 'david.w@company.com',
-      department: 'Development',
-      group: 'Tech Squad',
-      head: 'Robert Kim',
-      dob: '08 Jul 1988',
-      doj: '20 Mar 2019',
-      status: 'Onboarding',
-      userAccount: false,
-    },
-    {
-      id: 'KHO-018',
-      name: 'Emily Davis',
-      email: 'emily.d@company.com',
-      department: 'Operations',
-      group: 'Operations Team',
-      head: 'Lisa Wong',
-      dob: '12 Nov 1992',
-      doj: '05 Jun 2021',
-      status: 'Active',
-      userAccount: true,
-    },
-    {
-      id: 'KHO-019',
-      name: 'Michael Brown',
-      email: 'michael.b@company.com',
-      department: 'Marketing',
-      group: 'Marketing Team',
-      head: 'Jennifer Lee',
-      dob: '30 Jan 1985',
-      doj: '18 Aug 2018',
-      status: 'Active',
-      userAccount: true,
-    },
-    {
-      id: 'KHO-020',
-      name: 'Jessica Wilson',
-      email: 'jessica.w@company.com',
-      department: 'HR',
-      group: 'HR Team',
-      head: 'Thomas Moore',
-      dob: '22 Sep 1991',
-      doj: '10 Nov 2020',
-      status: 'Onboarding',
-      userAccount: false,
-    },
-  ]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
+  const [selectedDepartment, setSelectedDepartment] = useState('All Positions');
   const [searchTerm, setSearchTerm] = useState('');
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -94,7 +24,54 @@ const Employee = () => {
     userAccount: false,
   });
 
-  const departments = ['Content', 'Designer', 'Development', 'Operations', 'Marketing', 'HR'];
+  const departments = useMemo(() => {
+    const values = employees.map((employee) => employee.department).filter(Boolean);
+    return [...new Set(values)].sort();
+  }, [employees]);
+
+  const formatDisplayDate = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const mapEmployee = (employee) => ({
+    id: employee.id,
+    employeeId: employee.employeeCode,
+    name: employee.fullName,
+    email: employee.email,
+    department: employee.jobPosition,
+    group: employee.city || '-',
+    head: employee.phone || '-',
+    dob: formatDisplayDate(employee.dateOfBirth),
+    doj: formatDisplayDate(employee.createdAt),
+    status: employee.status || 'Onboarding',
+    userAccount: false,
+    phone: employee.phone,
+    city: employee.city,
+    original: employee,
+  });
+
+  const loadEmployees = async () => {
+    try {
+      setLoading(true);
+      const response = await employeeService.list();
+      setEmployees((response?.data || []).map(mapEmployee));
+    } catch (error) {
+      toast.error(error.message || 'Unable to load employees.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadEmployees();
+  }, []);
 
   const getStatusBadge = (status) => {
     return status === 'Active' 
@@ -115,7 +92,7 @@ const Employee = () => {
       email: employee.email,
       department: employee.department,
       group: employee.group,
-      head: employee.head,
+      head: employee.phone || '',
       dob: employee.dob,
       doj: employee.doj,
       status: employee.status,
@@ -134,19 +111,46 @@ const Employee = () => {
 
   const handleUpdate = (e) => {
     e.preventDefault();
-    const updatedEmployees = [...employees];
-    updatedEmployees[editIndex] = {
-      id: employees[editIndex].id,
-      ...formData,
+    const updateRecord = async () => {
+      try {
+        const employee = employees[editIndex]?.original;
+        if (!employee) return;
+        await employeeService.update(employee.id, {
+          ...employee,
+          fullName: formData.name,
+          email: formData.email,
+          jobPosition: formData.department,
+          city: formData.group,
+          dateOfBirth: employee.dateOfBirth,
+          phone: formData.head,
+          pinCode: employee.pinCode,
+          gender: employee.gender,
+          portfolioLink: employee.portfolioLink,
+          education: employee.education,
+          workExperience: employee.workExperience,
+          skills: employee.skills,
+          softwareTools: employee.softwareTools,
+          languages: employee.languages,
+          references: employee.references,
+          consent: employee.consent,
+          status: formData.status,
+          resume: null,
+        });
+        toast.success('Employee updated successfully.');
+        await loadEmployees();
+        setShowEditModal(false);
+        setSelectedEmployee(null);
+        setEditIndex(null);
+      } catch (error) {
+        toast.error(error.message || 'Unable to update employee.');
+      }
     };
-    setEmployees(updatedEmployees);
-    setShowEditModal(false);
-    setSelectedEmployee(null);
-    setEditIndex(null);
+
+    updateRecord();
   };
 
   const filteredEmployees = employees.filter(emp => {
-    const matchesDepartment = selectedDepartment === 'All Departments' || emp.department === selectedDepartment;
+    const matchesDepartment = selectedDepartment === 'All Positions' || emp.department === selectedDepartment;
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           emp.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -159,20 +163,20 @@ const Employee = () => {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Employee Directory</h1>
-          <p className="text-sm text-gray-500">List of all active and onboarding employees.</p>
+          <p className="text-sm text-gray-500">Profiles captured from the employee CIF form.</p>
         </div>
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div className="flex-1 w-full sm:w-auto">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Job Position</label>
               <select
                 value={selectedDepartment}
                 onChange={(e) => setSelectedDepartment(e.target.value)}
                 className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
               >
-                <option value="All Departments">All Departments</option>
+                <option value="All Positions">All Positions</option>
                 {departments.map((dept) => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
@@ -191,7 +195,7 @@ const Employee = () => {
             <div className="flex-1 w-full sm:w-auto flex items-end">
               <button
                 onClick={() => {
-                  setSelectedDepartment('All Departments');
+                  setSelectedDepartment('All Positions');
                   setSearchTerm('');
                 }}
                 className="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
@@ -210,7 +214,7 @@ const Employee = () => {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emp ID</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Details</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role & Hierarchy</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position & Location</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
@@ -221,7 +225,7 @@ const Employee = () => {
                   filteredEmployees.map((employee, index) => (
                     <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-gray-900">{employee.id}</p>
+                        <p className="text-sm font-medium text-gray-900">{employee.employeeId}</p>
                       </td>
                       <td className="px-4 py-3">
                         <div>
@@ -239,14 +243,14 @@ const Employee = () => {
                       <td className="px-4 py-3">
                         <div>
                           <p className="text-sm text-gray-700">{employee.department}</p>
-                          <p className="text-xs text-gray-500">Group: {employee.group}</p>
-                          <p className="text-xs text-gray-500">Head: {employee.head}</p>
+                          <p className="text-xs text-gray-500">City: {employee.group}</p>
+                          <p className="text-xs text-gray-500">Phone: {employee.phone || '-'}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div>
                           <p className="text-sm text-gray-700">DOB: {employee.dob}</p>
-                          <p className="text-sm text-gray-700">DOJ: {employee.doj}</p>
+                          <p className="text-sm text-gray-700">Submitted: {employee.doj}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -275,7 +279,7 @@ const Employee = () => {
                 ) : (
                   <tr>
                     <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
-                      No employees found matching your filters
+                      {loading ? 'Loading employees...' : 'No employees found matching your filters'}
                     </td>
                   </tr>
                 )}
@@ -322,7 +326,7 @@ const Employee = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-500">Employee ID</label>
-                    <p className="text-gray-900 font-medium">{selectedEmployee.id}</p>
+                    <p className="text-gray-900 font-medium">{selectedEmployee.employeeId}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Status</label>
@@ -337,23 +341,23 @@ const Employee = () => {
                     <p className="text-gray-900">{selectedEmployee.email}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Department</label>
+                    <label className="text-sm font-medium text-gray-500">Job Position</label>
                     <p className="text-gray-900">{selectedEmployee.department}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Group</label>
+                    <label className="text-sm font-medium text-gray-500">City</label>
                     <p className="text-gray-900">{selectedEmployee.group}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Reporting Head</label>
-                    <p className="text-gray-900">{selectedEmployee.head}</p>
+                    <label className="text-sm font-medium text-gray-500">Phone</label>
+                    <p className="text-gray-900">{selectedEmployee.phone || '-'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Date of Birth</label>
                     <p className="text-gray-900">{selectedEmployee.dob}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Date of Joining</label>
+                    <label className="text-sm font-medium text-gray-500">Submitted On</label>
                     <p className="text-gray-900">{selectedEmployee.doj}</p>
                   </div>
                   <div>
@@ -442,7 +446,7 @@ const Employee = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Department <span className="text-red-500">*</span>
+                        Job Position <span className="text-red-500">*</span>
                       </label>
                       <select
                         name="department"
@@ -458,7 +462,7 @@ const Employee = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Group
+                        City
                       </label>
                       <input
                         type="text"
@@ -470,7 +474,7 @@ const Employee = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Reporting Head
+                        Phone
                       </label>
                       <input
                         type="text"
@@ -509,7 +513,7 @@ const Employee = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Date of Joining
+                        Submitted On
                       </label>
                       <input
                         type="text"

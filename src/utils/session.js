@@ -10,5 +10,5 @@ export const clearSession = () => {
     localStorage.removeItem(SESSION_KEY);
 };
 export const isAuthenticated = () => {
-    return !!getSession()?.accessToken;
+    return !!getSession()?.user;
 };

@@ -1,5 +1,7 @@
-import { X, Building2, User, Phone, Mail, LogIn, IndianRupee,
-    CalendarDays, FileText, Users, StickyNote, UserCheck, Loader2 } from "lucide-react";
+import {
+    X, Building2, User, Phone, Mail, LogIn, IndianRupee,
+    CalendarDays, FileText, Users, StickyNote, UserCheck, Loader2
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import leadService from "../../services/lead.service";
 
@@ -20,6 +22,20 @@ const EMPTY_FORM = {
     assignedTo: "",
     notes: "",
 };
+
+function extractServiceIds(lead = {}) {
+    const fromIds = Array.isArray(lead.serviceIds) ? lead.serviceIds : [];
+    if (fromIds.length > 0) {
+        return fromIds.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+    }
+
+    const fromRelations = lead.services ?? lead.Services ?? [];
+    if (!Array.isArray(fromRelations)) return [];
+
+    return fromRelations
+        .map((svc) => Number(svc?.id ?? svc?.serviceId))
+        .filter((id) => Number.isFinite(id));
+}
 
 function validate(form) {
     const errors = {};
@@ -116,7 +132,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                         leadSourceId: l.leadSourceId || "",
                         leadStatusId: l.leadStatusId || "",
                         referralName: l.referralName || "",
-                        serviceIds: l.serviceIds || [],
+                        serviceIds: extractServiceIds(l),
                         budget: l.budget ?? "",
                         nextFollowupDate: l.nextFollowupDate
                             ? l.nextFollowupDate.slice(0, 10) // yyyy-mm-dd for <input type="date">
@@ -172,6 +188,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
             leadSourceId: Number(form.leadSourceId),
             leadStatusId: form.leadStatusId ? Number(form.leadStatusId) : undefined,
             assignedTo: form.assignedTo ? Number(form.assignedTo) : undefined,
+            serviceIds: (form.serviceIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id)),
             budget: form.budget !== "" ? Number(form.budget) : undefined,
             nextFollowupDate: form.nextFollowupDate || undefined,
             referralName: form.referralName.trim() || undefined,
@@ -196,13 +213,11 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
     }
 
     const inputCls = (field) =>
-        `w-full rounded-lg border bg-white pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition ${
-            fieldErrors[field] ? "border-red-400 bg-red-50/30" : "border-gray-200"
+        `w-full rounded-lg border bg-white pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition ${fieldErrors[field] ? "border-red-400 bg-red-50/30" : "border-gray-200"
         }`;
 
     const selectCls = (field) =>
-        `w-full rounded-lg border bg-white pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition appearance-none ${
-            fieldErrors[field] ? "border-red-400 bg-red-50/30" : "border-gray-200"
+        `w-full rounded-lg border bg-white pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition appearance-none ${fieldErrors[field] ? "border-red-400 bg-red-50/30" : "border-gray-200"
         }`;
 
     const selectedSource = leadSources.find((s) => s.id === Number(form.leadSourceId));
@@ -231,16 +246,14 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
             {/* Backdrop */}
             <div
                 onClick={onClose}
-                className={`fixed inset-0 bg-black/40 z-40 transition-opacity duration-300 ${
-                    open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-                }`}
+                className={`fixed inset-0 bg-black/40 z-40 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                    }`}
             />
 
             {/* Slide-in panel */}
             <div
-                className={`fixed right-0 top-0 z-50 flex h-screen w-full max-w-sm flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
-                    open ? "translate-x-0" : "translate-x-full"
-                }`}
+                className={`fixed right-0 top-0 z-50 flex h-screen w-full max-w-sm flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${open ? "translate-x-0" : "translate-x-full"
+                    }`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}

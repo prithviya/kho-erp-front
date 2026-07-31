@@ -1,4 +1,5 @@
     import { useState, useEffect, useCallback } from "react";
+    import { useNavigate } from "react-router-dom";
     import {
         Users, BadgeCheck, Phone, MessageSquare, FileText, Handshake,
         Eye, Pencil, Trash2, Rocket, Search, CalendarDays,
@@ -7,6 +8,8 @@
     import EditLead from "./EditLead";
     import ViewLead from "./ViewLead";
     import leadService from "../../services/lead.service";
+    import { hasRole } from "../../utils/auth";
+    import { toast } from "react-toastify";
 
     // Source badge colours keyed by source name (case-insensitive match)
     const SOURCE_COLORS = {
@@ -56,6 +59,12 @@
         const [editOpen, setEditOpen] = useState(false);
         const [viewOpen, setViewOpen] = useState(false);
         const [selectedLead, setSelectedLead] = useState(null);
+        const [deleteTarget, setDeleteTarget] = useState(null);
+        const [deleting, setDeleting] = useState(false);
+        const [deleteError, setDeleteError] = useState("");
+        const navigate = useNavigate();
+
+        const canDeleteLead = hasRole("SUPER_ADMIN");
 
         const fetchLeads = useCallback(() => {
             setLoading(true);
@@ -79,6 +88,27 @@
         useEffect(() => {
             fetchLeads();
         }, [fetchLeads]);
+
+        const confirmDeleteLead = async () => {
+            if (!deleteTarget?.id) return;
+            setDeleting(true);
+            setDeleteError("");
+            try {
+                await leadService.deleteLead(deleteTarget.id);
+                if (selectedLead?.id === deleteTarget.id) {
+                    setSelectedLead(null);
+                    setViewOpen(false);
+                    setEditOpen(false);
+                }
+                setDeleteTarget(null);
+                toast.success("Lead deleted successfully.");
+                fetchLeads();
+            } catch (err) {
+                setDeleteError(err.message || "Failed to delete lead.");
+            } finally {
+                setDeleting(false);
+            }
+        };
 
         // Derived stats
         const totalLeads = leads.length;
@@ -200,6 +230,7 @@
                                     const followUp = formatDate(lead.nextFollowupDate);
                                     const isOverdue = lead.nextFollowupDate && new Date(lead.nextFollowupDate) < new Date();
                                     const statusColor = lead.leadStatus?.color;
+                                    const isConverted = lead.leadStatus?.name?.toLowerCase() === "converted";
 
                                     return (
                                         <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
@@ -280,18 +311,29 @@
                                                     >
                                                         <Pencil size={16} />
                                                     </button>
-                                                    <button
-                                                        title="Follow-up"
-                                                        className="rounded-md p-1.5 text-purple-500 hover:bg-purple-50 transition"
-                                                    >
-                                                        <Rocket size={16} />
-                                                    </button>
-                                                    <button
-                                                        title="Delete"
-                                                        className="rounded-md p-1.5 text-red-500 hover:bg-red-50 transition"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                                    {isConverted && (
+                                                        <button
+                                                            title="Move to Project"
+                                                            onClick={() => navigate("/onboard-prjt", {
+                                                                state: {
+                                                                    leadId: lead.id,
+                                                                    userId: lead.assignedTo || null
+                                                                }
+                                                            })}
+                                                            className="rounded-md p-1.5 text-purple-500 hover:bg-purple-50 transition"
+                                                        >
+                                                            <Rocket size={16} />
+                                                        </button>
+                                                    )}
+                                                    {canDeleteLead && (
+                                                        <button
+                                                            title="Delete"
+                                                            onClick={() => { setDeleteError(""); setDeleteTarget(lead); }}
+                                                            className="rounded-md p-1.5 text-red-500 hover:bg-red-50 transition"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -319,6 +361,43 @@
                     onClose={() => setViewOpen(false)}
                     lead={selectedLead}
                 />
+
+                {/* Delete confirmation modal */}
+                {deleteTarget && (
+                    <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 p-4">
+                        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+                            <h3 className="text-lg font-semibold text-gray-900">Delete Lead</h3>
+                            <p className="mt-2 text-sm text-gray-600">
+                                Are you sure you want to delete
+                                <span className="font-semibold text-gray-800"> {deleteTarget.companyName || "this lead"}</span>?
+                                This action can be restored only from database backups.
+                            </p>
+                            {deleteError && (
+                                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                                    {deleteError}
+                                </div>
+                            )}
+                            <div className="mt-5 flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => { setDeleteTarget(null); setDeleteError(""); }}
+                                    disabled={deleting}
+                                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={confirmDeleteLead}
+                                    disabled={deleting}
+                                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                                >
+                                    {deleting ? "Deleting..." : "Delete"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }

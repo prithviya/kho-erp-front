@@ -1,1238 +1,492 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
+import leadService from "../../services/lead.service";
+import userManagementService from "../../services/userManagement.service";
+import projectOnboardService from "../../services/projectOnboard.service";
+
+const DETAIL_ENABLED_NAMES = new Set(["website", "seo", "smm", "ads", "web app"]);
+
+const EMPTY_EDIT_FORM = {
+  projectName: "",
+  companyName: "",
+  projectManagerIds: [],
+  spocIds: [],
+  serviceIds: []
+};
+
+const EMPTY_ASSIGN_FORM = {
+  assignedToIds: [],
+  reportingHeadId: "",
+  status: "In Progress"
+};
+
+function formatUserName(user) {
+  return `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "-";
+}
+
+function formatDate(dateValue) {
+  if (!dateValue) return "-";
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toISOString().split("T")[0];
+}
+
+const MultiUserSelect = ({ users, selectedIds, onChange, placeholder, tone = "blue" }) => {
+  const [open, setOpen] = useState(false);
+
+  const selectedUsers = users.filter((u) => selectedIds.includes(Number(u.id)));
+
+  const removeUser = (id) => {
+    onChange(selectedIds.filter((item) => Number(item) !== Number(id)));
+  };
+
+  const toggleUser = (id) => {
+    const numericId = Number(id);
+    const next = selectedIds.includes(numericId)
+      ? selectedIds.filter((item) => Number(item) !== numericId)
+      : [...selectedIds, numericId];
+    onChange(next);
+  };
+
+  return (
+    <div className="relative">
+      <div
+        className="min-h-10.5 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2"
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <div className="flex flex-wrap items-center gap-1">
+          {selectedUsers.length > 0 ? (
+            selectedUsers.map((u) => (
+              <span
+                key={u.id}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${
+                  tone === "blue" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+                }`}
+              >
+                {formatUserName(u)}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeUser(u.id);
+                  }}
+                >
+                  x
+                </button>
+              </span>
+            ))
+          ) : (
+            <span className="text-sm text-gray-400">{placeholder}</span>
+          )}
+          <span className="ml-auto text-gray-400">▼</span>
+        </div>
+      </div>
+
+      {open && (
+        <div className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-300 bg-white shadow-lg">
+          {users.map((u) => {
+            const checked = selectedIds.includes(Number(u.id));
+            return (
+              <label
+                key={u.id}
+                className={`flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-gray-50 ${checked ? "bg-blue-50" : ""}`}
+                onClick={() => toggleUser(u.id)}
+              >
+                <input type="checkbox" checked={checked} readOnly />
+                <div>
+                  <div className="text-sm font-medium text-gray-700">{formatUserName(u)}</div>
+                  <div className="text-xs text-gray-500">{u.email}</div>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ProjectManagement = () => {
-  const [showEditModal, setShowEditModal] = useState(false);
+  const location = useLocation();
+  const refreshAt = location?.state?.refreshAt;
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [activeTab, setActiveTab] = useState("projects");
+
+  const [projects, setProjects] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [categories, setCategories] = useState([]);
+
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+
   const [selectedProject, setSelectedProject] = useState(null);
-  const [editIndex, setEditIndex] = useState(null);
-  const [assignIndex, setAssignIndex] = useState(null);
-  const [activeTab, setActiveTab] = useState('projects');
-
-  const [teamMembers] = useState([
-    { id: 1, name: 'John Doe', email: 'john@company.com', role: 'Project Manager' },
-    { id: 2, name: 'Jane Smith', email: 'jane@company.com', role: 'Senior Developer' },
-    { id: 3, name: 'Mike Johnson', email: 'mike@company.com', role: 'Designer' },
-    { id: 4, name: 'Sarah Williams', email: 'sarah@company.com', role: 'SEO Specialist' },
-    { id: 5, name: 'David Brown', email: 'david@company.com', role: 'Content Writer' },
-    { id: 6, name: 'Emily Davis', email: 'emily@company.com', role: 'SMM Expert' },
-    { id: 7, name: 'Robert Wilson', email: 'robert@company.com', role: 'Video Editor' },
-    { id: 8, name: 'Lisa Anderson', email: 'lisa@company.com', role: 'UI/UX Designer' },
-  ]);
-
-  const [projects, setProjects] = useState([
-    {
-      id: 1,
-      projectName: 'E-Commerce Website',
-      companyName: 'Tech Solutions Pvt Ltd',
-      projectManager: ['John Doe', 'Jane Smith'],
-      spoc: ['Sarah Williams'],
-      services: ['Website', 'SEO', 'SMM'],
-      serviceDetails: {
-        'Website': {
-          technology: 'WordPress',
-          wpType: 'Theme',
-          themeName: 'Astra',
-          pages: '5'
-        },
-        'SEO': {
-          keywordCount: '50',
-          blogCount: '10'
-        },
-        'SMM': {
-          subServices: ['Reels', 'Poster'],
-          reelsCount: '20',
-          posterCount: '15',
-        }
-      },
-      createdAt: '2026-07-20',
-      assignedTo: ['Emily Davis', 'David Brown'],
-      reportingHead: 'John Doe',
-      status: 'In Progress'
-    },
-    {
-      id: 2,
-      projectName: 'Mobile App Development',
-      companyName: 'Innovate Labs',
-      projectManager: ['Mike Johnson'],
-      spoc: ['Emily Davis', 'Lisa Anderson'],
-      services: ['Web App', 'UI/UX designer'],
-      serviceDetails: {
-        'Web App': {
-          techStack: 'React Native, Node.js',
-          features: 'User Authentication, Push Notifications, Payment Integration'
-        },
-        'UI/UX designer': {}
-      },
-      createdAt: '2026-07-15',
-      assignedTo: ['Robert Wilson'],
-      reportingHead: 'Mike Johnson',
-      status: 'Completed'
-    },
-    {
-      id: 3,
-      projectName: 'Branding Campaign',
-      companyName: 'Creative Agency',
-      projectManager: ['Jane Smith'],
-      spoc: ['David Brown'],
-      services: ['Branding Logo', 'Brochure', 'Social Media Designs'],
-      serviceDetails: {},
-      createdAt: '2026-07-10',
-      assignedTo: ['Lisa Anderson'],
-      reportingHead: 'Jane Smith',
-      status: 'Pending'
-    },
-    {
-      id: 4,
-      projectName: 'Video Production',
-      companyName: 'Media House',
-      projectManager: ['Robert Wilson'],
-      spoc: ['Mike Johnson'],
-      services: ['Videography', 'Video Editing', 'Video Production'],
-      serviceDetails: {},
-      createdAt: '2026-07-05',
-      assignedTo: [],
-      reportingHead: 'Robert Wilson',
-      status: 'In Progress'
-    }
-  ]);
-
-  const [formData, setFormData] = useState({
-    projectName: '',
-    companyName: '',
-    projectManager: [],
-    spoc: [],
-    services: [],
-  });
-
+  const [editForm, setEditForm] = useState(EMPTY_EDIT_FORM);
   const [serviceDetails, setServiceDetails] = useState({});
-  const [showManagerDropdown, setShowManagerDropdown] = useState(false);
-  const [showSpocDropdown, setShowSpocDropdown] = useState(false);
-  const [showAssignDropdown, setShowAssignDropdown] = useState(false);
-  const [assignData, setAssignData] = useState({
-    assignedTo: [],
-    reportingHead: '',
-  });
+  const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const userMap = useMemo(() => {
+    const map = new Map();
+    users.forEach((u) => map.set(Number(u.id), u));
+    return map;
+  }, [users]);
 
-  const toggleManagerSelection = (member) => {
-    setFormData(prev => {
-      const current = prev.projectManager || [];
-      if (current.includes(member)) {
-        return { ...prev, projectManager: current.filter(m => m !== member) };
-      } else {
-        return { ...prev, projectManager: [...current, member] };
-      }
-    });
-  };
-
-  const toggleSpocSelection = (member) => {
-    setFormData(prev => {
-      const current = prev.spoc || [];
-      if (current.includes(member)) {
-        return { ...prev, spoc: current.filter(m => m !== member) };
-      } else {
-        return { ...prev, spoc: [...current, member] };
-      }
-    });
-  };
-
-  const toggleAssignSelection = (member) => {
-    setAssignData(prev => {
-      const current = prev.assignedTo || [];
-      if (current.includes(member)) {
-        return { ...prev, assignedTo: current.filter(m => m !== member) };
-      } else {
-        return { ...prev, assignedTo: [...current, member] };
-      }
-    });
-  };
-
-  const removeManager = (member) => {
-    setFormData(prev => ({
-      ...prev,
-      projectManager: prev.projectManager.filter(m => m !== member)
-    }));
-  };
-
-  const removeSpoc = (member) => {
-    setFormData(prev => ({
-      ...prev,
-      spoc: prev.spoc.filter(m => m !== member)
-    }));
-  };
-
-  const removeAssign = (member) => {
-    setAssignData(prev => ({
-      ...prev,
-      assignedTo: prev.assignedTo.filter(m => m !== member)
-    }));
-  };
-
-  const handleServiceToggle = (service) => {
-    setFormData(prev => {
-      const currentServices = prev.services || [];
-      if (currentServices.includes(service)) {
-        const newServices = currentServices.filter(s => s !== service);
-        setServiceDetails(prevDetails => {
-          const newDetails = { ...prevDetails };
-          delete newDetails[service];
-          return newDetails;
+  const serviceMap = useMemo(() => {
+    const map = new Map();
+    categories.forEach((category) => {
+      const services = category.services || category.Services || [];
+      services.forEach((service) => {
+        map.set(Number(service.id), {
+          ...service,
+          categoryName: category.name
         });
-        return { ...prev, services: newServices };
-      } else {
-        return { ...prev, services: [...currentServices, service] };
-      }
+      });
     });
-  };
+    return map;
+  }, [categories]);
 
-  const handleServiceDetailChange = (service, field, value) => {
-    setServiceDetails(prev => ({
-      ...prev,
-      [service]: {
-        ...prev[service],
-        [field]: value
-      }
-    }));
-  };
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [projectRes, userRes, categoryRes] = await Promise.allSettled([
+        projectOnboardService.list(),
+        userManagementService.getUsers(),
+        leadService.getCategoriesWithServices()
+      ]);
 
-  const handlePlatformToggle = (service, platform) => {
-    setServiceDetails(prev => {
-      const current = prev[service] || {};
-      const currentPlatforms = current.platforms || [];
-      let newPlatforms;
-      if (currentPlatforms.includes(platform)) {
-        newPlatforms = currentPlatforms.filter(p => p !== platform);
+      if (projectRes.status === "fulfilled") {
+        setProjects(projectRes.value?.data || []);
       } else {
-        newPlatforms = [...currentPlatforms, platform];
+        setProjects([]);
+        toast.error(projectRes.reason?.message || "Failed to load projects.");
       }
-      return {
-        ...prev,
-        [service]: {
-          ...current,
-          platforms: newPlatforms
-        }
-      };
-    });
-  };
 
-  const handleSubServiceToggle = (service, subService) => {
-    setServiceDetails(prev => {
-      const current = prev[service] || {};
-      const currentSubs = current.subServices || [];
-      let newSubs;
-      if (currentSubs.includes(subService)) {
-        newSubs = currentSubs.filter(s => s !== subService);
+      if (userRes.status === "fulfilled") {
+        setUsers(userRes.value?.data || []);
       } else {
-        newSubs = [...currentSubs, subService];
+        setUsers([]);
       }
-      return {
-        ...prev,
-        [service]: {
-          ...current,
-          subServices: newSubs
-        }
-      };
-    });
-  };
 
-  const renderServiceFields = (service, isView = false) => {
-    const details = isView ? selectedProject?.serviceDetails?.[service] || {} : serviceDetails[service] || {};
-    
-    if (service === 'Website') {
-      return (
-        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Technology</label>
-            <div className="grid grid-cols-3 gap-1">
-              {['WordPress', 'Shopify', 'Custom'].map(tech => (
-                <div key={tech} className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium text-center ${
-                  details.technology === tech
-                    ? 'border-blue-600 bg-blue-100 text-blue-700'
-                    : 'border-gray-300 bg-gray-50 text-gray-500'
-                }`}>
-                  {tech}
-                </div>
-              ))}
-            </div>
-          </div>
-          {details.technology === 'WordPress' && details.wpType && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                <div className="grid grid-cols-2 gap-1">
-                  <div className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium text-center ${
-                    details.wpType === 'Theme'
-                      ? 'border-blue-600 bg-blue-100 text-blue-700'
-                      : 'border-gray-300 bg-gray-50 text-gray-500'
-                  }`}>
-                    Theme
-                  </div>
-                  <div className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium text-center ${
-                    details.wpType === 'Custom'
-                      ? 'border-blue-600 bg-blue-100 text-blue-700'
-                      : 'border-gray-300 bg-gray-50 text-gray-500'
-                  }`}>
-                    Custom
-                  </div>
-                </div>
-              </div>
-              {details.wpType === 'Theme' && details.themeName && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Theme Name</label>
-                  <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm">{details.themeName}</div>
-                </div>
-              )}
-              {details.wpType === 'Custom' && details.customDetails && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customization Details</label>
-                  <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm whitespace-pre-wrap">{details.customDetails}</div>
-                </div>
-              )}
-            </>
-          )}
-          {details.technology === 'Shopify' && details.shopifyType && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                <div className="grid grid-cols-2 gap-1">
-                  <div className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium text-center ${
-                    details.shopifyType === 'Theme'
-                      ? 'border-blue-600 bg-blue-100 text-blue-700'
-                      : 'border-gray-300 bg-gray-50 text-gray-500'
-                  }`}>
-                    Theme
-                  </div>
-                  <div className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium text-center ${
-                    details.shopifyType === 'Custom'
-                      ? 'border-blue-600 bg-blue-100 text-blue-700'
-                      : 'border-gray-300 bg-gray-50 text-gray-500'
-                  }`}>
-                    Custom
-                  </div>
-                </div>
-              </div>
-              {details.shopifyType === 'Theme' && details.shopifyThemeName && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Theme Name</label>
-                  <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm">{details.shopifyThemeName}</div>
-                </div>
-              )}
-              {details.shopifyType === 'Custom' && details.shopifyCustomDetails && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customization Details</label>
-                  <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm whitespace-pre-wrap">{details.shopifyCustomDetails}</div>
-                </div>
-              )}
-            </>
-          )}
-          {details.technology === 'Custom' && (
-            <>
-              {details.techStack && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Technology Stack</label>
-                  <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm">{details.techStack}</div>
-                </div>
-              )}
-              {details.customRequirements && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Project Requirements</label>
-                  <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm whitespace-pre-wrap">{details.customRequirements}</div>
-                </div>
-              )}
-            </>
-          )}
-          {details.pages && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Number of Pages</label>
-              <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm">{details.pages}</div>
-            </div>
-          )}
-        </div>
-      );
+      if (categoryRes.status === "fulfilled") {
+        setCategories(categoryRes.value?.data || []);
+      } else {
+        setCategories([]);
+      }
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    if (service === 'SEO') {
-      return (
-        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Keyword Count</label>
-              <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm">{details.keywordCount || '0'}</div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Blog Count</label>
-              <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm">{details.blogCount || '0'}</div>
-            </div>
-          </div>
-        </div>
-      );
-    }
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-    if (service === 'SMM') {
-      const subServices = details.subServices || [];
-      return (
-        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Selected Services</label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className={`p-2 rounded-lg border-2 ${subServices.includes('Reels') ? 'border-blue-600 bg-blue-100' : 'border-gray-300 bg-gray-50'}`}>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-700 text-sm">Reels</span>
-                  {subServices.includes('Reels') && <span className="text-xs text-blue-600">✓</span>}
-                </div>
-                {subServices.includes('Reels') && details.reelsCount && (
-                  <div className="mt-1 text-sm text-gray-600">Count: {details.reelsCount}</div>
-                )}
-              </div>
-              <div className={`p-2 rounded-lg border-2 ${subServices.includes('Poster') ? 'border-blue-600 bg-blue-100' : 'border-gray-300 bg-gray-50'}`}>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-700 text-sm">Poster</span>
-                  {subServices.includes('Poster') && <span className="text-xs text-blue-600">✓</span>}
-                </div>
-                {subServices.includes('Poster') && details.posterCount && (
-                  <div className="mt-1 text-sm text-gray-600">Count: {details.posterCount}</div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
+  useEffect(() => {
+    if (!refreshAt) return;
+    fetchData();
+  }, [refreshAt, fetchData]);
 
-    if (service === 'Ads') {
-      const platforms = details.platforms || [];
-      return (
-        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label>
-            <div className="flex flex-wrap gap-1">
-              {['Google', 'Meta', 'LinkedIn'].map(platform => (
-                <div key={platform} className={`px-3 py-1.5 rounded-lg border-2 text-xs font-medium ${
-                  platforms.includes(platform)
-                    ? 'border-blue-600 bg-blue-100 text-blue-700'
-                    : 'border-gray-300 bg-gray-50 text-gray-500'
-                }`}>
-                  {platform} {platforms.includes(platform) && '✓'}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
+  const assignedProjects = useMemo(
+    () => projects.filter((p) => Array.isArray(p.assignedToIds) && p.assignedToIds.length > 0),
+    [projects]
+  );
 
-    if (service === 'Web App') {
-      return (
-        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          {details.techStack && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Technology Stack</label>
-              <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm">{details.techStack}</div>
-            </div>
-          )}
-          {details.features && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Features</label>
-              <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm whitespace-pre-wrap">{details.features}</div>
-            </div>
-          )}
-        </div>
-      );
-    }
+  const getUserNames = (ids = []) =>
+    (Array.isArray(ids) ? ids : [])
+      .map((id) => userMap.get(Number(id)))
+      .filter(Boolean)
+      .map((u) => formatUserName(u));
 
-    return null;
-  };
+  const getServiceNames = (ids = []) =>
+    (Array.isArray(ids) ? ids : [])
+      .map((id) => serviceMap.get(Number(id))?.name)
+      .filter(Boolean);
 
-  const renderServiceFieldsEdit = (service) => {
-    const details = serviceDetails[service] || {};
-    
-    if (service === 'Website') {
-      return (
-        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Technology <span className="text-red-500">*</span></label>
-            <div className="grid grid-cols-3 gap-1">
-              {['WordPress', 'Shopify', 'Custom'].map(tech => (
-                <button
-                  key={tech}
-                  type="button"
-                  onClick={() => handleServiceDetailChange(service, 'technology', tech)}
-                  className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
-                    details.technology === tech
-                      ? 'border-blue-600 bg-blue-100 text-blue-700 shadow-md'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                  }`}
-                >
-                  {tech}
-                </button>
-              ))}
-            </div>
-          </div>
-          {details.technology === 'WordPress' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type <span className="text-red-500">*</span></label>
-                <div className="grid grid-cols-2 gap-1">
-                  {['Theme', 'Custom'].map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => handleServiceDetailChange(service, 'wpType', type)}
-                      className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
-                        details.wpType === type
-                          ? 'border-blue-600 bg-blue-100 text-blue-700 shadow-md'
-                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {details.wpType === 'Theme' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Theme Name <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={details.themeName || ''}
-                    onChange={(e) => handleServiceDetailChange(service, 'themeName', e.target.value)}
-                    placeholder="Enter theme name"
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              )}
-              {details.wpType === 'Custom' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customization Details <span className="text-red-500">*</span></label>
-                  <textarea
-                    value={details.customDetails || ''}
-                    onChange={(e) => handleServiceDetailChange(service, 'customDetails', e.target.value)}
-                    placeholder="Describe custom features..."
-                    rows="2"
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              )}
-            </>
-          )}
-          {details.technology === 'Shopify' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type <span className="text-red-500">*</span></label>
-                <div className="grid grid-cols-2 gap-1">
-                  {['Theme', 'Custom'].map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => handleServiceDetailChange(service, 'shopifyType', type)}
-                      className={`px-2 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
-                        details.shopifyType === type
-                          ? 'border-blue-600 bg-blue-100 text-blue-700 shadow-md'
-                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {details.shopifyType === 'Theme' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Theme Name <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={details.shopifyThemeName || ''}
-                    onChange={(e) => handleServiceDetailChange(service, 'shopifyThemeName', e.target.value)}
-                    placeholder="Enter theme name"
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              )}
-              {details.shopifyType === 'Custom' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customization Details <span className="text-red-500">*</span></label>
-                  <textarea
-                    value={details.shopifyCustomDetails || ''}
-                    onChange={(e) => handleServiceDetailChange(service, 'shopifyCustomDetails', e.target.value)}
-                    placeholder="Describe custom features..."
-                    rows="2"
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              )}
-            </>
-          )}
-          {details.technology === 'Custom' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tech Stack <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={details.techStack || ''}
-                  onChange={(e) => handleServiceDetailChange(service, 'techStack', e.target.value)}
-                  placeholder="e.g., React + Node.js"
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Requirements <span className="text-red-500">*</span></label>
-                <textarea
-                  value={details.customRequirements || ''}
-                  onChange={(e) => handleServiceDetailChange(service, 'customRequirements', e.target.value)}
-                  placeholder="Describe requirements..."
-                  rows="2"
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-            </>
-          )}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Number of Pages <span className="text-red-500">*</span></label>
-            <input
-              type="number"
-              value={details.pages || ''}
-              onChange={(e) => handleServiceDetailChange(service, 'pages', e.target.value)}
-              placeholder="Enter pages"
-              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
-          </div>
-        </div>
-      );
-    }
-
-    if (service === 'SEO') {
-      return (
-        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Keyword Count <span className="text-red-500">*</span></label>
-              <input
-                type="number"
-                value={details.keywordCount || ''}
-                onChange={(e) => handleServiceDetailChange(service, 'keywordCount', e.target.value)}
-                placeholder="Keywords"
-                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Blog Count <span className="text-red-500">*</span></label>
-              <input
-                type="number"
-                value={details.blogCount || ''}
-                onChange={(e) => handleServiceDetailChange(service, 'blogCount', e.target.value)}
-                placeholder="Blogs"
-                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (service === 'SMM') {
-      const subServices = details.subServices || [];
-      return (
-        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Services <span className="text-red-500">*</span></label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className={`p-2 rounded-lg border-2 transition-all ${subServices.includes('Reels') ? 'border-blue-600 bg-blue-100' : 'border-gray-300 bg-white'}`}>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={subServices.includes('Reels')}
-                    onChange={() => handleSubServiceToggle(service, 'Reels')}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="font-medium text-gray-700 text-sm">Reels</span>
-                </label>
-                {subServices.includes('Reels') && (
-                  <div className="mt-2">
-                    <input
-                      type="number"
-                      value={details.reelsCount || ''}
-                      onChange={(e) => handleServiceDetailChange(service, 'reelsCount', e.target.value)}
-                      placeholder="Count"
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className={`p-2 rounded-lg border-2 transition-all ${subServices.includes('Poster') ? 'border-blue-600 bg-blue-100' : 'border-gray-300 bg-white'}`}>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={subServices.includes('Poster')}
-                    onChange={() => handleSubServiceToggle(service, 'Poster')}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="font-medium text-gray-700 text-sm">Poster</span>
-                </label>
-                {subServices.includes('Poster') && (
-                  <div className="mt-2">
-                    <input
-                      type="number"
-                      value={details.posterCount || ''}
-                      onChange={(e) => handleServiceDetailChange(service, 'posterCount', e.target.value)}
-                      placeholder="Count"
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (service === 'Ads') {
-      const platforms = details.platforms || [];
-      return (
-        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Platform <span className="text-red-500">*</span></label>
-            <div className="flex flex-wrap gap-1">
-              {['Google', 'Meta', 'LinkedIn'].map(platform => (
-                <button
-                  key={platform}
-                  type="button"
-                  onClick={() => handlePlatformToggle(service, platform)}
-                  className={`px-3 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
-                    platforms.includes(platform)
-                      ? 'border-blue-600 bg-blue-100 text-blue-700 shadow-md'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
-                >
-                  {platform}
-                </button>
-              ))}
-            </div>
-            {platforms.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {platforms.map(platform => (
-                  <span key={platform} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                    {platform} ✓
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    if (service === 'Web App') {
-      return (
-        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tech Stack <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              value={details.techStack || ''}
-              onChange={(e) => handleServiceDetailChange(service, 'techStack', e.target.value)}
-              placeholder="e.g., React, Node.js"
-              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Features</label>
-            <textarea
-              value={details.features || ''}
-              onChange={(e) => handleServiceDetailChange(service, 'features', e.target.value)}
-              placeholder="List key features..."
-              rows="2"
-              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
-          </div>
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  const handleView = (project) => {
+  const openViewModal = (project) => {
     setSelectedProject(project);
     setShowViewModal(true);
   };
 
-  const handleEdit = (project, index) => {
+  const openEditModal = (project) => {
     setSelectedProject(project);
-    setEditIndex(index);
-    setFormData({
-      projectName: project.projectName,
-      companyName: project.companyName,
-      projectManager: project.projectManager || [],
-      spoc: project.spoc || [],
-      services: project.services || [],
+    setEditForm({
+      projectName: project.projectName || "",
+      companyName: project.companyName || "",
+      projectManagerIds: Array.isArray(project.projectManagerIds) ? project.projectManagerIds.map(Number) : [],
+      spocIds: Array.isArray(project.spocIds) ? project.spocIds.map(Number) : [],
+      serviceIds: Array.isArray(project.serviceIds) ? project.serviceIds.map(Number) : []
     });
     setServiceDetails(project.serviceDetails || {});
     setShowEditModal(true);
   };
 
-  const handleAssign = (project, index) => {
+  const openAssignModal = (project) => {
+    const fallbackReportingHeadId = Array.isArray(project.projectManagerIds) && project.projectManagerIds.length
+      ? Number(project.projectManagerIds[0])
+      : "";
+
     setSelectedProject(project);
-    setAssignIndex(index);
-    setAssignData({
-      assignedTo: project.assignedTo || [],
-      reportingHead: project.reportingHead || '',
+    setAssignForm({
+      assignedToIds: Array.isArray(project.assignedToIds) ? project.assignedToIds.map(Number) : [],
+      reportingHeadId: project.reportingHeadId ? Number(project.reportingHeadId) : fallbackReportingHeadId,
+      status: project.status || "In Progress"
     });
     setShowAssignModal(true);
   };
 
-  const handleAssignSubmit = (e) => {
-    e.preventDefault();
-    const updatedProjects = [...projects];
-    updatedProjects[assignIndex] = {
-      ...updatedProjects[assignIndex],
-      assignedTo: assignData.assignedTo,
-      reportingHead: assignData.reportingHead,
-    };
-    setProjects(updatedProjects);
+  const closeAllModals = () => {
+    setShowViewModal(false);
+    setShowEditModal(false);
     setShowAssignModal(false);
     setSelectedProject(null);
-    setAssignIndex(null);
+    setEditForm(EMPTY_EDIT_FORM);
+    setServiceDetails({});
+    setAssignForm(EMPTY_ASSIGN_FORM);
   };
 
-  const handleUpdate = (e) => {
+  const updateEditField = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const toggleService = (serviceId) => {
+    const id = Number(serviceId);
+    setEditForm((prev) => {
+      const current = prev.serviceIds || [];
+      if (current.includes(id)) {
+        setServiceDetails((prevDetails) => {
+          const copy = { ...prevDetails };
+          delete copy[id];
+          return copy;
+        });
+        return { ...prev, serviceIds: current.filter((item) => item !== id) };
+      }
+      return { ...prev, serviceIds: [...current, id] };
+    });
+  };
+
+  const updateServiceDetail = (serviceId, field, value) => {
+    setServiceDetails((prev) => ({
+      ...prev,
+      [serviceId]: {
+        ...prev[serviceId],
+        [field]: value
+      }
+    }));
+  };
+
+  const saveProjectUpdate = async (e) => {
     e.preventDefault();
-    const updatedProjects = [...projects];
-    updatedProjects[editIndex] = {
-      ...updatedProjects[editIndex],
-      projectName: formData.projectName,
-      companyName: formData.companyName,
-      projectManager: formData.projectManager,
-      spoc: formData.spoc,
-      services: formData.services,
-      serviceDetails: serviceDetails,
-    };
-    setProjects(updatedProjects);
-    setShowEditModal(false);
-    setSelectedProject(null);
-    setEditIndex(null);
-  };
+    if (!selectedProject) return;
 
-  const handleDelete = (index) => {
-    if (window.confirm('Are you sure you want to delete this project?')) {
-      setProjects(projects.filter((_, i) => i !== index));
+    if (!editForm.projectName.trim()) return toast.error("Project name is required.");
+    if (!editForm.companyName.trim()) return toast.error("Company name is required.");
+    if (!editForm.projectManagerIds.length) return toast.error("Select at least one project manager.");
+    if (!editForm.spocIds.length) return toast.error("Select at least one SPOC.");
+    if (!editForm.serviceIds.length) return toast.error("Select at least one service.");
+
+    try {
+      setSaving(true);
+      await projectOnboardService.update(selectedProject.id, {
+        projectName: editForm.projectName.trim(),
+        companyName: editForm.companyName.trim(),
+        projectManagerIds: editForm.projectManagerIds,
+        spocIds: editForm.spocIds,
+        serviceIds: editForm.serviceIds,
+        serviceDetails
+      });
+
+      toast.success("Project updated successfully.");
+      closeAllModals();
+      fetchData();
+    } catch (error) {
+      toast.error(error.message || "Failed to update project.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  // Custom Dropdown Component for Project Manager
-  const ManagerDropdown = ({ value, onChange, onRemove }) => (
-    <div className="relative">
-      <div 
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-h-[42px] flex items-center flex-wrap gap-1"
-        onClick={() => setShowManagerDropdown(!showManagerDropdown)}
-      >
-        {value && value.length > 0 ? (
-          value.map((name, index) => (
-            <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-              {name}
+  const saveProjectAssign = async (e) => {
+    e.preventDefault();
+    if (!selectedProject) return;
+
+    if (!assignForm.assignedToIds.length) return toast.error("Select at least one assignee.");
+    try {
+      setSaving(true);
+      await projectOnboardService.assign(selectedProject.id, {
+        assignedToIds: assignForm.assignedToIds,
+        reportingHeadId: assignForm.reportingHeadId ? Number(assignForm.reportingHeadId) : null,
+        status: assignForm.status || "In Progress"
+      });
+
+      toast.success("Project assigned successfully.");
+      closeAllModals();
+      fetchData();
+    } catch (error) {
+      toast.error(error.message || "Failed to assign project.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderProjectRows = (list) => {
+    if (!list.length) {
+      return (
+        <tr>
+          <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+            No projects found
+          </td>
+        </tr>
+      );
+    }
+
+    return list.map((project) => {
+      const managerNames = getUserNames(project.projectManagerIds);
+      const serviceNames = getServiceNames(project.serviceIds);
+
+      return (
+        <tr key={project.id} className="transition-colors hover:bg-gray-50">
+          <td className="px-4 py-3">
+            <p className="text-sm font-medium text-gray-900">{project.projectName}</p>
+          </td>
+          <td className="px-4 py-3">
+            <p className="text-sm text-gray-700">{project.companyName}</p>
+          </td>
+          <td className="px-4 py-3">
+            <div className="flex flex-wrap gap-1">
+              {managerNames.length ? (
+                managerNames.map((name) => (
+                  <span key={`${project.id}-${name}`} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                    {name}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-gray-400">-</span>
+              )}
+            </div>
+          </td>
+          <td className="px-4 py-3">
+            <div className="flex flex-wrap gap-1">
+              {serviceNames.length ? (
+                serviceNames.map((serviceName) => (
+                  <span key={`${project.id}-${serviceName}`} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
+                    {serviceName}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-gray-400">-</span>
+              )}
+            </div>
+          </td>
+          <td className="px-4 py-3">
+            <p className="text-sm text-gray-700">{formatDate(project.createdAt)}</p>
+          </td>
+          <td className="px-4 py-3">
+            <div className="flex gap-2">
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(name);
-                }}
-                className="hover:text-blue-900"
+                onClick={() => openViewModal(project)}
+                className="rounded-md bg-green-100 px-2 py-1 text-xs text-green-700 transition-colors hover:bg-green-200"
               >
-                ×
+                View
               </button>
-            </span>
-          ))
-        ) : (
-          <span className="text-gray-400 text-sm">Select Project Manager</span>
-        )}
-        <span className="ml-auto text-gray-400">▼</span>
-      </div>
-      
-      {showManagerDropdown && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-          {teamMembers.map((member) => (
-            <label
-              key={member.id}
-              className={`flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer ${
-                value && value.includes(member.name) ? 'bg-blue-50' : ''
-              }`}
-              onClick={() => onChange(member.name)}
-            >
-              <input
-                type="checkbox"
-                checked={value && value.includes(member.name)}
-                onChange={() => {}}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <div>
-                <div className="text-sm font-medium text-gray-700">{member.name}</div>
-                <div className="text-xs text-gray-500">{member.role}</div>
-              </div>
-            </label>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  // Custom Dropdown Component for SPOC
-  const SpocDropdown = ({ value, onChange, onRemove }) => (
-    <div className="relative">
-      <div 
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-h-[42px] flex items-center flex-wrap gap-1"
-        onClick={() => setShowSpocDropdown(!showSpocDropdown)}
-      >
-        {value && value.length > 0 ? (
-          value.map((name, index) => (
-            <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-              {name}
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(name);
-                }}
-                className="hover:text-green-900"
+                onClick={() => openEditModal(project)}
+                className="rounded-md bg-orange-200 px-2 py-1 text-xs text-orange-700 transition-colors hover:bg-orange-300"
               >
-                ×
+                Edit
               </button>
-            </span>
-          ))
-        ) : (
-          <span className="text-gray-400 text-sm">Select SPOC</span>
-        )}
-        <span className="ml-auto text-gray-400">▼</span>
-      </div>
-      
-      {showSpocDropdown && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-          {teamMembers.map((member) => (
-            <label
-              key={member.id}
-              className={`flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer ${
-                value && value.includes(member.name) ? 'bg-green-50' : ''
-              }`}
-              onClick={() => onChange(member.name)}
-            >
-              <input
-                type="checkbox"
-                checked={value && value.includes(member.name)}
-                onChange={() => {}}
-                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-              />
-              <div>
-                <div className="text-sm font-medium text-gray-700">{member.name}</div>
-                <div className="text-xs text-gray-500">{member.role}</div>
-              </div>
-            </label>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  // Custom Dropdown Component for Assign
-  const AssignDropdown = ({ value, onChange, onRemove }) => (
-    <div className="relative">
-      <div 
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-h-[42px] flex items-center flex-wrap gap-1"
-        onClick={() => setShowAssignDropdown(!showAssignDropdown)}
-      >
-        {value && value.length > 0 ? (
-          value.map((name, index) => (
-            <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-              {name}
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(name);
-                }}
-                className="hover:text-purple-900"
+                onClick={() => openAssignModal(project)}
+                className="rounded-md bg-violet-200 px-2 py-1 text-xs text-violet-700 transition-colors hover:bg-violet-300"
               >
-                ×
+                Assign
               </button>
-            </span>
-          ))
-        ) : (
-          <span className="text-gray-400 text-sm">Select Team Members</span>
-        )}
-        <span className="ml-auto text-gray-400">▼</span>
+            </div>
+          </td>
+        </tr>
+      );
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
+      <h1 className="mb-4 text-3xl font-semibold text-gray-900">Project details</h1>
+
+      <div className="mb-4 flex gap-4 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab("projects")}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "projects"
+              ? "border-b-2 border-gray-800 text-gray-900"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Projects
+        </button>
+        <button
+          onClick={() => setActiveTab("tasks")}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "tasks"
+              ? "border-b-2 border-gray-800 text-gray-900"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          My Tasks
+          <span className="ml-1 rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">{assignedProjects.length}</span>
+        </button>
       </div>
-      
-      {showAssignDropdown && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-          {teamMembers.map((member) => (
-            <label
-              key={member.id}
-              className={`flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer ${
-                value && value.includes(member.name) ? 'bg-purple-50' : ''
-              }`}
-              onClick={() => onChange(member.name)}
-            >
-              <input
-                type="checkbox"
-                checked={value && value.includes(member.name)}
-                onChange={() => {}}
-                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-              />
-              <div>
-                <div className="text-sm font-medium text-gray-700">{member.name}</div>
-                <div className="text-xs text-gray-500">{member.role}</div>
-              </div>
-            </label>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 
-  // Tasks Tab - Shows assigned projects only
-  const TasksTab = () => {
-    const assignedProjects = projects.filter(p => p.assignedTo && p.assignedTo.length > 0);
-
-    return (
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="overflow-hidden rounded-xl bg-white shadow-lg">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reporting Head</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SPOC</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Project</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Company</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Project Manager</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Services</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Created</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Action</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {assignedProjects.length > 0 ? (
-                assignedProjects.map((project, index) => (
-                  <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-gray-900">{project.projectName}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {project.assignedTo && project.assignedTo.map((name, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-gray-700">{project.reportingHead || 'N/A'}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {project.spoc && project.spoc.map((name, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {project.services && project.services.map((service, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">
-                            {service}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        project.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                        project.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {project.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleView(project)}
-                          className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md hover:bg-green-200 transition-colors"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleEdit(project, index)}
-                          className="px-2 py-1 bg-orange-200 text-orange-700 text-xs rounded-md hover:bg-orange-300 transition-colors"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
-                    No assigned projects found
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                    Loading projects...
                   </td>
                 </tr>
+              ) : activeTab === "projects" ? (
+                renderProjectRows(projects)
+              ) : (
+                renderProjectRows(assignedProjects)
               )}
             </tbody>
           </table>
         </div>
       </div>
-    );
-  };
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-4 px-4 sm:px-6 lg:px-8">
-      <div className="">
-        {/* Header */}
-        {/* <div className="mb-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">📊 Project Management</h1>
-            <p className="text-sm text-gray-500">View and manage all projects</p>
-          </div>
-        </div> */}
-
-        {/* Tabs */}
-        <div className="flex gap-4 mb-4 border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('projects')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'projects'
-                ? 'border-b-2 border-gray-800 text-gray-900'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Projects
-          </button>
-          <button
-            onClick={() => setActiveTab('tasks')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'tasks'
-                ? 'border-b-2 border-gray-800 text-gray-900'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            My Tasks
-            <span className="ml-1 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
-              {projects.filter(p => p.assignedTo && p.assignedTo.length > 0).length}
-            </span>
-          </button>
-        </div>
-
-        {/* Projects Tab */}
-        {activeTab === 'projects' && (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project Manager</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {projects.map((project, index) => (
-                    <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-gray-900">{project.projectName}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-gray-700">{project.companyName}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {project.projectManager && project.projectManager.map((name, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                              {name}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {project.services && project.services.map((service, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">
-                              {service}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-gray-700">{project.createdAt}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleView(project)}
-                            className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md hover:bg-green-200 transition-colors"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleEdit(project, index)}
-                            className="px-2 py-1 bg-orange-200 text-orange-700 text-xs rounded-md hover:bg-orange-300 transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleAssign(project, index)}
-                            className="px-2 py-1 bg-violet-200 text-violet-700 text-xs rounded-md hover:bg-violet-300 transition-colors"
-                          >
-                            Assign
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Tasks Tab */}
-        {activeTab === 'tasks' && <TasksTab />}
-      </div>
-
-      {/* View Modal */}
       {showViewModal && selectedProject && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div 
-            className="fixed inset-0 bg-black/50 transition-opacity"
-            onClick={() => setShowViewModal(false)}
-          ></div>
+          <div className="fixed inset-0 bg-black/50" onClick={closeAllModals} />
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl z-10">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-800">📋 Project Details</h2>
-                  <button
-                    onClick={() => setShowViewModal(false)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+            <div className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white shadow-xl">
+              <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-xl border-b border-gray-200 bg-white px-6 py-4">
+                <h2 className="text-xl font-semibold text-gray-800">Project Details</h2>
+                <button onClick={closeAllModals} className="text-gray-500 hover:text-gray-700">Close</button>
               </div>
+
               <div className="px-6 py-6">
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label className="text-sm font-medium text-gray-500">Project Name</label>
-                    <p className="text-gray-900 font-medium">{selectedProject.projectName}</p>
+                    <p className="text-gray-900">{selectedProject.projectName}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Company Name</label>
@@ -1240,90 +494,83 @@ const ProjectManagement = () => {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Project Manager</label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {selectedProject.projectManager && selectedProject.projectManager.map((name, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                          {name}
-                        </span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {getUserNames(selectedProject.projectManagerIds).map((name) => (
+                        <span key={name} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">{name}</span>
                       ))}
                     </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">SPOC</label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {selectedProject.spoc && selectedProject.spoc.map((name, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                          {name}
-                        </span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {getUserNames(selectedProject.spocIds).map((name) => (
+                        <span key={name} className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">{name}</span>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Created Date</label>
-                    <p className="text-gray-900">{selectedProject.createdAt}</p>
+                    <label className="text-sm font-medium text-gray-500">Created</label>
+                    <p className="text-gray-900">{formatDate(selectedProject.createdAt)}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Reporting Head</label>
-                    <p className="text-gray-900">{selectedProject.reportingHead || 'N/A'}</p>
-                  </div>
-                  {selectedProject.assignedTo && selectedProject.assignedTo.length > 0 && (
-                    <div className="col-span-2">
-                      <label className="text-sm font-medium text-gray-500">Assigned To</label>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {selectedProject.assignedTo.map((name, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   <div>
                     <label className="text-sm font-medium text-gray-500">Status</label>
-                    <p className="mt-1">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        selectedProject.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                        selectedProject.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {selectedProject.status}
-                      </span>
-                    </p>
+                    <p className="text-gray-900">{selectedProject.status || "Pending"}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-gray-500">Assigned To</label>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {getUserNames(selectedProject.assignedToIds).length ? (
+                        getUserNames(selectedProject.assignedToIds).map((name) => (
+                          <span key={name} className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">{name}</span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-gray-400">Not assigned</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <h3 className="text-md font-semibold text-gray-800 mb-3">🛠️ Services</h3>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {selectedProject.services && selectedProject.services.map((service, i) => (
-                    <span key={i} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
-                      {service}
-                    </span>
+                <h3 className="mb-3 text-md font-semibold text-gray-800">Services</h3>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {getServiceNames(selectedProject.serviceIds).map((serviceName) => (
+                    <span key={serviceName} className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700">{serviceName}</span>
                   ))}
                 </div>
 
-                <h3 className="text-md font-semibold text-gray-800 mb-3">📝 Service Details</h3>
-                <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                  {selectedProject.services
-                    .filter(service => ['Website', 'SEO', 'SMM', 'Ads', 'Web App'].includes(service))
-                    .map(service => (
-                      <div key={service} className="border-2 border-gray-200 rounded-lg overflow-hidden">
-                        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                          <h4 className="text-sm font-semibold text-gray-800">{service}</h4>
+                <h3 className="mb-3 text-md font-semibold text-gray-800">Service Details</h3>
+                <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
+                  {(selectedProject.serviceIds || []).map((serviceId) => {
+                    const service = serviceMap.get(Number(serviceId));
+                    if (!service) return null;
+
+                    const serviceName = String(service.name || "");
+                    const serviceKey = serviceName.toLowerCase();
+                    const details = selectedProject.serviceDetails?.[serviceId] || selectedProject.serviceDetails?.[String(serviceId)] || {};
+
+                    if (!DETAIL_ENABLED_NAMES.has(serviceKey)) return null;
+
+                    return (
+                      <div key={`detail-${serviceId}`} className="overflow-hidden rounded-lg border-2 border-gray-200">
+                        <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
+                          <h4 className="text-sm font-semibold text-gray-800">{serviceName}</h4>
                         </div>
                         <div className="p-3">
-                          {renderServiceFields(service, true)}
+                          {Object.keys(details).length ? (
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                              {Object.entries(details).map(([key, value]) => (
+                                <div key={key} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                                  <span className="font-medium">{key}:</span>{" "}
+                                  {Array.isArray(value) ? value.join(", ") : String(value)}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">No details added.</p>
+                          )}
                         </div>
                       </div>
-                    ))}
-                </div>
-
-                <div className="flex justify-end pt-4 mt-4 border-t border-gray-200">
-                  <button
-                    onClick={() => setShowViewModal(false)}
-                    className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm"
-                  >
-                    Close
-                  </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1331,198 +578,239 @@ const ProjectManagement = () => {
         </div>
       )}
 
-      {/* Edit Modal */}
       {showEditModal && selectedProject && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div 
-            className="fixed inset-0 bg-black/50 transition-opacity"
-            onClick={() => {
-              setShowEditModal(false);
-              setSelectedProject(null);
-              setEditIndex(null);
-            }}
-          ></div>
+          <div className="fixed inset-0 bg-black/50" onClick={closeAllModals} />
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl z-10">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-800">✏️ Edit Project</h2>
-                  <button
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setSelectedProject(null);
-                      setEditIndex(null);
-                    }}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+            <div className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white shadow-xl">
+              <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-xl border-b border-gray-200 bg-white px-6 py-4">
+                <h2 className="text-xl font-semibold text-gray-800">Edit Project</h2>
+                <button onClick={closeAllModals} className="text-gray-500 hover:text-gray-700">Close</button>
               </div>
+
               <div className="px-6 py-6">
-                <form onSubmit={handleUpdate}>
+                <form onSubmit={saveProjectUpdate}>
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Project Name <span className="text-red-500">*</span>
-                        </label>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Project Name</label>
                         <input
                           type="text"
                           name="projectName"
-                          value={formData.projectName}
-                          onChange={handleInputChange}
+                          value={editForm.projectName}
+                          onChange={updateEditField}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2"
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter project name"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Company Name <span className="text-red-500">*</span>
-                        </label>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Company Name</label>
                         <input
                           type="text"
                           name="companyName"
-                          value={formData.companyName}
-                          onChange={handleInputChange}
+                          value={editForm.companyName}
+                          onChange={updateEditField}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2"
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter company name"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        👤 Project Manager <span className="text-red-500">*</span>
-                      </label>
-                      <ManagerDropdown 
-                        value={formData.projectManager}
-                        onChange={toggleManagerSelection}
-                        onRemove={removeManager}
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Project Manager</label>
+                      <MultiUserSelect
+                        users={users}
+                        selectedIds={editForm.projectManagerIds}
+                        onChange={(ids) => setEditForm((prev) => ({ ...prev, projectManagerIds: ids }))}
+                        placeholder="Select Project Manager"
+                        tone="blue"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        📞 SPOC <span className="text-red-500">*</span>
-                      </label>
-                      <SpocDropdown 
-                        value={formData.spoc}
-                        onChange={toggleSpocSelection}
-                        onRemove={removeSpoc}
+                      <label className="mb-1 block text-sm font-medium text-gray-700">SPOC</label>
+                      <MultiUserSelect
+                        users={users}
+                        selectedIds={editForm.spocIds}
+                        onChange={(ids) => setEditForm((prev) => ({ ...prev, spocIds: ids }))}
+                        placeholder="Select SPOC"
+                        tone="green"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">🛠️ Services</label>
-                      <div className="space-y-3">
-                        <div>
-                          <h4 className="text-xs font-medium text-gray-500 mb-1">Digital Marketing</h4>
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1">
-                            {['Website', 'SEO', 'SMM', 'Ads', 'Web App'].map(service => (
-                              <label key={service} className={`flex items-center gap-1 px-2 py-1 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-all text-xs ${
-                                (formData.services || []).includes(service)
-                                  ? 'border-blue-500 bg-blue-50'
-                                  : 'border-gray-200 bg-white'
-                              }`}>
-                                <input
-                                  type="checkbox"
-                                  checked={(formData.services || []).includes(service)}
-                                  onChange={() => handleServiceToggle(service)}
-                                  className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <span className="font-medium text-gray-700">{service}</span>
-                              </label>
-                            ))}
+                      <label className="mb-2 block text-sm font-medium text-gray-700">Services</label>
+                      {categories.map((category) => {
+                        const services = category.services || category.Services || [];
+                        if (!services.length) return null;
+                        return (
+                          <div key={category.id} className="mb-4">
+                            <h4 className="mb-2 text-xs font-medium text-gray-500">{category.name}</h4>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                              {services.map((service) => {
+                                const selected = editForm.serviceIds.includes(Number(service.id));
+                                return (
+                                  <label
+                                    key={service.id}
+                                    className={`flex cursor-pointer items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm ${
+                                      selected ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selected}
+                                      onChange={() => toggleService(service.id)}
+                                    />
+                                    <span className="font-medium text-gray-700">{service.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-
-                        <div>
-                          <h4 className="text-xs font-medium text-gray-500 mb-1">Media</h4>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
-                            {['Videography', 'Video Editing', 'Photography', 'Video Production'].map(service => (
-                              <label key={service} className={`flex items-center gap-1 px-2 py-1 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-all text-xs ${
-                                (formData.services || []).includes(service)
-                                  ? 'border-blue-500 bg-blue-50'
-                                  : 'border-gray-200 bg-white'
-                              }`}>
-                                <input
-                                  type="checkbox"
-                                  checked={(formData.services || []).includes(service)}
-                                  onChange={() => handleServiceToggle(service)}
-                                  className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <span className="font-medium text-gray-700">{service}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <h4 className="text-xs font-medium text-gray-500 mb-1">Design</h4>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1">
-                            {['Branding Logo', 'Brochure', 'Pamphlet', 'Social Media Designs', 'Marking collateral', 'UI/UX designer'].map(service => (
-                              <label key={service} className={`flex items-center gap-1 px-2 py-1 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-all text-xs ${
-                                (formData.services || []).includes(service)
-                                  ? 'border-blue-500 bg-blue-50'
-                                  : 'border-gray-200 bg-white'
-                              }`}>
-                                <input
-                                  type="checkbox"
-                                  checked={(formData.services || []).includes(service)}
-                                  onChange={() => handleServiceToggle(service)}
-                                  className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <span className="font-medium text-gray-700">{service}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })}
                     </div>
 
-                    {formData.services && formData.services.length > 0 && (
+                    {editForm.serviceIds.some((serviceId) => {
+                      const service = serviceMap.get(Number(serviceId));
+                      return DETAIL_ENABLED_NAMES.has(String(service?.name || "").toLowerCase());
+                    }) && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">📝 Service Details</label>
-                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                          {formData.services
-                            .filter(service => ['Website', 'SEO', 'SMM', 'Ads', 'Web App'].includes(service))
-                            .map(service => (
-                              <div key={service} className="border-2 border-gray-200 rounded-lg overflow-hidden">
-                                <div className="bg-gray-50 px-3 py-1.5 border-b border-gray-200">
-                                  <h4 className="text-sm font-semibold text-gray-800">{service}</h4>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">Service Details</label>
+                        <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
+                          {editForm.serviceIds.map((serviceId) => {
+                            const service = serviceMap.get(Number(serviceId));
+                            if (!service) return null;
+
+                            const name = String(service.name || "");
+                            const key = name.toLowerCase();
+                            if (!DETAIL_ENABLED_NAMES.has(key)) return null;
+
+                            const details = serviceDetails[serviceId] || serviceDetails[String(serviceId)] || {};
+
+                            return (
+                              <div key={`edit-${serviceId}`} className="overflow-hidden rounded-lg border-2 border-gray-200">
+                                <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
+                                  <h4 className="text-sm font-semibold text-gray-800">{name}</h4>
                                 </div>
-                                <div className="p-2">
-                                  {renderServiceFieldsEdit(service)}
+                                <div className="space-y-2 p-3">
+                                  {key === "website" && (
+                                    <>
+                                      <input
+                                        type="text"
+                                        value={details.technology || ""}
+                                        onChange={(e) => updateServiceDetail(serviceId, "technology", e.target.value)}
+                                        placeholder="Technology"
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={details.notes || ""}
+                                        onChange={(e) => updateServiceDetail(serviceId, "notes", e.target.value)}
+                                        placeholder="Notes"
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                      />
+                                    </>
+                                  )}
+
+                                  {key === "seo" && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <input
+                                        type="number"
+                                        value={details.keywordCount || ""}
+                                        onChange={(e) => updateServiceDetail(serviceId, "keywordCount", e.target.value)}
+                                        placeholder="Keyword Count"
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                      />
+                                      <input
+                                        type="number"
+                                        value={details.blogCount || ""}
+                                        onChange={(e) => updateServiceDetail(serviceId, "blogCount", e.target.value)}
+                                        placeholder="Blog Count"
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                      />
+                                    </div>
+                                  )}
+
+                                  {key === "smm" && (
+                                    <input
+                                      type="text"
+                                      value={(details.subServices || []).join(",")}
+                                      onChange={(e) =>
+                                        updateServiceDetail(
+                                          serviceId,
+                                          "subServices",
+                                          e.target.value
+                                            .split(",")
+                                            .map((item) => item.trim())
+                                            .filter(Boolean)
+                                        )
+                                      }
+                                      placeholder="Sub services (comma separated)"
+                                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                    />
+                                  )}
+
+                                  {key === "ads" && (
+                                    <input
+                                      type="text"
+                                      value={(details.platforms || []).join(",")}
+                                      onChange={(e) =>
+                                        updateServiceDetail(
+                                          serviceId,
+                                          "platforms",
+                                          e.target.value
+                                            .split(",")
+                                            .map((item) => item.trim())
+                                            .filter(Boolean)
+                                        )
+                                      }
+                                      placeholder="Platforms (comma separated)"
+                                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                    />
+                                  )}
+
+                                  {key === "web app" && (
+                                    <>
+                                      <input
+                                        type="text"
+                                        value={details.techStack || ""}
+                                        onChange={(e) => updateServiceDetail(serviceId, "techStack", e.target.value)}
+                                        placeholder="Tech Stack"
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                      />
+                                      <textarea
+                                        rows={2}
+                                        value={details.features || ""}
+                                        onChange={(e) => updateServiceDetail(serviceId, "features", e.target.value)}
+                                        placeholder="Features"
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                      />
+                                    </>
+                                  )}
                                 </div>
                               </div>
-                            ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200">
+                  <div className="mt-4 flex justify-end gap-3 border-t border-gray-200 pt-4">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowEditModal(false);
-                        setSelectedProject(null);
-                        setEditIndex(null);
-                      }}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                      onClick={closeAllModals}
+                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm"
+                      disabled={saving}
+                      className="rounded-lg bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-900 disabled:opacity-60"
                     >
-                      Update Project
+                      {saving ? "Updating..." : "Update Project"}
                     </button>
                   </div>
                 </form>
@@ -1532,119 +820,84 @@ const ProjectManagement = () => {
         </div>
       )}
 
-      {/* Assign Modal */}
       {showAssignModal && selectedProject && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div 
-            className="fixed inset-0 bg-black/50 transition-opacity"
-            onClick={() => {
-              setShowAssignModal(false);
-              setSelectedProject(null);
-              setAssignIndex(null);
-            }}
-          ></div>
+          <div className="fixed inset-0 bg-black/50" onClick={closeAllModals} />
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl z-10">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-800">👥 Assign Project</h2>
-                  <button
-                    onClick={() => {
-                      setShowAssignModal(false);
-                      setSelectedProject(null);
-                      setAssignIndex(null);
-                    }}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+            <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
+              <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-xl border-b border-gray-200 bg-white px-6 py-4">
+                <h2 className="text-xl font-semibold text-gray-800">Assign Project</h2>
+                <button onClick={closeAllModals} className="text-gray-500 hover:text-gray-700">Close</button>
               </div>
+
               <div className="px-6 py-6">
-                <form onSubmit={handleAssignSubmit}>
+                <form onSubmit={saveProjectAssign}>
                   <div className="space-y-4">
-                    {/* Project Info - Disabled/Read-only */}
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2">📋 Project Information</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-xs font-medium text-gray-500">Project Name</label>
-                          <p className="text-sm font-semibold text-gray-900">{selectedProject.projectName}</p>
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-500">SPOC</label>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {selectedProject.spoc && selectedProject.spoc.map((name, i) => (
-                              <span key={i} className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                                {name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-gray-500">Services</label>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {selectedProject.services && selectedProject.services.map((service, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">
-                              {service}
-                            </span>
-                          ))}
-                        </div>
+                    <div className="rounded-lg bg-gray-50 p-4">
+                      <h3 className="mb-2 text-sm font-semibold text-gray-700">Project Information</h3>
+                      <p className="text-sm font-medium text-gray-900">{selectedProject.projectName}</p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {getServiceNames(selectedProject.serviceIds).map((serviceName) => (
+                          <span key={serviceName} className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-700">{serviceName}</span>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Reporting Head */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Reporting Head <span className="text-red-500">*</span>
-                      </label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Reporting Head</label>
                       <select
-                        value={assignData.reportingHead}
-                        onChange={(e) => setAssignData(prev => ({ ...prev, reportingHead: e.target.value }))}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={assignForm.reportingHeadId}
+                        onChange={(e) => setAssignForm((prev) => ({ ...prev, reportingHeadId: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
                       >
-                        <option value="">Select Reporting Head</option>
-                        {teamMembers.map(member => (
-                          <option key={member.id} value={member.name}>{member.name} - {member.role}</option>
+                        <option value="">Select Reporting Head (Optional)</option>
+                        {users.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {formatUserName(user)}
+                          </option>
                         ))}
                       </select>
                     </div>
 
-                    {/* Assign To - Multiple Select */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Assign To <span className="text-red-500">*</span>
-                      </label>
-                      <AssignDropdown 
-                        value={assignData.assignedTo}
-                        onChange={toggleAssignSelection}
-                        onRemove={removeAssign}
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Assign To</label>
+                      <MultiUserSelect
+                        users={users}
+                        selectedIds={assignForm.assignedToIds}
+                        onChange={(ids) => setAssignForm((prev) => ({ ...prev, assignedToIds: ids }))}
+                        placeholder="Select Team Members"
+                        tone="green"
                       />
-                      <p className="text-xs text-gray-400 mt-1">💡 Select team members to assign this project</p>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                      <select
+                        value={assignForm.status}
+                        onChange={(e) => setAssignForm((prev) => ({ ...prev, status: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                      </select>
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200">
+                  <div className="mt-4 flex justify-end gap-3 border-t border-gray-200 pt-4">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowAssignModal(false);
-                        setSelectedProject(null);
-                        setAssignIndex(null);
-                      }}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                      onClick={closeAllModals}
+                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors text-sm"
+                      disabled={saving}
+                      className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700 disabled:opacity-60"
                     >
-                      Assign Project
+                      {saving ? "Assigning..." : "Assign Project"}
                     </button>
                   </div>
                 </form>

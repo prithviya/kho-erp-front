@@ -17,8 +17,6 @@ export default function Login() {
       });
       if (response.success) {
         setSession({
-          accessToken: response.data.accessToken,
-          refreshToken: response.data.refreshToken,
           user: response.data.user
         });
         toast.success(

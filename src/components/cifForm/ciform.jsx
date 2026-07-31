@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import Logo from '../../assets/kho.webp';
+import employeeService from '../../services/employee.service';
 const ciform = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     // Personal Information
     jobPosition: 'Video Editor',
@@ -35,6 +39,27 @@ const ciform = () => {
     // Consent
     consent: false,
   });
+  const [submitting, setSubmitting] = useState(false);
+
+  const getInitialState = () => ({
+    jobPosition: 'Video Editor',
+    fullName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    city: '',
+    pinCode: '',
+    gender: 'Prefer not to say',
+    portfolioLink: '',
+    resume: null,
+    education: [{ degree: '', university: '', year: '', grade: '', city: '' }],
+    workExperience: [{ employer: '', location: '', jobTitle: '', startDate: '', endDate: '' }],
+    skills: [{ skill: '', level: '', year: '', institute: '' }],
+    softwareTools: [{ name: '', proficiency: 'Good' }],
+    languages: [{ language: '', speak: 'Basic', read: 'Basic', write: 'Basic' }],
+    references: [{ name: '', company: '', designation: '', email: '', phone: '' }],
+    consent: false,
+  }); 
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -63,10 +88,22 @@ const ciform = () => {
     setFormData((prev) => ({ ...prev, [section]: updated }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form Data:', formData);
-    // Add your API call here
+    try {
+      setSubmitting(true);
+      await employeeService.create({
+        ...formData,
+        status: 'Onboarding',
+      });
+      toast.success('Employee profile submitted successfully.');
+      setFormData(getInitialState());
+      navigate('/employee');
+    } catch (error) {
+      toast.error(error.message || 'Unable to submit employee profile.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleFileChange = (e) => {
@@ -612,14 +649,14 @@ const ciform = () => {
             </button>
             <button
               type="submit"
-              disabled={!formData.consent}
+              disabled={!formData.consent || submitting}
               className={`px-6 py-2 rounded-md text-white transition-colors duration-200 ${
-                formData.consent
+                formData.consent && !submitting
                   ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
                   : 'bg-gray-400 cursor-not-allowed'
               }`}
             >
-              Submit Application
+              {submitting ? 'Submitting...' : 'Submit Application'}
             </button>
           </div>
         </form>

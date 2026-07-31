@@ -6,7 +6,7 @@ import Report from "../components/Lead/Report";
 import UserManagement from "../components/UserManagement/UserRole";
 import Master from "../components/UserManagement/Master";
 import ProjectOnboarding from "../components/project/onboardingPrjt";
-import ProjectDetail from "../components/project/ProjectDetail";
+import ProjectDetail from "../components/project/projectDetail";
 import AssignTask from "../components/project/assignTask";
 import JobOpening from "../components/Career/job";
 import RecruitmentProcess from "../components/Career/recruitmentProcess";

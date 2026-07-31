@@ -1,13 +1,13 @@
 import { getSession, clearSession } from "./session";
 export const isAuthenticated = () => {
     const session = getSession();
-    return !!session?.accessToken;
+    return !!session?.user;
 };
 export const getAccessToken = () => {
-    return getSession()?.accessToken;
+    return null;
 };
 export const getRefreshToken = () => {
-    return getSession()?.refreshToken;
+    return null;
 };
 export const getCurrentUser = () => {
     return getSession()?.user;

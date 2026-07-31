@@ -5,17 +5,14 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import authService from "../../services/auth.service";
-import { clearSession, getSession } from "../../utils/session";
+import { clearSession } from "../../utils/session";
 export default function ProfileMenu({
     close
 }) {
     const navigate = useNavigate();
     const logout = async () => {
         try {
-            const session = getSession();
-            await authService.logout(
-                session.refreshToken
-            );
+            await authService.logout();
         }
         catch {
         }

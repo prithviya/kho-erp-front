@@ -53,8 +53,24 @@ function SectionLabel({ children }) {
   );
 }
 
+function extractServiceIds(lead = {}) {
+  const fromIds = Array.isArray(lead.serviceIds) ? lead.serviceIds : [];
+  if (fromIds.length > 0) {
+    return fromIds.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+  }
+
+  const fromRelations = lead.services ?? lead.Services ?? [];
+  if (!Array.isArray(fromRelations)) return [];
+
+  return fromRelations
+    .map((svc) => Number(svc?.id ?? svc?.serviceId))
+    .filter((id) => Number.isFinite(id));
+}
+
 export default function ViewLead({ open, onClose, lead, onUpdated }) {
   const [statuses, setStatuses] = useState([]);
+  const [leadDetails, setLeadDetails] = useState(null);
+  const [loadingLead, setLoadingLead] = useState(false);
   const [statusId, setStatusId] = useState("");
   const [followupDate, setFollowupDate] = useState("");
   const [reason, setReason] = useState("");
@@ -70,36 +86,49 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
       .catch(() => setStatuses([]));
   }, [open]);
 
+  // Load full lead details so field values match detailed API response.
+  useEffect(() => {
+    if (!open || !lead?.id) return;
+    setLoadingLead(true);
+    leadService.getLeadById(lead.id)
+      .then((res) => setLeadDetails(res?.data || null))
+      .catch(() => setLeadDetails(null))
+      .finally(() => setLoadingLead(false));
+  }, [open, lead?.id]);
+
   // Reset fields whenever a (new) lead is opened
   useEffect(() => {
-    setStatusId(lead?.leadStatusId ?? lead?.leadStatus?.id ?? "");
-    setFollowupDate(toDateInputValue(lead?.nextFollowupDate));
+    const activeLead = leadDetails ?? lead;
+    setStatusId(activeLead?.leadStatusId ?? activeLead?.leadStatus?.id ?? "");
+    setFollowupDate(toDateInputValue(activeLead?.nextFollowupDate));
     setReason("");
     setError(null);
     setSuccess(false);
-  }, [lead, open]);
+  }, [lead, leadDetails, open]);
 
   if (!open) return null;
 
+  const activeLead = leadDetails ?? lead;
+
   const currentStatusName =
     statuses.find((s) => s.id === Number(statusId))?.name
-    || lead?.leadStatus?.name
+    || activeLead?.leadStatus?.name
     || "New Lead";
 
   const progressValue = STATUS_PROGRESS[currentStatusName] || 10;
 
-  const originalStatusId = lead?.leadStatusId ?? lead?.leadStatus?.id;
-  const originalFollowup = toDateInputValue(lead?.nextFollowupDate);
+  const originalStatusId = activeLead?.leadStatusId ?? activeLead?.leadStatus?.id;
+  const originalFollowup = toDateInputValue(activeLead?.nextFollowupDate);
   const isChanged =
     (statusId && Number(statusId) !== originalStatusId) ||
     followupDate !== originalFollowup;
 
-  const assignedName = lead?.assignedUser
-    ? `${lead.assignedUser.firstName ?? ""} ${lead.assignedUser.lastName ?? ""}`.trim()
-    : lead?.referralName || "";
+  const assignedName = activeLead?.assignedUser
+    ? `${activeLead.assignedUser.firstName ?? ""} ${activeLead.assignedUser.lastName ?? ""}`.trim()
+    : activeLead?.referralName || "";
 
   // Group required services into colored pills, e.g. "Design: Logo"
-  const servicePills = (lead?.Services ?? lead?.services ?? []).map((svc) => ({
+  const servicePills = (activeLead?.Services ?? activeLead?.services ?? []).map((svc) => ({
     id: svc.id,
     label: svc.Category?.name || svc.category?.name
       ? `${svc.Category?.name ?? svc.category?.name}: ${svc.name}`
@@ -108,29 +137,28 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
   }));
 
   async function handleUpdate() {
-    if (!lead?.id) return;
+    if (!activeLead?.id) return;
     setSaving(true);
     setError(null);
     setSuccess(false);
     try {
       const payload = {
-        companyName: lead.companyName,
-        contactPerson: lead.contactPerson,
-        phone: lead.phone,
-        email: lead.email,
-        requirement: lead.requirement,
-        budget: lead.budget,
-        leadSourceId: lead.leadSourceId,
+        companyName: activeLead.companyName,
+        contactPerson: activeLead.contactPerson,
+        phone: activeLead.phone,
+        email: activeLead.email,
+        requirement: activeLead.requirement,
+        budget: activeLead.budget,
+        leadSourceId: activeLead.leadSourceId,
         leadStatusId: statusId ? Number(statusId) : originalStatusId,
-        assignedTo: lead.assignedTo,
-        referralName: lead.referralName,
-        notes: reason.trim() ? `${lead.notes ? lead.notes + "\n" : ""}${reason.trim()}` : lead.notes,
+        assignedTo: activeLead.assignedTo,
+        referralName: activeLead.referralName,
+        notes: reason.trim() ? `${activeLead.notes ? activeLead.notes + "\n" : ""}${reason.trim()}` : activeLead.notes,
         nextFollowupDate: followupDate || undefined,
-        serviceIds: lead.serviceIds
-          ?? (lead.Services ?? lead.services)?.map((s) => s.id)
-          ?? undefined,
+        serviceIds: extractServiceIds(activeLead),
       };
-      const result = await leadService.updateLead(lead.id, payload);
+      const result = await leadService.updateLead(activeLead.id, payload);
+      setLeadDetails(result?.data || activeLead);
       setSuccess(true);
       setReason("");
       onUpdated?.(result?.data);
@@ -166,32 +194,36 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
         <div className="flex-1 overflow-y-auto">
           {/* Avatar + name block */}
           <div className="flex items-center gap-4 px-6 py-5">
-            <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl font-bold text-white ${avatarColor(lead?.companyName)}`}>
-              {lead?.companyName?.trim()[0]?.toUpperCase() ?? "?"}
+            <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl font-bold text-white ${avatarColor(activeLead?.companyName)}`}>
+              {activeLead?.companyName?.trim()[0]?.toUpperCase() ?? "?"}
             </span>
             <div>
-              <p className="text-lg font-bold text-gray-900">{lead?.companyName || "—"}</p>
-              <p className="text-sm text-gray-400">{lead?.contactPerson}</p>
+              <p className="text-lg font-bold text-gray-900">{activeLead?.companyName || "—"}</p>
+              <p className="text-sm text-gray-400">{activeLead?.contactPerson}</p>
             </div>
           </div>
 
           {/* Detail rows */}
           <div className="border-t border-gray-100">
-            <DetailRow icon={Mail}>{lead?.email || "—"}</DetailRow>
-            <DetailRow icon={Phone}>{lead?.phone || "—"}</DetailRow>
-            <DetailRow icon={User}>Source: {lead?.leadSource?.name || "—"}</DetailRow>
+            <DetailRow icon={Mail}>{activeLead?.email || "—"}</DetailRow>
+            <DetailRow icon={Phone}>{activeLead?.phone || "—"}</DetailRow>
+            <DetailRow icon={User}>Source: {activeLead?.leadSource?.name || "—"}</DetailRow>
             {assignedName && (
               <DetailRow icon={UserCheck}>{assignedName}</DetailRow>
             )}
             <DetailRow icon={IndianRupee}>
-              {lead?.budget ? `₹${Number(lead.budget).toLocaleString("en-IN")}` : "Not set"}
+              {activeLead?.budget ? `₹${Number(activeLead.budget).toLocaleString("en-IN")}` : "Not set"}
             </DetailRow>
             <DetailRow icon={CalendarDays}>
-              Follow-up: {lead?.nextFollowupDate
-                ? new Date(lead.nextFollowupDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+              Follow-up: {activeLead?.nextFollowupDate
+                ? new Date(activeLead.nextFollowupDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
                 : "Not Set"}
             </DetailRow>
           </div>
+
+          {loadingLead && (
+            <div className="px-6 pb-3 text-xs text-gray-400">Refreshing lead details...</div>
+          )}
 
           {/* Required Services */}
           {servicePills.length > 0 && (

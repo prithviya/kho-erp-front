@@ -1,52 +1,4 @@
-import { getSession, setSession, clearSession } from "../utils/session";
-
-const BASE_URL = import.meta.env.VITE_API_URL;
-
-async function request(url, options = {}, retry = true) {
-    const session = getSession();
-    const headers = {
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-    };
-    if (session?.accessToken) {
-        headers.Authorization = `Bearer ${session.accessToken}`;
-    }
-    const response = await fetch(`${BASE_URL}${url}`, { ...options, headers });
-
-    if (response.status === 401 && retry && session?.refreshToken) {
-        const refreshed = await refreshToken(session.refreshToken);
-        if (refreshed.success) {
-            setSession({ ...session, accessToken: refreshed.data.accessToken, refreshToken: refreshed.data.refreshToken });
-            return request(url, options, false);
-        }
-        clearSession();
-        window.location.href = "/";
-        return;
-    }
-
-    const result = await response.json();
-    if (!response.ok) {
-        // Attach validation errors so callers can surface them per-field
-        const err = new Error(result.message || "Something went wrong.");
-        err.errors = result.errors || null;
-        err.status = response.status;
-        throw err;
-    }
-    return result;
-}
-
-async function refreshToken(refreshTokenValue) {
-    try {
-        const response = await fetch(`${BASE_URL}/auth/refresh-token`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refreshToken: refreshTokenValue })
-        });
-        return await response.json();
-    } catch {
-        return { success: false };
-    }
-}
+import { request } from "./apiClient";
 
 const leadService = {
     createLead(data) {
@@ -68,11 +20,38 @@ const leadService = {
     createServiceCategory(data) {
         return request("/service-categories", { method: "POST", body: JSON.stringify(data) });
     },
+    updateServiceCategory(id, data) {
+        return request(`/service-categories/${id}`, { method: "PUT", body: JSON.stringify(data) });
+    },
+    deleteServiceCategory(id) {
+        return request(`/service-categories/${id}`, { method: "DELETE" });
+    },
     createService(data) {
         return request("/services", { method: "POST", body: JSON.stringify(data) });
     },
+    updateService(id, data) {
+        return request(`/services/${id}`, { method: "PUT", body: JSON.stringify(data) });
+    },
+    deleteService(id) {
+        return request(`/services/${id}`, { method: "DELETE" });
+    },
     createLeadSource(data) {
         return request("/lead-sources", { method: "POST", body: JSON.stringify(data) });
+    },
+    updateLeadSource(id, data) {
+        return request(`/lead-sources/${id}`, { method: "PUT", body: JSON.stringify(data) });
+    },
+    deleteLeadSource(id) {
+        return request(`/lead-sources/${id}`, { method: "DELETE" });
+    },
+    createLeadStatus(data) {
+        return request("/lead-statuses", { method: "POST", body: JSON.stringify(data) });
+    },
+    updateLeadStatus(id, data) {
+        return request(`/lead-statuses/${id}`, { method: "PUT", body: JSON.stringify(data) });
+    },
+    deleteLeadStatus(id) {
+        return request(`/lead-statuses/${id}`, { method: "DELETE" });
     },
 
     // Lookup data for the create/edit form
