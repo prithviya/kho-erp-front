@@ -12,6 +12,7 @@ import {
     HandCoins,
     FileUser,
     Network,
+    RotateCwSquare
 } from "lucide-react";
 const menu = [
     {
@@ -88,6 +89,20 @@ const menu = [
                 icon: Network,
                 path:"/master",
                 roles:["SUPER_ADMIN"]
+            },
+            {
+                name: "Ventor Management",
+                title: "Ventor Management",
+                icon: RotateCwSquare,
+                path: "/ventor-management",
+                roles: ["SUPER_ADMIN"]
+            },
+            {
+                name: "Ventor Assigned",
+                title: "Ventor Assigned",
+                icon: RotateCwSquare,   
+                path: "/ventor-assigned",
+                roles: ["SUPER_ADMIN"]
             },
             {
                 name: "CIF Form",

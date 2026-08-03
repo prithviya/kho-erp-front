@@ -5,6 +5,8 @@ import LeadOverview from "../components/Lead/LeadOverview";
 import Report from "../components/Lead/Report";
 import UserManagement from "../components/UserManagement/UserRole";
 import Master from "../components/UserManagement/Master";
+import VentorManagement from "../components/Ventor/ventorOverview";
+import VentorAssigned from "../components/Ventor/ventorAssigned";
 import ProjectOnboarding from "../components/project/onboardingPrjt";
 import ProjectDetail from "../components/project/projectDetail";
 import AssignTask from "../components/project/assignTask";
@@ -44,6 +46,8 @@ export default function AppRoutes() {
                 <Route path="/tasks" element={<AssignTask />} />
                 <Route path="/user-management" element={<UserManagement />} />
                 <Route path="/master" element={<Master/>} />
+                <Route path="/ventor-management" element={<VentorManagement />} />
+                <Route path="/ventor-assigned" element={<VentorAssigned />} />
                 <Route path="/cif-form" element={<Cif />} />
                 <Route path="/job" element={<JobOpening />} />
                 <Route path="/recruitment-process" element={<RecruitmentProcess />} />
