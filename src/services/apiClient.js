@@ -57,7 +57,11 @@ export async function request(url, options = {}, retry = true) {
 
     clearSession();
     window.location.href = "/";
-    return null;
+    return {
+      success: false,
+      data: null,
+      message: "Session expired. Please log in again.",
+    };
   }
 
   const result = await parseJsonSafe(response);
@@ -68,7 +72,7 @@ export async function request(url, options = {}, retry = true) {
     throw err;
   }
 
-  return result;
+  return result ?? { success: true, data: null };
 }
 
 export function getCurrentUserSession() {

@@ -40,15 +40,16 @@ export default function Dashboard() {
         setLoading(true);
         const res = await dashboardService.getOverview();
         if (!mounted) return;
+        const payload = res?.data ?? res ?? {};
         setDashboard({
-          stats: res?.data?.stats || {
+          stats: payload?.stats || {
             totalLeads: 0,
             recentLeads: 0,
             convertedDeals: 0,
             activeUsers: 0
           },
-          activeUsers: res?.data?.activeUsers || [],
-          recentLeads: res?.data?.recentLeads || []
+          activeUsers: payload?.activeUsers || [],
+          recentLeads: payload?.recentLeads || []
         });
       } catch (error) {
         if (mounted) {

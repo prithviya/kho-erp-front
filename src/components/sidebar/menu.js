@@ -70,49 +70,18 @@ const menu = [
                 path: "/tasks",
                 roles: ["SUPER_ADMIN", "ADMIN", "EMPLOYEE"],
                 badge: 5
+            },
+            {
+                name: "Task Board",
+                title: "Task Board",
+                icon: ClipboardCheck,
+                path: "/task-board",
+                roles: ["SUPER_ADMIN", "ADMIN", "EMPLOYEE"],
+                badge: 8
             }
         ]
     },
-    {
-        title: "SYSTEM ADMIN",
-        items: [
-            {
-                name: "User Management",
-                title: "User Management",
-                icon: Users,
-                path: "/user-management",
-                roles: ["SUPER_ADMIN"]
-            },
-            {
-                name: "Master",
-                title:"Master Setting",
-                icon: Network,
-                path:"/master",
-                roles:["SUPER_ADMIN"]
-            },
-            {
-                name: "Ventor Management",
-                title: "Ventor Management",
-                icon: RotateCwSquare,
-                path: "/ventor-management",
-                roles: ["SUPER_ADMIN"]
-            },
-            {
-                name: "Ventor Assigned",
-                title: "Ventor Assigned",
-                icon: RotateCwSquare,   
-                path: "/ventor-assigned",
-                roles: ["SUPER_ADMIN"]
-            },
-            {
-                name: "CIF Form",
-                title: "CIF Form",
-                icon: FileUser,
-                path: "/cif-form",
-                roles: ["SUPER_ADMIN"]
-            }
-        ]
-    },
+    
     {
         title: "HRM",
         items: [
@@ -158,7 +127,46 @@ const menu = [
                 path: "/leave"
             }
         ]
+    },
+    {
+        title: "SYSTEM ADMIN",
+        items: [
+            {
+                name: "User Management",
+                title: "User Management",
+                icon: Users,
+                path: "/user-management",
+                roles: ["SUPER_ADMIN"]
+            },
+            {
+                name: "Master",
+                title:"Master Setting",
+                icon: Network,
+                path:"/master",
+                roles:["SUPER_ADMIN"]
+            },
+            {
+                name: "Ventor Management",
+                title: "Ventor Management",
+                icon: RotateCwSquare,
+                path: "/ventor-management",
+                roles: ["SUPER_ADMIN"]
+            },
+            {
+                name: "Ventor Assigned",
+                title: "Ventor Assigned",
+                icon: RotateCwSquare,   
+                path: "/ventor-assigned",
+                roles: ["SUPER_ADMIN"]
+            },
+            {
+                name: "CIF Form",
+                title: "CIF Form",
+                icon: FileUser,
+                path: "/cif-form",
+                roles: ["SUPER_ADMIN"]
+            }
+        ]
     }
-    
 ];
 export default menu;

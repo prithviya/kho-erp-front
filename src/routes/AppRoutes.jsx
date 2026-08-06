@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "../components/loginpage/Login";
 import Dashboard from "../components/dashboard/Dashboard";
 import LeadOverview from "../components/Lead/LeadOverview";
@@ -9,6 +9,7 @@ import VentorManagement from "../components/Ventor/ventorOverview";
 import VentorAssigned from "../components/Ventor/ventorAssigned";
 import ProjectOnboarding from "../components/project/onboardingPrjt";
 import ProjectDetail from "../components/project/projectDetail";
+import TaskBoard from "../components/project/mytask";
 import AssignTask from "../components/project/assignTask";
 import JobOpening from "../components/Career/job";
 import RecruitmentProcess from "../components/Career/recruitmentProcess";
@@ -44,6 +45,7 @@ export default function AppRoutes() {
                 <Route path="/onboard-prjt" element={<ProjectOnboarding />} />
                 <Route path="/prjt-details" element={<ProjectDetail />} />
                 <Route path="/tasks" element={<AssignTask />} />
+                <Route path="/task-board" element={<TaskBoard />} />
                 <Route path="/user-management" element={<UserManagement />} />
                 <Route path="/master" element={<Master/>} />
                 <Route path="/ventor-management" element={<VentorManagement />} />
@@ -55,6 +57,7 @@ export default function AppRoutes() {
                 <Route path="/employee" element={<Employee />} />
                 <Route path="/payroll" element={<Salary />} />
                 <Route path="/leave" element={<Leave />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
         </Routes>
     );

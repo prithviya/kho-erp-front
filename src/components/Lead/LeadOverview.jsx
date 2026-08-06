@@ -66,6 +66,12 @@
 
         const canDeleteLead = hasRole("SUPER_ADMIN");
 
+        const normalizeList = (payload) => {
+            if (Array.isArray(payload)) return payload;
+            if (payload && Array.isArray(payload.data)) return payload.data;
+            return [];
+        };
+
         const fetchLeads = useCallback(() => {
             setLoading(true);
             setError(null);
@@ -73,7 +79,7 @@
             if (search.trim()) params.search = search.trim();
             if (statusFilter) params.leadStatusId = statusFilter;
             leadService.getLeads(params)
-                .then((res) => setLeads(res.data || []))
+                .then((res) => setLeads(normalizeList(res)))
                 .catch((err) => setError(err.message || "Failed to load leads."))
                 .finally(() => setLoading(false));
         }, [search, statusFilter]);
@@ -81,7 +87,7 @@
         // Fetch lead statuses once for the filter dropdown
         useEffect(() => {
             leadService.getLeadStatuses()
-                .then((res) => setStatuses(res.data || []))
+                .then((res) => setStatuses(normalizeList(res)))
                 .catch(() => {});
         }, []);
 
