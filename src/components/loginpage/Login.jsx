@@ -3,108 +3,123 @@ import { useNavigate } from "react-router-dom";
 import { setSession } from "../../utils/session";
 import authService from "../../services/auth.service";
 import { toast } from "react-toastify";
+
 export default function Login() {
   const [showModal, setShowModal] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
   const navigate = useNavigate();
+
   const LoginBtn = async (e) => {
     e.preventDefault();
+
     try {
       const response = await authService.login({
         email,
-        password
+        password,
       });
+
       if (response.success) {
         setSession({
-          user: response.data.user
+          user: response.data.user,
         });
-        toast.success(
-          `Welcome back, ${response.data.user.firstName}!`
-        );
+
+        toast.success(`Welcome back, ${response.data.user.firstName}!`);
         navigate("/dashboard");
-      }
-      else {
-        const data = await response.json();
-        console.log(data);
       }
     } catch (error) {
       console.log(error);
     }
   };
+
   return (
-    <>
-      <div className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="w-full max-w-sm">
-          <div className="border border-[#333333]/20 rounded-xl p-8 shadow-sm">
-            <h1 className="text-3xl font-semibold text-[#333333] text-center mb-8">
-              Login
-            </h1>
-            <form className="space-y-5">
-              <div>
-                <label className="block text-sm text-[#333333] mb-2">
-                  Username / Email
-                </label>
-                <input
-                  type="text"
-                  value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter username or email"
-                  className="w-full border border-[#333333]/30 rounded-lg px-4 py-3 outline-none focus:border-[#333333] transition"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-[#333333] mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password} onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password"
-                  className="w-full border border-[#333333]/30 rounded-lg px-4 py-3 outline-none focus:border-[#333333] transition"
-                />
-              </div>
-              <div className="text-right">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(true)}
-                  className="text-sm text-[#333333] hover:underline"
-                >
-                  Forgot Password?
-                </button>
-              </div>
+    <div className="flex h-screen">
+      {/* Left Side - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white p-8">
+        <div className="w-full max-w-md">
+          <h1 className="text-3xl font-bold mb-8">Login</h1>
+
+          <form onSubmit={LoginBtn} className="space-y-5">
+            <div>
+              <label className="block mb-2 text-gray-700">
+                Username / Email
+              </label>
+
+              <input
+                type="text"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter username or email"
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:border-black outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block mb-2 text-gray-700">
+                Password
+              </label>
+
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:border-black outline-none"
+              />
+            </div>
+
+            <div className="text-right">
               <button
-                type="submit"
-                onClick={LoginBtn}
-                className="w-full bg-[#333333] text-white py-3 rounded-lg hover:opacity-90 transition"
+                type="button"
+                onClick={() => setShowModal(true)}
+                className="text-sm text-gray-600 hover:underline"
               >
-                Submit
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
-            <h2 className="text-xl font-semibold text-[#333333] mb-4">
-              Forgot Password
-            </h2>
-            <p className="text-[#333333] text-sm leading-6">
-              Please connect with the <strong>Admin Contact Person</strong> to
-              reset your password.
-            </p>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setShowModal(false)}
-                className="bg-[#333333] text-white px-5 py-2 rounded-lg hover:opacity-90"
-              >
-                OK
+                Forgot Password?
               </button>
             </div>
+
+            <button
+              type="submit"
+              className="w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800"
+            >
+              Login
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Right Side - Background Image */}
+      <div
+        className="hidden lg:block w-1/2 bg-cover bg-left"
+        style={{
+          backgroundImage:
+            "url('https://khosocial.direct.quickconnect.to:5001/webman/login_background.jpg?id=3')",
+        }}
+      />
+
+      {/* Forgot Password Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-80">
+            <h2 className="text-xl font-semibold mb-3">
+              Forgot Password
+            </h2>
+
+            <p className="text-gray-600 mb-5">
+              Please connect with the Admin Contact Person to reset your
+              password.
+            </p>
+
+            <button
+              onClick={() => setShowModal(false)}
+              className="w-full bg-black text-white py-2 rounded-lg"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

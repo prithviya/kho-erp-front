@@ -69,7 +69,6 @@ const JobOpenings = () => {
     jobTitle: '',
     department: '',
     openingCount: '',
-    dm: '1',
     openingCode: '',
     minExp: '',
     requiredSkills: '',
@@ -312,20 +311,6 @@ const JobOpenings = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        DM
-                      </label>
-                      <input
-                        type="text"
-                        name="dm"
-                        value={formData.dm}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Department Manager"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Opening Code
                       </label>
                       <input
@@ -355,7 +340,7 @@ const JobOpenings = () => {
                       />
                     </div>
 
-                    <div className="md:col-span-2">
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Required Skills <span className="text-red-500">*</span>
                       </label>

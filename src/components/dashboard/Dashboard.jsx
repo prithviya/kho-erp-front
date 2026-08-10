@@ -101,10 +101,10 @@ export default function Dashboard() {
             key={item.title}
             className="rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm transition-transform hover:-translate-y-0.5"
           >
-            <div className="mb-3 flex items-center justify-between">
+            {/* <div className="mb-3 flex items-center justify-between">
               <span className={`inline-flex rounded-xl p-2 ${item.bg}`}>{item.icon}</span>
               <span className="text-xs font-medium text-gray-500">Live</span>
-            </div>
+            </div> */}
             <p className="text-xs font-semibold tracking-wide text-gray-500">{item.title}</p>
             <p className="mt-1 text-2xl font-bold text-gray-900">{loading ? "..." : item.value}</p>
           </div>
