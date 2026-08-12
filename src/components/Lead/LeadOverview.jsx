@@ -147,9 +147,9 @@
                                 <p className="text-sm font-medium text-gray-500">{label}</p>
                                 <h2 className="mt-2 text-3xl font-bold text-gray-900">{value}</h2>
                             </div>
-                            <div className={`flex h-14 w-14 items-center justify-center rounded-full ${bg}`}>
+                            {/* <div className={`flex h-14 w-14 items-center justify-center rounded-full ${bg}`}>
                                 <Icon className={`h-7 w-7 ${color}`} />
-                            </div>
+                            </div> */}
                         </div>
                     ))}
                 </div>
@@ -281,7 +281,7 @@
                                             {/* Assigned To */}
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
-                                                    <Avatar name={assignedName} />
+                                                    {/* <Avatar name={assignedName} /> */}
                                                     <span className="text-gray-700">{assignedName}</span>
                                                 </div>
                                             </td>
