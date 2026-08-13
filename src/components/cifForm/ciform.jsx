@@ -2,44 +2,35 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Logo from '../../assets/kho.webp';
-import employeeService from '../../services/employee.service';
+import onboardingService from '../../services/onboarding.service';
 const ciform = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
+  const [personalformData, setpersonalFormData] = useState({
     // Personal Information
-    jobPosition: 'Video Editor',
-    fullName: '',
-    email: '',
-    phone: '',
-    dateOfBirth: '',
-    city: '',
-    pinCode: '',
-    gender: 'Prefer not to say',
-    portfolioLink: '',
-    resume: null,
-    
+    jobPosition: '', fullName: '', email: '', phone: '', dateOfBirth: '', city: '', pinCode: '', gender: 'Prefer not to say', portfolioLink: '', resume: null, consent: false
+  });
     // Professional & Academic
-    education: [{ degree: '', university: '', year: '', grade: '', city: '' }],
+    const [educationformData, seteducationFormData] = useState([{ degree: '', university: '', year: '', grade: '', city: '' }]);
     
     // Work Experience
-    workExperience: [{ employer: '', location: '', jobTitle: '', startDate: '', endDate: '' }],
+    const [workformData, setworkFormData] = useState([{ employer: '', location: '', jobTitle: '', startDate: '', endDate: '' }]);
     
     // Skills & Training
-    skills: [{ skill: '', level: '', year: '', institute: '' }],
+    const [skillformData, setskillFormData] = useState ([{ skill: '', level: '', year: '', institute: '' }]);
     
     // Software & Tools
-    softwareTools: [{ name: '', proficiency: 'Good' }],
+    const [toolformData, settoolFormData] = useState ([{ name: '', proficiency: 'Good' }]);
     
     // Language Proficiency
-    languages: [{ language: '', speak: 'Basic', read: 'Basic', write: 'Basic' }],
+    const [langformData, setlangFormData] = useState ([{ language: '', speak: 'Basic', read: 'Basic', write: 'Basic' }]);
     
     // References
-    references: [{ name: '', company: '', designation: '', email: '', phone: '' }],
-    
-    // Consent
-    consent: false,
-  });
+    const [refformData, setrefFormData] = useState ([{ name: '', company: '', designation: '', email: '', phone: '' }]);
+  
   const [submitting, setSubmitting] = useState(false);
+
+  console.log('educationformData',educationformData);
+  
 
   const getInitialState = () => ({
     jobPosition: 'Video Editor',
@@ -63,41 +54,41 @@ const ciform = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
+    setpersonalFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
   const handleArrayChange = (section, index, field, value) => {
-    const updated = [...formData[section]];
+    const updated = [...personalFormData[section]];
     updated[index][field] = value;
-    setFormData((prev) => ({ ...prev, [section]: updated }));
+    setpersonalFormData((prev) => ({ ...prev, [section]: updated }));
   };
 
   const addItem = (section, template) => {
-    setFormData((prev) => ({
+    setpersonalFormData((prev) => ({
       ...prev,
       [section]: [...prev[section], template],
     }));
   };
 
   const removeItem = (section, index) => {
-    if (formData[section].length <= 1) return;
-    const updated = formData[section].filter((_, i) => i !== index);
-    setFormData((prev) => ({ ...prev, [section]: updated }));
+    if (personalFormData[section].length <= 1) return;
+    const updated = personalFormData[section].filter((_, i) => i !== index);
+    setpersonalFormData((prev) => ({ ...prev, [section]: updated }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       setSubmitting(true);
-      await employeeService.create({
-        ...formData,
+      await onboardingService.create({
+        ...personalformData,
         status: 'Onboarding',
       });
       toast.success('Employee profile submitted successfully.');
-      setFormData(getInitialState());
+      setpersonalFormData(getInitialState());
       navigate('/employee');
     } catch (error) {
       toast.error(error.message || 'Unable to submit employee profile.');
@@ -107,7 +98,7 @@ const ciform = () => {
   };
 
   const handleFileChange = (e) => {
-    setFormData((prev) => ({ ...prev, resume: e.target.files[0] }));
+    setpersonalFormData((prev) => ({ ...prev, resume: e.target.files[0] }));
   };
 
   const renderSection = (title, children) => (
@@ -125,7 +116,7 @@ const ciform = () => {
       <input
         type={type}
         name={name}
-        value={formData[name] || ''}
+        value={personalformData[name] || ''}
         onChange={handleChange}
         required={required}
         placeholder={placeholder}
@@ -149,17 +140,17 @@ const ciform = () => {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 md:p-8  overflow-y-auto h-[70vh]">
           {/* PERSONAL INFORMATION */}
           {renderSection('PERSONAL INFORMATION',
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                {/* <label className="block text-sm font-medium text-gray-700 mb-1">
                   JOB POSITION (DESIGNATION) <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="jobPosition"
-                  value={formData.jobPosition}
+                  value={personalformData.jobPosition}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
@@ -168,7 +159,7 @@ const ciform = () => {
                   <option>Web Developer</option>
                   <option>Digital Marketer</option>
                   <option>Social Media Manager</option>
-                </select>
+                </select> */}
               </div>
               {renderField('FULL NAME', 'fullName', 'text', true, 'e.g., Lee Min-ho')}
               {renderField('EMAIL', 'email', 'email', true, 'candidate@example.com')}
@@ -180,7 +171,7 @@ const ciform = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">GENDER</label>
                 <select
                   name="gender"
-                  value={formData.gender}
+                  value={personalformData.gender}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
@@ -208,7 +199,7 @@ const ciform = () => {
           {/* PROFESSIONAL & ACADEMIC */}
           {renderSection('PROFESSIONAL & ACADEMIC',
             <div>
-              {formData.education.map((edu, index) => (
+              {educationformData.map((edu, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
                   {index > 0 && (
                     <button
@@ -284,7 +275,7 @@ const ciform = () => {
           {/* WORK EXPERIENCE */}
           {renderSection('WORK EXPERIENCE',
             <div>
-              {formData.workExperience.map((work, index) => (
+              {workformData.map((work, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
                   {index > 0 && (
                     <button
@@ -359,7 +350,7 @@ const ciform = () => {
           {renderSection('SKILLS & TRAINING',
             <div>
               <p className="text-sm text-gray-500 mb-4">Skill & Training Achievement(s)</p>
-              {formData.skills.map((skill, index) => (
+              {skillformData.map((skill, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
                   {index > 0 && (
                     <button
@@ -431,7 +422,7 @@ const ciform = () => {
               <p className="text-sm text-gray-500 mb-4">
                 e.g., Photoshop, Illustrator, Canva, Google Ads, Meta Ads Manager, SEO Tools, WordPress, WooCommerce, Shopify, Google Analytics, Google Tag Manager, SEMrush, Ahrefs, HubSpot, Mailchimp, Social Media Scheduling, Premiere Pro, CapCut etc.
               </p>
-              {formData.softwareTools.map((tool, index) => (
+              {toolformData.map((tool, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative items-end">
                   {index > 0 && (
                     <button
@@ -479,7 +470,7 @@ const ciform = () => {
           {/* LANGUAGE PROFICIENCY */}
           {renderSection('LANGUAGE PROFICIENCY',
             <div>
-              {formData.languages.map((lang, index) => (
+              {langformData.map((lang, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
                   {index > 0 && (
                     <button
@@ -554,7 +545,7 @@ const ciform = () => {
           {/* REFERENCES */}
           {renderSection('REFERENCE',
             <div>
-              {formData.references.map((ref, index) => (
+              {refformData.map((ref, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
                   {index > 0 && (
                     <button
@@ -627,7 +618,7 @@ const ciform = () => {
               <input
                 type="checkbox"
                 name="consent"
-                checked={formData.consent}
+                checked={personalformData.consent}
                 onChange={handleChange}
                 className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
@@ -649,9 +640,9 @@ const ciform = () => {
             </button>
             <button
               type="submit"
-              disabled={!formData.consent || submitting}
+              disabled={!personalformData.consent || submitting}
               className={`px-6 py-2 rounded-md text-white transition-colors duration-200 ${
-                formData.consent && !submitting
+                personalformData.consent && !submitting
                   ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
                   : 'bg-gray-400 cursor-not-allowed'
               }`}

@@ -258,7 +258,7 @@
 
                                             {/* Source */}
                                             <td className="px-4 py-3">
-                                                <span className={`rounded-md px-2.5 py-1 text-xs font-semibold uppercase ${sourceBadgeCls(lead.leadSource?.name)}`}>
+                                                <span className={`rounded-md px-2.5 py-1 text-xs font-medium ${sourceBadgeCls(lead.leadSource?.name)}`}>
                                                     {lead.leadSource?.name ?? "—"}
                                                 </span>
                                             </td>
@@ -267,7 +267,7 @@
                                             <td className="px-4 py-3">
                                                 {lead.leadStatus ? (
                                                     <span
-                                                        className="rounded-full px-3 py-1 text-xs font-medium"
+                                                        className="rounded-full px-2.5 py-1 text-xs font-medium"
                                                         style={statusColor
                                                             ? { backgroundColor: `${statusColor}20`, color: statusColor }
                                                             : { backgroundColor: "#f3f4f6", color: "#374151" }

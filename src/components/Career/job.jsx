@@ -865,13 +865,10 @@ const JobOpenings = () => {
                                                 </option>
 
                                                 {departments.map((department) => (
-                                                    <option
-                                                        key={department.id}
-                                                        value={department.id}
-                                                    >
-                                                        {department.name}
-                                                    </option>
-                                                ))}
+    <option key={department.id} value={department.id}>
+        {department.name}
+    </option>
+))}
                                             </select>
 
                                             {departmentError && (
