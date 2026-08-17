@@ -7,48 +7,53 @@ const ciform = () => {
   const navigate = useNavigate();
   const [personalformData, setpersonalFormData] = useState({
     // Personal Information
-    jobPosition: '', fullName: '', email: '', phone: '', dateOfBirth: '', city: '', pinCode: '', gender: 'Prefer not to say', portfolioLink: '', resume: null, consent: false
+    appliedPosition: '', fullName: '', email: '', phoneNumber: '', DOB: '', address:'', city: '', state:'', pinCode: '', gender: 'Prefer not to say', portfolioLink: '', maritalStatus: '', resume: null, consent: false
   });
     // Professional & Academic
-    const [educationformData, seteducationFormData] = useState([{ degree: '', university: '', year: '', grade: '', city: '' }]);
-    
-    // Work Experience
-    const [workformData, setworkFormData] = useState([{ employer: '', location: '', jobTitle: '', startDate: '', endDate: '' }]);
-    
-    // Skills & Training
-    const [skillformData, setskillFormData] = useState ([{ skill: '', level: '', year: '', institute: '' }]);
-    
-    // Software & Tools
-    const [toolformData, settoolFormData] = useState ([{ name: '', proficiency: 'Good' }]);
-    
-    // Language Proficiency
-    const [langformData, setlangFormData] = useState ([{ language: '', speak: 'Basic', read: 'Basic', write: 'Basic' }]);
-    
-    // References
-    const [refformData, setrefFormData] = useState ([{ name: '', company: '', designation: '', email: '', phone: '' }]);
+  const [educationformData, seteducationFormData] = useState([{ degree: '', university: '', graduationYear: '', grade: '', city: '' }]);
+  
+  // Work Experience
+  const [workformData, setworkFormData] = useState([{ employer: '', location: '', jobTitle: '', startDate: '', endDate: '' }]);
+  
+  // Skills & Training
+  const [skillformData, setskillFormData] = useState ([{ skill: '', level: '', year: '', institute: '' }]);
+  
+  // Software & Tools
+  const [toolformData, settoolFormData] = useState ([{ name: '', proficiency: 'Good' }]);
+  
+  // Language Proficiency
+  const [langformData, setlangFormData] = useState ([{ language: '', speak: 'Basic', read: 'Basic', write: 'Basic' }]);
+  
+  // References
+  const [refformData, setrefFormData] = useState ([{ name: '', company: '', designation: '', email: '', phone: '' }]);
   
   const [submitting, setSubmitting] = useState(false);
+  const [jobPositions, setJobPositions] = useState([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
 
-  console.log('educationformData',educationformData);
+  // console.log('educationformData',educationformData);
   
 
   const getInitialState = () => ({
-    jobPosition: 'Video Editor',
+    appliedPosition: '',
     fullName: '',
     email: '',
-    phone: '',
-    dateOfBirth: '',
+    phoneNumber: '',
+    DOB: '',
+    address:'',
     city: '',
+    state: '',
     pinCode: '',
-    gender: 'Prefer not to say',
+    gender: '',
     portfolioLink: '',
     resume: null,
-    education: [{ degree: '', university: '', year: '', grade: '', city: '' }],
+    maritualStatus: '',
+    education: [{ degree: '', university: '', graduationYear: '', grade: '', city: '' }],
     workExperience: [{ employer: '', location: '', jobTitle: '', startDate: '', endDate: '' }],
     skills: [{ skill: '', level: '', year: '', institute: '' }],
     softwareTools: [{ name: '', proficiency: 'Good' }],
     languages: [{ language: '', speak: 'Basic', read: 'Basic', write: 'Basic' }],
-    references: [{ name: '', company: '', designation: '', email: '', phone: '' }],
+    references: [{ name: '', company: '', designation: '', email: '', phoneNumber: '' }],
     consent: false,
   }); 
 
@@ -61,44 +66,466 @@ const ciform = () => {
   };
 
   const handleArrayChange = (section, index, field, value) => {
-    const updated = [...personalFormData[section]];
-    updated[index][field] = value;
-    setpersonalFormData((prev) => ({ ...prev, [section]: updated }));
+  const setters = {
+    education: seteducationFormData,
+    workExperience: setworkFormData,
+    skills: setskillFormData,
+    softwareTools: settoolFormData,
+    languages: setlangFormData,
+    references: setrefFormData,
   };
 
-  const addItem = (section, template) => {
-    setpersonalFormData((prev) => ({
-      ...prev,
-      [section]: [...prev[section], template],
-    }));
+  const setData = setters[section];
+
+  if (!setData) return;
+
+  setData((prev) =>
+    prev.map((item, i) =>
+      i === index ? { ...item, [field]: value } : item
+    )
+  );
+};
+
+const addItem = (section, template) => {
+  const setters = {
+    education: seteducationFormData,
+    workExperience: setworkFormData,
+    skills: setskillFormData,
+    softwareTools: settoolFormData,
+    languages: setlangFormData,
+    references: setrefFormData,
   };
 
-  const removeItem = (section, index) => {
-    if (personalFormData[section].length <= 1) return;
-    const updated = personalFormData[section].filter((_, i) => i !== index);
-    setpersonalFormData((prev) => ({ ...prev, [section]: updated }));
+  const setData = setters[section];
+
+  if (!setData) return;
+
+  setData((prev) => [...prev, { ...template }]);
+};
+
+const removeItem = (section, index) => {
+  const setters = {
+    education: seteducationFormData,
+    workExperience: setworkFormData,
+    skills: setskillFormData,
+    softwareTools: settoolFormData,
+    languages: setlangFormData,
+    references: setrefFormData,
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const setData = setters[section];
+
+  if (!setData) return;
+
+  setData((prev) => {
+    if (prev.length <= 1) return prev;
+    return prev.filter((_, i) => i !== index);
+  });
+};
+const calculateExperience = (startDate, endDate) => {
+  if (!startDate) return 0;
+
+  const start = new Date(startDate);
+
+  const end = endDate
+    ? new Date(endDate)
+    : new Date();
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return 0;
+  }
+
+  const difference =
+    end.getTime() - start.getTime();
+
+  const days =
+    difference / (1000 * 60 * 60 * 24);
+
+  const years =
+    days / 365.25;
+
+  return Number(years.toFixed(2));
+};
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  useEffect(() => {
+  const fetchJobPositions = async () => {
     try {
-      setSubmitting(true);
-      await onboardingService.create({
-        ...personalformData,
-        status: 'Onboarding',
-      });
-      toast.success('Employee profile submitted successfully.');
-      setpersonalFormData(getInitialState());
-      navigate('/employee');
+      setLoadingJobs(true);
+
+      const response = await fetch("/api/openings");
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || "Failed to fetch job positions"
+        );
+      }
+
+      console.log("OPENINGS RESPONSE:", result);
+
+      const jobs =
+        result.data ||
+        result.result ||
+        result;
+
+      setJobPositions(Array.isArray(jobs) ? jobs : []);
+
     } catch (error) {
-      toast.error(error.message || 'Unable to submit employee profile.');
+      console.error("JOB POSITION FETCH ERROR:", error);
+      toast.error("Unable to load job positions.");
     } finally {
-      setSubmitting(false);
+      setLoadingJobs(false);
     }
   };
 
+  fetchJobPositions();
+}, []);
+
+  if (!personalformData.consent) {
+    toast.error("Please confirm your consent before submitting.");
+    return;
+  }
+
+  try {
+    setSubmitting(true);
+
+    // =====================================================
+    // STEP 1: CREATE PERSONAL
+    // =====================================================
+
+    const personalPayload = {
+      fullName: personalformData.fullName,
+      email: personalformData.email,
+      phoneNumber: personalformData.phoneNumber,
+      DOB: personalformData.DOB,
+      address: personalformData.address,
+      city: personalformData.city,
+      state: personalformData.state,
+      pinCode: personalformData.pinCode,
+      gender: personalformData.gender,
+      maritalStatus: personalformData.maritalStatus,
+      portfolioLink: personalformData.portfolioLink,
+      resume: null,
+
+      // IMPORTANT:
+      // appliedPosition must be the actual jobid
+      appliedPosition: Number(personalformData.appliedPosition),
+    };
+
+    console.log("PERSONAL PAYLOAD:", personalPayload);
+
+    const personalResponse = await fetch(
+      "/api/cif-personals",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(personalPayload),
+      }
+    );
+
+    const personalResult = await personalResponse.json();
+
+    if (!personalResponse.ok) {
+      throw new Error(
+        personalResult.message || "Failed to create personal record"
+      );
+    }
+
+    console.log("PERSONAL RESPONSE:", personalResult);
+
+    // =====================================================
+    // GET CIF ID
+    // =====================================================
+
+    const personalData =
+      personalResult.data || personalResult.result || personalResult;
+
+    const cifid =
+      personalData.cifid ||
+      personalData.data?.cifid;
+
+    if (!cifid) {
+      throw new Error(
+        "Personal record created, but CIF ID was not returned by backend."
+      );
+    }
+
+    console.log("CREATED CIF ID:", cifid);
+
+    // =====================================================
+    // STEP 2: ACADEMIC
+    // =====================================================
+
+    for (const education of educationformData) {
+      if (!education.degree) continue;
+
+      const academicPayload = {
+        cifid: cifid,
+        degree: education.degree,
+        university: education.university,
+        graduationYear: Number(education.graduationYear),
+        grade: education.grade,
+        city: education.city,
+      };
+
+      console.log("ACADEMIC:", academicPayload);
+
+      const response = await fetch(
+        "/api/cif-academics",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(academicPayload),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || "Failed to save academic details"
+        );
+      }
+    }
+
+    // =====================================================
+    // STEP 3: EXPERIENCE
+    // =====================================================
+
+    for (const work of workformData) {
+      if (!work.employer) continue;
+
+      const totalExperience = calculateExperience(
+        work.startDate,
+        work.endDate
+      );
+
+      const experiencePayload = {
+        cifid: cifid,
+        companyName: work.employer,
+        location: work.location,
+        role: work.jobTitle,
+        startDate: work.startDate,
+        endDate: work.endDate || null,
+        totalExperience: totalExperience,
+        reasonForLeaving: null,
+      };
+
+      console.log("EXPERIENCE:", experiencePayload);
+
+      const response = await fetch(
+        "/api/cif-experiences",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(experiencePayload),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || "Failed to save experience details"
+        );
+      }
+    }
+
+    // =====================================================
+    // STEP 4: SKILLS
+    // =====================================================
+
+    for (const skill of skillformData) {
+      if (!skill.skill) continue;
+
+      const skillPayload = {
+        cifid: cifid,
+        skillName: skill.skill,
+        skillLevel: skill.level,
+        year: skill.year
+          ? `${skill.year}-01-01`
+          : null,
+        provider: skill.institute,
+      };
+
+      console.log("SKILL:", skillPayload);
+
+      const response = await fetch(
+        "/api/cif-skills",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(skillPayload),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || "Failed to save skill details"
+        );
+      }
+    }
+
+    // =====================================================
+    // STEP 5: SOFTWARE
+    // =====================================================
+
+    for (const tool of toolformData) {
+      if (!tool.name) continue;
+
+      const softwarePayload = {
+        cifid: cifid,
+        tools: tool.name,
+        levels: tool.proficiency,
+      };
+
+      console.log("SOFTWARE:", softwarePayload);
+
+      const response = await fetch(
+        "/api/cif-softwares",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(softwarePayload),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || "Failed to save software details"
+        );
+      }
+    }
+
+    // =====================================================
+    // STEP 6: LANGUAGE
+    // =====================================================
+
+    for (const lang of langformData) {
+      if (!lang.language) continue;
+
+      const languagePayload = {
+        cifid: cifid,
+
+        // IMPORTANT:
+        // Your current backend model does not have languageName.
+        // So currently only proficiency values can be sent.
+
+        Speak: lang.speak.toLowerCase(),
+        Read: lang.read.toLowerCase(),
+        Write: lang.write.toLowerCase(),
+      };
+
+      console.log("LANGUAGE:", languagePayload);
+
+      const response = await fetch(
+        "/api/cif-languages",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(languagePayload),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || "Failed to save language details"
+        );
+      }
+    }
+
+    // =====================================================
+    // STEP 7: REFERENCES
+    // =====================================================
+
+    for (const ref of refformData) {
+      if (!ref.name) continue;
+
+      const referencePayload = {
+        cifid: cifid,
+        referenceName: ref.name,
+        referenceEmail: ref.email,
+        referencePhone: ref.phone,
+        consentConfirmed: personalformData.consent,
+      };
+
+      console.log("REFERENCE:", referencePayload);
+
+      const response = await fetch(
+        "/api/cif-references",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(referencePayload),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || "Failed to save reference details"
+        );
+      }
+    }
+
+    // =====================================================
+    // SUCCESS
+    // =====================================================
+
+    toast.success(
+      "Employee profile submitted successfully."
+    );
+
+    navigate("/employee");
+
+  } catch (error) {
+
+    console.error("FORM SUBMISSION ERROR:", error);
+
+    toast.error(
+      error.message ||
+      "Unable to submit employee profile."
+    );
+
+  } finally {
+    setSubmitting(false);
+  }
+};
+
   const handleFileChange = (e) => {
-    setpersonalFormData((prev) => ({ ...prev, resume: e.target.files[0] }));
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        // Convert file to base64 string
+        const base64String = event.target.result;
+        setpersonalFormData((prev) => ({ ...prev, resume: base64String }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const renderSection = (title, children) => (
@@ -145,40 +572,50 @@ const ciform = () => {
           {renderSection('PERSONAL INFORMATION',
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                {/* <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   JOB POSITION (DESIGNATION) <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="jobPosition"
-                  value={personalformData.jobPosition}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option>Video Editor</option>
-                  <option>Graphic Designer</option>
-                  <option>Web Developer</option>
-                  <option>Digital Marketer</option>
-                  <option>Social Media Manager</option>
-                </select> */}
+                    name="appliedPosition"
+                    value={personalformData.appliedPosition}
+                    onChange={handleChange}
+                    required
+                    disabled={loadingJobs}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">
+                      {loadingJobs ? "Loading positions..." : "Select Position"}
+                    </option>
+
+                    {jobPositions.map((job) => (
+                      <option key={job.jobid} value={job.jobid}>
+                        {job.jobTitle}
+                      </option>
+                    ))}
+                  </select>
               </div>
               {renderField('FULL NAME', 'fullName', 'text', true, 'e.g., Lee Min-ho')}
               {renderField('EMAIL', 'email', 'email', true, 'candidate@example.com')}
-              {renderField('PHONE NUMBER', 'phone', 'tel', true, '+44 1234 567890')}
-              {renderField('DATE OF BIRTH', 'dateOfBirth', 'date', false, 'dd-mm-yyyy')}
+              {renderField('PHONE NUMBER', 'phoneNumber', 'tel', true, '+44 1234 567890')}
+              {renderField('DATE OF BIRTH', 'DOB', 'date', false, 'dd-mm-yyyy')}
               {renderField('CITY', 'city', 'text', false, 'e.g., London')}
+              {renderField('ADDRESS','address', 'text',true, 'e.g.,Coimbatore')}
+              {renderField('STATE','state','text',true, 'e.g.,TamilNadu')}
               {renderField('PIN CODE', 'pinCode', 'text', false, 'Postal code')}
+              {renderField('MARITAL STATUS','maritalStatus','text',true,'Single')}
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">GENDER</label>
-                <select
+               <select
                   name="gender"
                   value={personalformData.gender}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
-                  <option>Prefer not to say</option>
-                  <option>Male</option>
-                  <option>Female</option>
-                  <option>Other</option>
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
                 </select>
               </div>
               {renderField('PORTFOLIO LINK', 'portfolioLink', 'url', false, 'behance.net or dribbble.com link')}
@@ -193,6 +630,7 @@ const ciform = () => {
                 />
                 
               </div>
+              
             </div>
           )}
 
@@ -234,8 +672,8 @@ const ciform = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Year of Graduate</label>
                     <input
                       type="text"
-                      value={edu.year}
-                      onChange={(e) => handleArrayChange('education', index, 'year', e.target.value)}
+                      value={edu.graduationYear}
+                      onChange={(e) => handleArrayChange('education', index, 'graduationYear', e.target.value)}
                       placeholder="2022"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -264,7 +702,7 @@ const ciform = () => {
               ))}
               <button
                 type="button"
-                onClick={() => addItem('education', { degree: '', university: '', year: '', grade: '', city: '' })}
+                onClick={() => addItem('education', { degree: '', university: '', graduationYear: '', grade: '', city: '' })}
                 className="text-blue-600 hover:text-blue-800 text-sm font-medium"
               >
                 + Add another degree/course
