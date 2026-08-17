@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { toast } from 'react-toastify';  // ✅ ADD THIS IMPORT
 import jobOpeningServices from "../../services/opening.service";
 import departmentService from "../../services/department.service";
 
@@ -25,319 +26,217 @@ const JobOpenings = () => {
         jobDetails: "",
         status: "Active",
     });
+
     const fetchOpenings = async () => {
         try {
             setLoading(true);
             setError("");
             const response = await jobOpeningServices.getOpenings();
-            console.log("Opening API Response:",response);
-            console.log("Opening DB Data:",response?.data);
+            console.log("Opening API Response:", response);
+            console.log("Opening DB Data:", response?.data);
 
             if (response?.success) {
-              setJobOpenings(response.data || []);
+                setJobOpenings(response.data || []);
             } else {
-                setError(response?.message ||"Failed to fetch openings.");
+                setError(response?.message || "Failed to fetch openings.");
             }
 
         } catch (error) {
-            console.error("Opening API Error:",error);
-
-            setError(error?.message || "Failed to fetch openings." );
-
+            console.error("Opening API Error:", error);
+            setError(error?.message || "Failed to fetch openings.");
         } finally {
             setLoading(false);
-
         }
     };
+
     const fetchDepartments = async () => {
-
         try {
-
             setDepartmentLoading(true);
             setDepartmentError("");
 
-            const response =await departmentService.getDepartments();
+            const response = await departmentService.getDepartments();
 
-            console.log("Department API Response:",response);
-
-            console.log(
-                "Department Data:",
-                response?.data
-            );
+            console.log("Department API Response:", response);
+            console.log("Department Data:", response?.data);
 
             if (response?.success) {
-
-                setDepartments(
-                    response.data || []
-                );
-
+                setDepartments(response.data || []);
             } else {
-
                 setDepartmentError(
-                    response?.message ||
-                    "Failed to fetch departments."
+                    response?.message || "Failed to fetch departments."
                 );
             }
 
         } catch (error) {
-
-            console.error(
-                "Department API Error:",
-                error
-            );
-
-            setDepartmentError(
-                error?.message ||
-                "Failed to fetch departments."
-            );
-
+            console.error("Department API Error:", error);
+            setDepartmentError(error?.message || "Failed to fetch departments.");
         } finally {
-
             setDepartmentLoading(false);
-
         }
     };
-    useEffect(() => {
 
+    useEffect(() => {
         fetchOpenings();
         fetchDepartments();
-
     }, []);
+
     const handleChange = (e) => {
-
-        const {
-            name,
-            value
-        } = e.target;
-
+        const { name, value } = e.target;
         setFormData((prev) => ({
             ...prev,
             [name]: value,
         }));
-
     };
-    const handleSubmit = async (e) => {
 
+    // ✅ FIXED: Toggle Status with API call
+    const toggleStatus = async (jobId, currentStatus) => {
+        try {
+            setSaving(true);
+            
+            // Call API to update status
+            const response = await jobOpeningServices.updateStatus(jobId, !currentStatus);
+            
+            if (response?.success) {
+                toast.success(`Opening ${!currentStatus ? 'activated' : 'deactivated'} successfully.`);
+                
+                // Refresh the list to get latest data
+                await fetchOpenings();
+            } else {
+                toast.error(response?.message || 'Failed to update status.');
+            }
+            
+        } catch (error) {
+            console.error('Toggle Status Error:', error);
+            toast.error(error?.message || 'Failed to update status.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // ✅ FIXED: Delete with API call
+    const deleteJob = async (jobId) => {
+        if (window.confirm("Are you sure you want to delete this job opening?")) {
+            try {
+                setSaving(true);
+                const response = await jobOpeningServices.deleteOpening(jobId);
+                
+                if (response?.success) {
+                    toast.success("Opening deleted successfully.");
+                    await fetchOpenings();
+                } else {
+                    toast.error(response?.message || "Failed to delete opening.");
+                }
+            } catch (error) {
+                console.error('Delete Error:', error);
+                toast.error(error?.message || "Failed to delete opening.");
+            } finally {
+                setSaving(false);
+            }
+        }
+    };
+
+    // ✅ FIXED: Get department prefix for code generation
+    const getDepartmentPrefix = (departmentId) => {
+        const departmentMap = {
+            1: 'DM',   // Digital Marketing
+            2: 'OP',   // Operations  
+            3: 'WD',   // Web Development
+            4: 'CO',   // Content
+        };
+        return departmentMap[departmentId] || 'GEN';
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         try {
-
-            // -----------------------------
-            // VALIDATION
-            // -----------------------------
-
+            // Validation
             if (!formData.jobTitle.trim()) {
-
-                alert(
-                    "Please enter job title."
-                );
-
+                toast.error("Please enter job title.");
                 return;
             }
-
 
             if (!formData.departmentId) {
-
-                alert(
-                    "Please select a department."
-                );
-
+                toast.error("Please select a department.");
                 return;
             }
-
 
             if (!formData.openingCount) {
-
-                alert(
-                    "Please enter opening count."
-                );
-
+                toast.error("Please enter opening count.");
                 return;
             }
-
 
             if (!formData.minExp && formData.minExp !== 0) {
-
-                alert(
-                    "Please enter minimum experience."
-                );
-
+                toast.error("Please enter minimum experience.");
                 return;
             }
-
 
             if (!formData.requiredSkills.trim()) {
-
-                alert(
-                    "Please enter required skills."
-                );
-
+                toast.error("Please enter required skills.");
                 return;
             }
 
-
-            // -----------------------------
-            // REQUEST DATA
-            // -----------------------------
+            // ✅ Generate code based on department
+            const departmentId = Number(formData.departmentId);
+            const prefix = getDepartmentPrefix(departmentId);
+            
+            // Count existing openings with same prefix
+            const existingCount = jobOpenings
+                .filter(job => job.code && job.code.startsWith(prefix))
+                .length;
+            
+            // Format: PREFIX-001, PREFIX-002, etc.
+            const code = `${prefix}-${String(existingCount + 1).padStart(3, '0')}`;
 
             const newOpening = {
-
-                code:
-                    formData.openingCode ||
-                    `JOB${String(
-                        jobOpenings.length + 1
-                    ).padStart(3, "0")}`,
-
-                jobTitle:
-                    formData.jobTitle.trim(),
-
-                departmentId:
-                    Number(
-                        formData.departmentId
-                    ),
-
-                openingCount:
-                    Number(
-                        formData.openingCount
-                    ),
-
-                requiredSkills:
-                    formData.requiredSkills.trim(),
-
-                minExperience:
-                    Number(
-                        formData.minExp
-                    ),
-
-                jobDescription:
-                    formData.jobDetails.trim(),
-
-                isActive:
-                    formData.status === "Active",
+                code: code,
+                jobTitle: formData.jobTitle.trim(),
+                departmentId: departmentId,
+                openingCount: Number(formData.openingCount),
+                requiredSkills: formData.requiredSkills.trim(),
+                minExperience: Number(formData.minExp),
+                jobDescription: formData.jobDetails.trim(),
+                isActive: formData.status === "Active",
             };
 
-
-            console.log(
-                "Sending Opening:",
-                newOpening
-            );
+            console.log("Sending Opening:", newOpening);
             setSaving(true);
 
-            const response =
-                await jobOpeningServices.createOpening(
-                    newOpening
-                );
+            const response = await jobOpeningServices.createOpening(newOpening);
 
-
-            console.log(
-                "Create Opening Response:",
-                response
-            );
             if (response?.success) {
-
-                alert(
-                    "Opening created successfully."
-                );
+                toast.success("Opening created successfully.");
                 await fetchOpenings();
                 setFormData({
-
                     jobTitle: "",
-
                     departmentId: "",
-
                     openingCount: "",
-
                     openingCode: "",
-
                     minExp: "",
-
                     requiredSkills: "",
-
                     jobDetails: "",
-
                     status: "Active",
-
                 });
-
-
-                // Close modal
                 setShowAddModal(false);
-
             } else {
-
-                alert(
-                    response?.message ||
-                    "Failed to create opening."
-                );
+                toast.error(response?.message || "Failed to create opening.");
             }
 
-
         } catch (error) {
-
-            console.error(
-                "Create Opening Error:",
-                error
-            );
-
-            alert(
-                error?.message ||
-                "Failed to create opening."
-            );
-
+            console.error("Create Opening Error:", error);
+            toast.error(error?.message || "Failed to create opening.");
         } finally {
-
             setSaving(false);
-
         }
-
     };
-    const toggleStatus = (index) => {
 
-        const updated =
-            [...jobOpenings];
-
-        updated[index] = {
-
-            ...updated[index],
-
-            isActive:
-                !updated[index].isActive,
-
-        };
-
-        setJobOpenings(updated);
-
-    };
-    const deleteJob = (index) => {
-
-        if (
-            window.confirm(
-                "Are you sure you want to delete this job opening?"
-            )
-        ) {
-
-            setJobOpenings(
-                jobOpenings.filter(
-                    (_, i) =>
-                        i !== index
-                )
-            );
-
-        }
-
-    };
-    const getStatusBadge = (
-        isActive
-    ) => {
-
+    const getStatusBadge = (isActive) => {
         return isActive
-
             ? "bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium"
-
             : "bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs font-medium";
     };
-    return (
 
+    return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
 
             <div>
@@ -615,25 +514,16 @@ const JobOpenings = () => {
                                                     <div className="flex gap-2">
 
                                                         <button
-                                                            onClick={() =>
-                                                                toggleStatus(
-                                                                    index
-                                                                )
-                                                            }
+                                                            onClick={() => toggleStatus(job.jobid, job.isActive)}
+                                                            disabled={saving}
                                                             className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                                                                 job.isActive
-                                                                    ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                                                                    : "bg-green-100 text-green-700 hover:bg-green-200"
+                                                                ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                                                                : "bg-green-100 text-green-700 hover:bg-green-200"
                                                             }`}
-                                                        >
-
-                                                            {
-                                                                job.isActive
-                                                                    ? "Deactivate"
-                                                                    : "Activate"
-                                                            }
-
-                                                        </button>
+                                                            >
+                                                            {job.isActive ? "Deactivate" : "Activate"}
+                                                            </button>
 
 
                                                         <button
@@ -725,18 +615,8 @@ const JobOpenings = () => {
                 </div>
 
             </div>
-
-
-            {/* =========================================================
-                ADD NEW OPENING MODAL
-            ========================================================== */}
-
             {showAddModal && (
-
                 <div className="fixed inset-0 z-50 overflow-y-auto">
-
-                    {/* BACKDROP */}
-
                     <div
                         className="fixed inset-0 bg-black/50"
                         onClick={() =>
@@ -744,11 +624,7 @@ const JobOpenings = () => {
                             setShowAddModal(false)
                         }
                     />
-
-
-                    {/* MODAL */}
-
-                    <div className="flex min-h-full items-center justify-center p-4">
+                   <div className="flex min-h-full items-center justify-center p-4">
 
                         <div className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
 
@@ -1110,7 +986,6 @@ const JobOpenings = () => {
                     </div>
 
                 </div>
-
             )}
 
         </div>

@@ -11,6 +11,7 @@ import ProjectOnboarding from "../components/project/onboardingPrjt";
 import ProjectDetail from "../components/project/projectDetail";
 import TaskBoard from "../components/project/mytask";
 import AssignTask from "../components/project/assignTask";
+import Applied from "../components/Career/applied";
 import JobOpening from "../components/Career/job";
 import RecruitmentProcess from "../components/Career/recruitmentProcess";
 import Onboarding from "../components/Career/onboarding";
@@ -51,6 +52,7 @@ export default function AppRoutes() {
                 <Route path="/ventor-management" element={<VentorManagement />} />
                 <Route path="/ventor-assigned" element={<VentorAssigned />} />
                 <Route path="/cif-form" element={<Cif />} />
+                <Route path="/applied" element={<Applied/>} />
                 <Route path="/job" element={<JobOpening />} />
                 <Route path="/recruitment-process" element={<RecruitmentProcess />} />
                 <Route path="/onboarding" element={<Onboarding />} />

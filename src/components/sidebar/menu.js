@@ -1,6 +1,6 @@
 import {
     LayoutDashboard,
-    Users,
+    Users, Split,
     ChartNoAxesCombined,
     KanbanSquare,
     Waypoints,
@@ -12,7 +12,8 @@ import {
     HandCoins,
     FileUser,
     Network,
-    RotateCwSquare
+    RotateCwSquare,
+    SplitIcon
 } from "lucide-react";
 const menu = [
     {
@@ -90,6 +91,12 @@ const menu = [
                 title: "Job Opening",
                 icon: Briefcase,
                 path: "/job"
+            },
+            {
+                name: "Applied",
+                title: "job Applied",
+                icon: Split,
+                path: "/applied"
             },
             {
                 name: "Recruitment",

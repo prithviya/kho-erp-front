@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Logo from '../../assets/kho.webp';
-import onboardingService from '../../services/onboarding.service';
+import jobOpeningServices from '../../services/opening.service';
+import { request } from '../../services/apiClient';
+
 const ciform = () => {
   const navigate = useNavigate();
   const [personalformData, setpersonalFormData] = useState({
@@ -30,6 +32,32 @@ const ciform = () => {
   const [submitting, setSubmitting] = useState(false);
   const [jobPositions, setJobPositions] = useState([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
+
+  const fetchJobPositions = async () => {
+  try {
+    setLoadingJobs(true);
+
+    const response = await jobOpeningServices.getOpenings();
+    const jobs = response?.data || response?.result || response || [];
+
+    // ✅ FILTER: Only show active openings
+    const activeJobs = Array.isArray(jobs) 
+      ? jobs.filter(job => job.isActive === true || job.isActive === 1)
+      : [];
+
+    setJobPositions(activeJobs);
+  } catch (error) {
+    console.error('JOB POSITION FETCH ERROR:', error);
+    toast.error(error?.message || 'Unable to load job positions.');
+    setJobPositions([]);
+  } finally {
+    setLoadingJobs(false);
+  }
+};
+
+  useEffect(() => {
+    fetchJobPositions();
+  }, []);
 
   // console.log('educationformData',educationformData);
   
@@ -148,43 +176,20 @@ const calculateExperience = (startDate, endDate) => {
 };
 const handleSubmit = async (e) => {
   e.preventDefault();
-  useEffect(() => {
-  const fetchJobPositions = async () => {
-    try {
-      setLoadingJobs(true);
-
-      const response = await fetch("/api/openings");
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.message || "Failed to fetch job positions"
-        );
-      }
-
-      console.log("OPENINGS RESPONSE:", result);
-
-      const jobs =
-        result.data ||
-        result.result ||
-        result;
-
-      setJobPositions(Array.isArray(jobs) ? jobs : []);
-
-    } catch (error) {
-      console.error("JOB POSITION FETCH ERROR:", error);
-      toast.error("Unable to load job positions.");
-    } finally {
-      setLoadingJobs(false);
-    }
-  };
-
-  fetchJobPositions();
-}, []);
 
   if (!personalformData.consent) {
     toast.error("Please confirm your consent before submitting.");
+    return;
+  }
+
+  const invalidAcademic = educationformData.find((education) => {
+    if (!education.degree.trim()) return false;
+
+    return !/^\d{4}$/.test(String(education.graduationYear).trim());
+  });
+
+  if (invalidAcademic) {
+    toast.error("Enter a four-digit graduation year for every degree/course.");
     return;
   }
 
@@ -216,280 +221,63 @@ const handleSubmit = async (e) => {
 
     console.log("PERSONAL PAYLOAD:", personalPayload);
 
-    const personalResponse = await fetch(
-      "/api/cif-personals",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(personalPayload),
-      }
-    );
+    const submissionPayload = {
+      personal: personalPayload,
+      academics: educationformData
+        .filter((education) => education.degree)
+        .map((education) => ({
+          degree: education.degree,
+          university: education.university,
+          graduationYear: Number.parseInt(education.graduationYear, 10),
+          grade: education.grade,
+          city: education.city,
+        })),
+      experiences: workformData
+        .filter((work) => work.employer)
+        .map((work) => ({
+          companyName: work.employer,
+          location: work.location,
+          role: work.jobTitle,
+          startDate: work.startDate,
+          endDate: work.endDate || null,
+          totalExperience: calculateExperience(work.startDate, work.endDate),
+          reasonForLeaving: null,
+        })),
+      skills: skillformData
+        .filter((skill) => skill.skill)
+        .map((skill) => ({
+          skillName: skill.skill,
+          skillLevel: skill.level,
+          year: skill.year ? `${skill.year}-01-01` : null,
+          provider: skill.institute,
+        })),
+      softwares: toolformData
+        .filter((tool) => tool.name)
+        .map((tool) => ({ tools: tool.name, levels: tool.proficiency })),
+      languages: langformData
+        .filter((lang) => lang.language)
+        .map((lang) => ({
+          language: lang.language,
+          Speak: lang.speak.toLowerCase(),
+          Read: lang.read.toLowerCase(),
+          Write: lang.write.toLowerCase(),
+        })),
+      references: refformData
+        .filter((ref) => ref.name)
+        .map((ref) => ({
+          referenceName: ref.name,
+          referenceEmail: ref.email,
+          referencePhone: ref.phone,
+          consentConfirmed: personalformData.consent,
+        })),
+    };
 
-    const personalResult = await personalResponse.json();
+    const submissionResult = await request("/cif-submissions", {
+      method: "POST",
+      body: JSON.stringify(submissionPayload),
+    });
 
-    if (!personalResponse.ok) {
-      throw new Error(
-        personalResult.message || "Failed to create personal record"
-      );
-    }
-
-    console.log("PERSONAL RESPONSE:", personalResult);
-
-    // =====================================================
-    // GET CIF ID
-    // =====================================================
-
-    const personalData =
-      personalResult.data || personalResult.result || personalResult;
-
-    const cifid =
-      personalData.cifid ||
-      personalData.data?.cifid;
-
-    if (!cifid) {
-      throw new Error(
-        "Personal record created, but CIF ID was not returned by backend."
-      );
-    }
-
-    console.log("CREATED CIF ID:", cifid);
-
-    // =====================================================
-    // STEP 2: ACADEMIC
-    // =====================================================
-
-    for (const education of educationformData) {
-      if (!education.degree) continue;
-
-      const academicPayload = {
-        cifid: cifid,
-        degree: education.degree,
-        university: education.university,
-        graduationYear: Number(education.graduationYear),
-        grade: education.grade,
-        city: education.city,
-      };
-
-      console.log("ACADEMIC:", academicPayload);
-
-      const response = await fetch(
-        "/api/cif-academics",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(academicPayload),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.message || "Failed to save academic details"
-        );
-      }
-    }
-
-    // =====================================================
-    // STEP 3: EXPERIENCE
-    // =====================================================
-
-    for (const work of workformData) {
-      if (!work.employer) continue;
-
-      const totalExperience = calculateExperience(
-        work.startDate,
-        work.endDate
-      );
-
-      const experiencePayload = {
-        cifid: cifid,
-        companyName: work.employer,
-        location: work.location,
-        role: work.jobTitle,
-        startDate: work.startDate,
-        endDate: work.endDate || null,
-        totalExperience: totalExperience,
-        reasonForLeaving: null,
-      };
-
-      console.log("EXPERIENCE:", experiencePayload);
-
-      const response = await fetch(
-        "/api/cif-experiences",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(experiencePayload),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.message || "Failed to save experience details"
-        );
-      }
-    }
-
-    // =====================================================
-    // STEP 4: SKILLS
-    // =====================================================
-
-    for (const skill of skillformData) {
-      if (!skill.skill) continue;
-
-      const skillPayload = {
-        cifid: cifid,
-        skillName: skill.skill,
-        skillLevel: skill.level,
-        year: skill.year
-          ? `${skill.year}-01-01`
-          : null,
-        provider: skill.institute,
-      };
-
-      console.log("SKILL:", skillPayload);
-
-      const response = await fetch(
-        "/api/cif-skills",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(skillPayload),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.message || "Failed to save skill details"
-        );
-      }
-    }
-
-    // =====================================================
-    // STEP 5: SOFTWARE
-    // =====================================================
-
-    for (const tool of toolformData) {
-      if (!tool.name) continue;
-
-      const softwarePayload = {
-        cifid: cifid,
-        tools: tool.name,
-        levels: tool.proficiency,
-      };
-
-      console.log("SOFTWARE:", softwarePayload);
-
-      const response = await fetch(
-        "/api/cif-softwares",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(softwarePayload),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.message || "Failed to save software details"
-        );
-      }
-    }
-
-    // =====================================================
-    // STEP 6: LANGUAGE
-    // =====================================================
-
-    for (const lang of langformData) {
-      if (!lang.language) continue;
-
-      const languagePayload = {
-        cifid: cifid,
-
-        // IMPORTANT:
-        // Your current backend model does not have languageName.
-        // So currently only proficiency values can be sent.
-
-        Speak: lang.speak.toLowerCase(),
-        Read: lang.read.toLowerCase(),
-        Write: lang.write.toLowerCase(),
-      };
-
-      console.log("LANGUAGE:", languagePayload);
-
-      const response = await fetch(
-        "/api/cif-languages",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(languagePayload),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.message || "Failed to save language details"
-        );
-      }
-    }
-
-    // =====================================================
-    // STEP 7: REFERENCES
-    // =====================================================
-
-    for (const ref of refformData) {
-      if (!ref.name) continue;
-
-      const referencePayload = {
-        cifid: cifid,
-        referenceName: ref.name,
-        referenceEmail: ref.email,
-        referencePhone: ref.phone,
-        consentConfirmed: personalformData.consent,
-      };
-
-      console.log("REFERENCE:", referencePayload);
-
-      const response = await fetch(
-        "/api/cif-references",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(referencePayload),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.message || "Failed to save reference details"
-        );
-      }
-    }
+    console.log("CIF SUBMISSION RESPONSE:", submissionResult);
 
     // =====================================================
     // SUCCESS
@@ -671,7 +459,10 @@ const handleSubmit = async (e) => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Year of Graduate</label>
                     <input
-                      type="text"
+                      type="number"
+                      min="1900"
+                      max="2100"
+                      step="1"
                       value={edu.graduationYear}
                       onChange={(e) => handleArrayChange('education', index, 'graduationYear', e.target.value)}
                       placeholder="2022"
