@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { toast } from 'react-toastify';  // ✅ ADD THIS IMPORT
+import { toast } from 'react-toastify';  
 import jobOpeningServices from "../../services/opening.service";
 import departmentService from "../../services/department.service";
 
@@ -88,18 +88,13 @@ const JobOpenings = () => {
         }));
     };
 
-    // ✅ FIXED: Toggle Status with API call
     const toggleStatus = async (jobId, currentStatus) => {
         try {
             setSaving(true);
-            
-            // Call API to update status
             const response = await jobOpeningServices.updateStatus(jobId, !currentStatus);
             
             if (response?.success) {
                 toast.success(`Opening ${!currentStatus ? 'activated' : 'deactivated'} successfully.`);
-                
-                // Refresh the list to get latest data
                 await fetchOpenings();
             } else {
                 toast.error(response?.message || 'Failed to update status.');
@@ -113,7 +108,6 @@ const JobOpenings = () => {
         }
     };
 
-    // ✅ FIXED: Delete with API call
     const deleteJob = async (jobId) => {
         if (window.confirm("Are you sure you want to delete this job opening?")) {
             try {
@@ -135,7 +129,6 @@ const JobOpenings = () => {
         }
     };
 
-    // ✅ FIXED: Get department prefix for code generation
     const getDepartmentPrefix = (departmentId) => {
         const departmentMap = {
             1: 'DM',   // Digital Marketing
@@ -148,46 +141,32 @@ const JobOpenings = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         try {
-            // Validation
             if (!formData.jobTitle.trim()) {
                 toast.error("Please enter job title.");
                 return;
             }
-
             if (!formData.departmentId) {
                 toast.error("Please select a department.");
                 return;
             }
-
             if (!formData.openingCount) {
                 toast.error("Please enter opening count.");
                 return;
             }
-
             if (!formData.minExp && formData.minExp !== 0) {
                 toast.error("Please enter minimum experience.");
                 return;
             }
-
             if (!formData.requiredSkills.trim()) {
                 toast.error("Please enter required skills.");
                 return;
             }
-
-            // ✅ Generate code based on department
             const departmentId = Number(formData.departmentId);
             const prefix = getDepartmentPrefix(departmentId);
-            
-            // Count existing openings with same prefix
             const existingCount = jobOpenings
-                .filter(job => job.code && job.code.startsWith(prefix))
-                .length;
-            
-            // Format: PREFIX-001, PREFIX-002, etc.
+                .filter (job => job.code && job.code.startsWith(prefix)).length;
             const code = `${prefix}-${String(existingCount + 1).padStart(3, '0')}`;
-
             const newOpening = {
                 code: code,
                 jobTitle: formData.jobTitle.trim(),
@@ -201,9 +180,7 @@ const JobOpenings = () => {
 
             console.log("Sending Opening:", newOpening);
             setSaving(true);
-
             const response = await jobOpeningServices.createOpening(newOpening);
-
             if (response?.success) {
                 toast.success("Opening created successfully.");
                 await fetchOpenings();
@@ -221,7 +198,6 @@ const JobOpenings = () => {
             } else {
                 toast.error(response?.message || "Failed to create opening.");
             }
-
         } catch (error) {
             console.error("Create Opening Error:", error);
             toast.error(error?.message || "Failed to create opening.");
@@ -238,13 +214,9 @@ const JobOpenings = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-
             <div>
-
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-
                     <div>
-
                         <h1 className="text-2xl font-bold text-gray-900">
                             Current Openings
                         </h1>
@@ -252,77 +224,43 @@ const JobOpenings = () => {
                         <p className="text-sm text-gray-500">
                             Manage job postings and requirements
                         </p>
-
                     </div>
-
-
                     <button
                         onClick={() =>
                             setShowAddModal(true)
                         }
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2"
-                    >
-
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2">
                         <svg
                             className="w-5 h-5"
                             fill="none"
                             stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-
+                            viewBox="0 0 24 24">
                             <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth={2}
                                 d="M12 4v16m8-8H4"
                             />
-
-                        </svg>
-
-                        Add New Opening
-
+                        </svg> Add New Opening
                     </button>
-
                 </div>
-
-
-                {/* =====================================================
-                    ERROR
-                ====================================================== */}
-
                 {error && (
-
                     <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
-
                         {error}
-
                     </div>
-
                 )}
 
-
-                {/* =====================================================
-                    TABLE
-                ====================================================== */}
-
                 <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-
                     <div className="overflow-x-auto">
-
                         <table className="min-w-full divide-y divide-gray-200">
-
                             <thead className="bg-gray-50">
-
                                 <tr>
-
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         CODE
                                     </th>
-
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         JOB TITLE
                                     </th>
-
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         DEPARTMENT
                                     </th>
@@ -350,69 +288,42 @@ const JobOpenings = () => {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         ACTIONS
                                     </th>
-
                                 </tr>
-
                             </thead>
 
-
                             <tbody className="bg-white divide-y divide-gray-200">
-
                                 {loading ? (
-
                                     <tr>
-
                                         <td
                                             colSpan="9"
                                             className="px-4 py-8 text-center text-gray-500"
                                         >
                                             Loading openings...
                                         </td>
-
                                     </tr>
-
                                 ) : jobOpenings.length === 0 ? (
-
                                     <tr>
-
                                         <td
                                             colSpan="9"
-                                            className="px-4 py-8 text-center text-gray-500"
-                                        >
+                                            className="px-4 py-8 text-center text-gray-500">
                                             No openings found.
                                         </td>
-
                                     </tr>
-
                                 ) : (
-
                                     jobOpenings.map(
                                         (job, index) => (
-
                                             <tr
                                                 key={
                                                     job.jobid ||
                                                     index
                                                 }
-                                                className="hover:bg-gray-50 transition-colors"
-                                            >
-
-                                                {/* CODE */}
-
+                                                className="hover:bg-gray-50 transition-colors">
                                                 <td className="px-4 py-3 text-sm font-medium text-gray-900">
                                                     {job.code}
                                                 </td>
-
-
-                                                {/* JOB TITLE */}
-
                                                 <td className="px-4 py-3 text-sm text-gray-700">
                                                     {job.jobTitle}
                                                 </td>
-
-
-                                                {/* DEPARTMENT */}
-
                                                 <td className="px-4 py-3 text-sm text-gray-700">
                                                     {job.department?.name || "-"}
 
