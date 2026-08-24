@@ -33,6 +33,7 @@ export default function AppRoutes() {
                     </PublicRoute>
                 }
             />
+            <Route path="/cif-form" element={<Cif />} />
             <Route
                 element={
                     <PrivateRoute>
@@ -51,7 +52,6 @@ export default function AppRoutes() {
                 <Route path="/master" element={<Master/>} />
                 <Route path="/ventor-management" element={<VentorManagement />} />
                 <Route path="/ventor-assigned" element={<VentorAssigned />} />
-                <Route path="/cif-form" element={<Cif />} />
                 <Route path="/applied" element={<Applied/>} />
                 <Route path="/job" element={<JobOpening />} />
                 <Route path="/recruitment-process" element={<RecruitmentProcess />} />

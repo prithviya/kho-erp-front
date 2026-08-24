@@ -143,6 +143,14 @@ const Applied = () => {
     );
   };
 
+  const normalizeStatus = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    return {
+      shortlist: 'shortlisted',
+      reject: 'rejected',
+    }[normalizedStatus] || normalizedStatus;
+  };
+
   const formatDate = (date) => {
     if (!date) return '-';
 
@@ -416,7 +424,10 @@ const Applied = () => {
                 ) : (
                   /* DATA */
                   filteredApplications.map(
-                    (app, index) => (
+                    (app, index) => {
+                      const status = normalizeStatus(app.status);
+
+                      return (
                       <tr
                         key={
                           app.cifid || index
@@ -553,19 +564,18 @@ const Applied = () => {
                               }
                               disabled={
                                 updating ||
-                                app.status?.toLowerCase() === 'rejected' ||
-                                app.status?.toLowerCase() === 'selected'
+                                ['shortlisted', 'rejected', 'selected'].includes(status)
                               }
-                              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                                app.status?.toLowerCase() === 'shortlisted'
+                              className={`px-3  py-1 rounded text-xs font-medium transition-colors ${
+                                status === 'shortlisted'
                                   ? 'bg-blue-100 text-blue-700 cursor-default'
-                                  : app.status?.toLowerCase() === 'rejected' ||
-                                    app.status?.toLowerCase() === 'selected'
+                                  : status === 'rejected' ||
+                                    status === 'selected'
                                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                   : 'bg-blue-600 text-white hover:bg-blue-700'
                               }`}
                             >
-                              {app.status?.toLowerCase() === 'shortlisted'
+                              {status === 'shortlisted'
                                 ? 'Already Shortlisted'
                                 : 'Shortlist'}
                             </button>
@@ -602,8 +612,8 @@ const Applied = () => {
                         </td>
 
                       </tr>
-
-                    )
+                      );
+                    }
                   )
 
                 )}
