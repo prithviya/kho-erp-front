@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Logo from '../../assets/kho.webp';
 import jobOpeningServices from '../../services/opening.service';
@@ -7,6 +7,8 @@ import { request } from '../../services/apiClient';
 
 const ciform = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const jobId = searchParams.get('jobid');
   const [personalformData, setpersonalFormData] = useState({
     // Personal Information
     appliedPosition: '', fullName: '', email: '', phoneNumber: '', DOB: '', address:'', city: '', state:'', pinCode: '', gender: 'Prefer not to say', portfolioLink: '', maritalStatus: '', resume: null, consent: false
@@ -32,6 +34,7 @@ const ciform = () => {
   const [submitting, setSubmitting] = useState(false);
   const [jobPositions, setJobPositions] = useState([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
+  const [selectedOpening, setSelectedOpening] = useState(null);
 
   const fetchJobPositions = async () => {
   try {
@@ -59,6 +62,41 @@ const ciform = () => {
     fetchJobPositions();
   }, []);
 
+  useEffect(() => {
+    if (!jobId) {
+      setSelectedOpening(null);
+      return;
+    }
+
+    let isCurrent = true;
+
+    const fetchOpening = async () => {
+      try {
+        const response = await jobOpeningServices.getOpeningById(jobId);
+        const opening = response?.data;
+
+        if (isCurrent && opening?.jobid) {
+          setSelectedOpening(opening);
+          setpersonalFormData((prev) => ({
+            ...prev,
+            appliedPosition: String(opening.jobid),
+          }));
+        }
+      } catch (error) {
+        if (isCurrent) {
+          setSelectedOpening(null);
+          console.error('JOB OPENING FETCH ERROR:', error);
+        }
+      }
+    };
+
+    fetchOpening();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [jobId]);
+ 
   // console.log('educationformData',educationformData);
   
 
@@ -368,12 +406,18 @@ const handleSubmit = async (e) => {
                     value={personalformData.appliedPosition}
                     onChange={handleChange}
                     required
-                    disabled={loadingJobs}
+                    disabled={loadingJobs || Boolean(selectedOpening)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">
                       {loadingJobs ? "Loading positions..." : "Select Position"}
                     </option>
+
+                    {selectedOpening && !jobPositions.some((job) => job.jobid === selectedOpening.jobid) && (
+                      <option value={selectedOpening.jobid} key={selectedOpening.jobid}>
+                        {selectedOpening.jobTitle}
+                      </option>
+                    )}
 
                     {jobPositions.map((job) => (
                       <option key={job.jobid} value={job.jobid}>

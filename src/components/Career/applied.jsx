@@ -143,6 +143,14 @@ const Applied = () => {
     );
   };
 
+  const normalizeStatus = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    return {
+      shortlist: 'shortlisted',
+      reject: 'rejected',
+    }[normalizedStatus] || normalizedStatus;
+  };
+
   const formatDate = (date) => {
     if (!date) return '-';
 

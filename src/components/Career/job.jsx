@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from 'react-toastify';  
 import jobOpeningServices from "../../services/opening.service";
 import departmentService from "../../services/department.service";
 
 const JobOpenings = () => {
+    const navigate = useNavigate();
     const [jobOpenings, setJobOpenings] = useState([]);
     const [departments, setDepartments] = useState([]);
 
@@ -25,6 +27,7 @@ const JobOpenings = () => {
         requiredSkills: "",
         jobDetails: "",
         status: "Active",
+        jobOpeningUrl: ""
     });
 
     const fetchOpenings = async () => {
@@ -183,6 +186,8 @@ const JobOpenings = () => {
             const response = await jobOpeningServices.createOpening(newOpening);
             if (response?.success) {
                 toast.success("Opening created successfully.");
+                const opening = response.data;
+                const jobOpeningUrl = opening?.jobOpeningUrl || `/cif-form?jobid=${opening?.jobid}`;
                 await fetchOpenings();
                 setFormData({
                     jobTitle: "",
@@ -195,6 +200,7 @@ const JobOpenings = () => {
                     status: "Active",
                 });
                 setShowAddModal(false);
+                navigate(jobOpeningUrl);
             } else {
                 toast.error(response?.message || "Failed to create opening.");
             }
@@ -210,6 +216,16 @@ const JobOpenings = () => {
         return isActive
             ? "bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium"
             : "bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs font-medium";
+    };
+
+    const copyJobOpeningUrl = async (url) => {
+        try {
+            await navigator.clipboard.writeText(url);
+            toast.success("Apply URL copied.");
+        } catch (error) {
+            console.error("Copy URL Error:", error);
+            toast.error("Unable to copy apply URL.");
+        }
     };
 
     return (
@@ -392,27 +408,23 @@ const JobOpenings = () => {
 
                                                 {/* APPLY LINK */}
 
-                                                <td className="px-4 py-3 text-sm text-blue-600 hover:text-blue-800">
+                                                <td className="px-4 py-3 text-sm text-blue-600">
+                                                    {job.jobOpeningUrl || job.jobid ? (() => {
+                                                        const url = job.jobOpeningUrl || `${window.location.origin}/cif-form?jobid=${job.jobid}`;
+                                                        const displayUrl = url.length > 20 ? `${url.slice(0, 20)}...` : url;
 
-                                                    {job.applyLink ? (
-
-                                                        <a
-                                                            href={
-                                                                job.applyLink
-                                                            }
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="hover:underline"
-                                                        >
-                                                            Apply Link
-                                                        </a>
-
-                                                    ) : (
-
-                                                        <span className="text-gray-400">
-                                                            -
-                                                        </span>
-
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => copyJobOpeningUrl(url)}
+                                                                title={url}
+                                                                className="max-w-55 truncate text-left hover:underline"
+                                                            >
+                                                                {displayUrl}
+                                                            </button>
+                                                        );
+                                                    })() : (
+                                                        <span className="text-gray-400">-</span>
                                                     )}
 
                                                 </td>
