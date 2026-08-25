@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { request } from '../../services/apiClient';
 
 const EmployeeOnboarding = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -6,38 +8,40 @@ const EmployeeOnboarding = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isViewMode, setIsViewMode] = useState(false);
   
-  const [awaitingEmployees] = useState([
-    {
-      id: 1,
-      name: 'Tanisha Robles',
-      designation: 'N/A',
-      group: 'Culpa laborum dolore',
-      email: 'gowtham134@gmail.com',
-      phone: '+91 98765 43210',
-      department: 'Content',
-      status: 'Awaiting Onboarding',
-    },
-    {
-      id: 2,
-      name: 'John Doe',
-      designation: 'N/A',
-      group: 'Marketing Team',
-      email: 'john.doe@gmail.com',
-      phone: '+91 98765 43211',
-      department: 'Marketing',
-      status: 'Awaiting Onboarding',
-    },
-    {
-      id: 3,
-      name: 'Sarah Johnson',
-      designation: 'N/A',
-      group: 'Development Team',
-      email: 'sarah.j@gmail.com',
-      phone: '+91 98765 43212',
-      department: 'Development',
-      status: 'Awaiting Onboarding',
-    },
-  ]);
+  const [awaitingEmployees, setAwaitingEmployees] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchAwaitingEmployees();
+  }, []);
+
+  const fetchAwaitingEmployees = async () => {
+    try {
+      setLoading(true);
+      const response = await request('/cif-submissions', { method: 'GET' });
+      if (response?.success) {
+        const selected = (response.data || []).filter(c => c.status === 'Selected');
+        
+        const mappedEmployees = selected.map(c => ({
+          id: c.cifid,
+          name: c.fullName || 'N/A',
+          designation: c.opening?.jobTitle || 'N/A',
+          group: 'N/A',
+          email: c.email || 'N/A',
+          phone: c.phoneNumber || 'N/A',
+          department: 'N/A',
+          status: 'Awaiting Onboarding',
+          rawCandidate: c
+        }));
+        
+        setAwaitingEmployees(mappedEmployees);
+      }
+    } catch (error) {
+      console.error('Error fetching selected candidates:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [formData, setFormData] = useState({
     // Basic Details
@@ -144,6 +148,37 @@ const EmployeeOnboarding = () => {
       welcomeKit: false,
     },
   });
+
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state && location.state.candidateData) {
+      const candidate = location.state.candidateData;
+      const nameParts = candidate.fullName ? candidate.fullName.split(' ') : [];
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      setFormData(prev => ({
+        ...prev,
+        firstName,
+        lastName,
+        personalEmail: candidate.email || '',
+        personalPhone: candidate.phoneNumber || '',
+        designation: candidate.opening?.jobTitle || '',
+      }));
+      
+      setSelectedEmployee({
+        id: candidate.cifid,
+        name: candidate.fullName,
+        email: candidate.email,
+        phone: candidate.phoneNumber
+      });
+      setShowOnboardingForm(true);
+      
+      // Clean up the state so it doesn't reopen on refresh
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state]);
 
   const steps = [
     { id: 1, name: 'Personal', progress: 32 },

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { request } from '../../services/apiClient';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 const RecruitmentPipeline = () => {
+  const navigate = useNavigate();
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedCandidateId, setSelectedCandidateId] = useState(null);
 
@@ -39,9 +41,7 @@ const RecruitmentPipeline = () => {
           const shortlistedCandidates = (
             response.data || []
           ).filter((candidate) => {
-            // Once recruitment details have been saved, keep the candidate in
-            // this pipeline even if the recruitment status changes to Pending
-            // or Reject. This lets users reopen and edit the saved record.
+           
             if (candidate.recruitment) {
               return true;
             }
@@ -180,6 +180,10 @@ const RecruitmentPipeline = () => {
     return (colors[status] ||'bg-gray-100 text-gray-800');
   };
 
+  const handleLaunchToOnboarding = (candidate) => {
+    navigate('/onboarding', { state: { candidateData: candidate } });
+  };
+
   const getStatusBadge = (status) => {
     let displayStatus = status;
     if (status === 'Shortlist') {
@@ -233,21 +237,13 @@ const RecruitmentPipeline = () => {
 
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
-
                   <tr>
-
-                    <td
-                      colSpan="5"
-                      className="px-4 py-8 text-center text-gray-500"
-                    >
-
+                    <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
                       <div className="flex justify-center items-center">
-
                         <svg
                           className="animate-spin h-5 w-5 mr-3 text-blue-600"
                           viewBox="0 0 24 24"
                         >
-
                           <circle
                             className="opacity-25"
                             cx="12"
@@ -257,13 +253,11 @@ const RecruitmentPipeline = () => {
                             strokeWidth="4"
                             fill="none"
                           />
-
                           <path
                             className="opacity-75"
                             fill="currentColor"
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                           />
-
                         </svg>
 
                         Loading shortlisted candidates...
@@ -384,7 +378,7 @@ const RecruitmentPipeline = () => {
 
                       {/* ACTION */}
 
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 flex items-center space-x-3">
 
                         <button
                           onClick={() =>
@@ -418,6 +412,18 @@ const RecruitmentPipeline = () => {
                           </svg>
 
                         </button>
+
+                        {candidate.appliedStatus === 'Selected' && (
+                          <button
+                            onClick={() => handleLaunchToOnboarding(candidate)}
+                            className="text-green-600 hover:text-green-800 transition-colors"
+                            title="Launch to Onboarding"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        )}
 
                       </td>
 
@@ -848,21 +854,34 @@ const RecruitmentPipeline = () => {
 
                             <div className="flex justify-between items-start">
 
-                              <div>
-
-                                <p className="text-sm font-medium text-gray-800">
-                                  {item.user || '-'}
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-800 mb-2">
+                                  {item.user || '-'} - {item.action || '-'}
                                 </p>
-
-                                <p className="text-sm text-gray-600">
-                                  {item.action || '-'}
-                                </p>
-
+                                <div className="space-y-1">
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-semibold">Step 1 (HR Feedback):</span> {item.hrFeedback || '-'}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-semibold">Step 2 (Technical Feedback):</span> {item.technicalFeedback || '-'}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-semibold">Step 3 (MD Feedback):</span> {item.mdFeedback || '-'}
+                                  </p>
+                                  <p className="text-sm text-gray-600 mt-2">
+                                    <span className="font-semibold">Status Change Note:</span> {item.statusNote || '-'}
+                                  </p>
+                                </div>
                               </div>
 
-                              <span className="text-xs text-gray-400">
-                                {item.date || '-'}
-                              </span>
+                              <div className="text-right ml-4">
+                                <span className="block text-xs text-gray-400">
+                                  {item.interviewMode || 'Offline'}
+                                </span>
+                                <span className="block text-xs text-gray-400 mt-1">
+                                  {item.date || '-'} {item.time || ''}
+                                </span>
+                              </div>
 
                             </div>
 
