@@ -496,7 +496,7 @@ export default function ProjectOnboarding() {
               {selectedServices.some((s) => DETAIL_ENABLED_NAMES.has(String(s.name || "").toLowerCase())) && (
                 <div>
                   <h2 className="mb-3 text-md font-semibold text-gray-800">Service Details</h2>
-                  <div className="max-h-52 space-y-3 overflow-y-auto pr-1">
+                  <div className="max-h-75 space-y-3 overflow-y-auto pr-1">
                     {selectedServices.map((service) => {
                       const detailsUI = renderServiceFields(service);
                       if (!detailsUI) return null;

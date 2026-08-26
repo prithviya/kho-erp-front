@@ -374,24 +374,33 @@ const JobOpenings = () => {
 
                                                 </td>
 
-
                                                 {/* APPLY LINK */}
-
                                                 <td className="px-4 py-3 text-sm text-blue-600">
-                                                    {job.jobOpeningUrl || job.jobid ? (() => {
-                                                        const url = job.jobOpeningUrl || `${window.location.origin}/cif-form?jobid=${job.jobid}`;
-                                                        const displayUrl = url.length > 20 ? `${url.slice(0, 20)}...` : url;
-                                                        return (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => copyJobOpeningUrl(url)}
-                                                                title={url}
-                                                                className="max-w-55 truncate text-left hover:underline"
-                                                            >
-                                                                {displayUrl}
-                                                            </button>
-                                                        );
-                                                    })()}
+                                                    {job.jobOpeningUrl || job.jobid ? (
+                                                        (() => {
+                                                            const url =
+                                                                job.jobOpeningUrl ||
+                                                                `${window.location.origin}/cif-form?jobid=${job.jobid}`;
+
+                                                            const displayUrl =
+                                                                url.length > 20
+                                                                    ? `${url.slice(0, 20)}...`
+                                                                    : url;
+
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => copyJobOpeningUrl(url)}
+                                                                    title={url}
+                                                                    className="max-w-55 truncate text-left hover:underline"
+                                                                >
+                                                                    {displayUrl}
+                                                                </button>
+                                                            );
+                                                        })()
+                                                    ) : (
+                                                        <span className="text-gray-400">-</span>
+                                                    )}
                                                 </td>
 
 
