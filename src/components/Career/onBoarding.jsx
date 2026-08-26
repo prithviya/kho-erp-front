@@ -1315,14 +1315,14 @@ const EmployeeOnboarding = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-4 px-1 sm:px-6 lg:px-4">
       <div className="">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Awaiting Onboarding</h1>
-          <p className="text-sm text-gray-500">
+          {/* <p className="text-sm text-gray-500">
             These candidates were marked as selected and require salary and bank details to activate.
-          </p>
+          </p> */}
         </div>
 
         {/* Awaiting Onboarding Table */}
