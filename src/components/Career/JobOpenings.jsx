@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from 'react-toastify';  
+import { toast } from 'react-toastify';
 import jobOpeningServices from "../../services/opening.service";
 import departmentService from "../../services/department.service";
 
@@ -95,14 +95,14 @@ const JobOpenings = () => {
         try {
             setSaving(true);
             const response = await jobOpeningServices.updateStatus(jobId, !currentStatus);
-            
+
             if (response?.success) {
                 toast.success(`Opening ${!currentStatus ? 'activated' : 'deactivated'} successfully.`);
                 await fetchOpenings();
             } else {
                 toast.error(response?.message || 'Failed to update status.');
             }
-            
+
         } catch (error) {
             console.error('Toggle Status Error:', error);
             toast.error(error?.message || 'Failed to update status.');
@@ -116,7 +116,7 @@ const JobOpenings = () => {
             try {
                 setSaving(true);
                 const response = await jobOpeningServices.deleteOpening(jobId);
-                
+
                 if (response?.success) {
                     toast.success("Opening deleted successfully.");
                     await fetchOpenings();
@@ -168,7 +168,7 @@ const JobOpenings = () => {
             const departmentId = Number(formData.departmentId);
             const prefix = getDepartmentPrefix(departmentId);
             const existingCount = jobOpenings
-                .filter (job => job.code && job.code.startsWith(prefix)).length;
+                .filter(job => job.code && job.code.startsWith(prefix)).length;
             const code = `${prefix}-${String(existingCount + 1).padStart(3, '0')}`;
             const newOpening = {
                 code: code,
@@ -268,7 +268,18 @@ const JobOpenings = () => {
 
                 <div className="bg-white rounded-lg shadow-lg overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
+                                        <table className="min-w-275 w-full table-fixed divide-y divide-gray-200">
+                                            <colgroup>
+                                                <col className="w-[8%]" />
+                                                <col className="w-[17%]" />
+                                                <col className="w-[14%]" />
+                                                <col className="w-[18%]" />
+                                                <col className="w-[9%]" />
+                                                <col className="w-[8%]" />
+                                                <col className="w-[8%]" />
+                                                <col className="w-[16%]" />
+                                                <col className="w-[22%]" />
+                                            </colgroup>
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -334,7 +345,7 @@ const JobOpenings = () => {
                                                     index
                                                 }
                                                 className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
                                                     {job.code}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
@@ -364,7 +375,7 @@ const JobOpenings = () => {
 
                                                 {/* EXPERIENCE */}
 
-                                                <td className="px-4 py-3 text-sm text-gray-700">
+                                                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
 
                                                     {
                                                         job.minExperience
@@ -376,7 +387,7 @@ const JobOpenings = () => {
 
                                                 {/* OPENINGS */}
 
-                                                <td className="px-4 py-3 text-sm text-gray-700 text-center">
+                                                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 text-center">
 
                                                     {
                                                         job.openingCount
@@ -387,7 +398,7 @@ const JobOpenings = () => {
 
                                                 {/* STATUS */}
 
-                                                <td className="px-4 py-3">
+                                                <td className="whitespace-nowrap px-4 py-3">
 
                                                     <span
                                                         className={getStatusBadge(
@@ -408,45 +419,63 @@ const JobOpenings = () => {
 
                                                 {/* APPLY LINK */}
 
-                                                <td className="px-4 py-3 text-sm text-blue-600">
-                                                    {job.jobOpeningUrl || job.jobid ? (() => {
+                                                <td className="px-4 py-3 text-sm">
+                                                    {!job.isActive ? (
+                                                        <span className="text-gray-400">-</span>
+                                                    ) : !(job.jobOpeningUrl || job.jobid) ? (
+                                                        <span className="text-gray-400">-</span>
+                                                    ) : (() => {
                                                         const url = job.jobOpeningUrl || `${window.location.origin}/cif-form?jobid=${job.jobid}`;
                                                         const displayUrl = url.length > 20 ? `${url.slice(0, 20)}...` : url;
 
                                                         return (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => copyJobOpeningUrl(url)}
-                                                                title={url}
-                                                                className="max-w-55 truncate text-left hover:underline"
-                                                            >
-                                                                {displayUrl}
-                                                            </button>
+                                                            <div className="flex items-center gap-2">
+                                                                <span
+                                                                    title={url}
+                                                                    className="max-w-55 truncate"
+                                                                >
+                                                                    {displayUrl}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => copyJobOpeningUrl(url)}
+                                                                    title="Copy apply URL"
+                                                                    aria-label="Copy apply URL"
+                                                                    className="inline-flex shrink-0 items-center justify-center rounded p-1 text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+                                                                >
+                                                                    <svg
+                                                                        className="h-4 w-4"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill="none"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2"
+                                                                    >
+                                                                        <rect x="9" y="9" width="11" height="11" rx="2" />
+                                                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
                                                         );
-                                                    })() : (
-                                                        <span className="text-gray-400">-</span>
-                                                    )}
-
+                                                    })()}
                                                 </td>
 
 
                                                 {/* ACTIONS */}
 
-                                                <td className="px-4 py-3">
+                                                <td className="whitespace-nowrap px-4 py-3">
 
                                                     <div className="flex gap-2">
 
                                                         <button
                                                             onClick={() => toggleStatus(job.jobid, job.isActive)}
                                                             disabled={saving}
-                                                            className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                                                                job.isActive
+                                                            className={`px-2 py-1 rounded text-xs font-medium transition-colors ${job.isActive
                                                                 ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                                                                 : "bg-green-100 text-green-700 hover:bg-green-200"
-                                                            }`}
-                                                            >
+                                                                }`}
+                                                        >
                                                             {job.isActive ? "Deactivate" : "Activate"}
-                                                            </button>
+                                                        </button>
 
 
                                                         <button
@@ -547,7 +576,7 @@ const JobOpenings = () => {
                             setShowAddModal(false)
                         }
                     />
-                   <div className="flex min-h-full items-center justify-center p-4">
+                    <div className="flex min-h-full items-center justify-center p-4">
 
                         <div className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
 
@@ -664,10 +693,10 @@ const JobOpenings = () => {
                                                 </option>
 
                                                 {departments.map((department) => (
-    <option key={department.id} value={department.id}>
-        {department.name}
-    </option>
-))}
+                                                    <option key={department.id} value={department.id}>
+                                                        {department.name}
+                                                    </option>
+                                                ))}
                                             </select>
 
                                             {departmentError && (
@@ -683,7 +712,7 @@ const JobOpenings = () => {
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                                 Opening Count{" "}
-                                                 <span className="text-red-500">
+                                                <span className="text-red-500">
                                                     *
                                                 </span>
                                             </label>
