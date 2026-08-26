@@ -12,7 +12,7 @@ import ProjectDetail from "../components/project/projectDetail";
 import TaskBoard from "../components/project/mytask";
 import AssignTask from "../components/project/assignTask";
 import Applied from "../components/Career/applied";
-import JobOpening from "../components/Career/job";
+import JobOpening from "../components/Career/JobOpenings";
 import RecruitmentProcess from "../components/Career/recruitmentProcess";
 import Onboarding from "../components/Career/onboarding";
 import Employee from "../components/Career/employee";
