@@ -221,15 +221,39 @@ const JobOpenings = () => {
                             </colgroup>
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> CODE </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> JOB TITLE </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> DEPARTMENT </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> REQUIRED SKILLS </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> MIN. EXP </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> OPENINGS </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> STATUS </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> APPLY LINK </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> ACTIONS </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        CODE
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        JOB TITLE
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        DEPARTMENT
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        REQUIRED SKILLS
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        MIN. EXP
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        OPENINGS
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        STATUS
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        APPLY LINK
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        ACTIONS
+                                    </th>
                                 </tr>
                             </thead>
 
@@ -237,7 +261,9 @@ const JobOpenings = () => {
                                 {loading ? (
                                     <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-500">Loading openings...</td></tr>
                                 ) : jobOpenings.length === 0 ? (
-                                    <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-500"> No openings found. </td></tr>
+                                    <tr>
+                                        <td colSpan="9" className="px-4 py-8 text-center text-gray-500"> No openings found. </td>
+                                    </tr>
                                 ) : (
                                     jobOpenings.map((job) => (
                                         <tr key={job.jobid} className="hover:bg-gray-50 transition-colors">
