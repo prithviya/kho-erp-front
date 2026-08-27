@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-import { 
-    Building2, User, Phone, Mail, CalendarDays, 
-    DollarSign, Eye, Pencil, Trash2, Search,
-    Globe, Camera, Video, Image, CheckCircle, XCircle, Clock
-} from 'lucide-react';
+import { Search, Globe, Camera, Video, Image, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 function VendorAssigned() {
     const [searchTerm, setSearchTerm] = useState('');

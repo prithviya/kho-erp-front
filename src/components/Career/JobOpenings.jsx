@@ -416,47 +416,33 @@ const JobOpenings = () => {
 
                                                 </td>
 
-
                                                 {/* APPLY LINK */}
+                                                <td className="px-4 py-3 text-sm text-blue-600">
+                                                    {job.jobOpeningUrl || job.jobid ? (
+                                                        (() => {
+                                                            const url =
+                                                                job.jobOpeningUrl ||
+                                                                `${window.location.origin}/cif-form?jobid=${job.jobid}`;
 
-                                                <td className="px-4 py-3 text-sm">
-                                                    {!job.isActive ? (
-                                                        <span className="text-gray-400">-</span>
-                                                    ) : !(job.jobOpeningUrl || job.jobid) ? (
-                                                        <span className="text-gray-400">-</span>
-                                                    ) : (() => {
-                                                        const url = job.jobOpeningUrl || `${window.location.origin}/cif-form?jobid=${job.jobid}`;
-                                                        const displayUrl = url.length > 20 ? `${url.slice(0, 20)}...` : url;
+                                                            const displayUrl =
+                                                                url.length > 20
+                                                                    ? `${url.slice(0, 20)}...`
+                                                                    : url;
 
-                                                        return (
-                                                            <div className="flex items-center gap-2">
-                                                                <span
-                                                                    title={url}
-                                                                    className="max-w-55 truncate"
-                                                                >
-                                                                    {displayUrl}
-                                                                </span>
+                                                            return (
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => copyJobOpeningUrl(url)}
-                                                                    title="Copy apply URL"
-                                                                    aria-label="Copy apply URL"
-                                                                    className="inline-flex shrink-0 items-center justify-center rounded p-1 text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+                                                                    title={url}
+                                                                    className="max-w-55 truncate text-left hover:underline"
                                                                 >
-                                                                    <svg
-                                                                        className="h-4 w-4"
-                                                                        viewBox="0 0 24 24"
-                                                                        fill="none"
-                                                                        stroke="currentColor"
-                                                                        strokeWidth="2"
-                                                                    >
-                                                                        <rect x="9" y="9" width="11" height="11" rx="2" />
-                                                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                                                    </svg>
+                                                                    {displayUrl}
                                                                 </button>
-                                                            </div>
-                                                        );
-                                                    })()}
+                                                            );
+                                                        })()
+                                                    ) : (
+                                                        <span className="text-gray-400">-</span>
+                                                    )}
                                                 </td>
 
 
