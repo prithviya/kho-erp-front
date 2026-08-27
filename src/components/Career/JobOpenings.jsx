@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from 'react-toastify';  
+import { toast } from 'react-toastify';
 import jobOpeningServices from "../../services/opening.service";
 import departmentService from "../../services/department.service";
 
@@ -246,7 +246,18 @@ const JobOpenings = () => {
                             setShowAddModal(true)
                         }
                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2">
-                        <PlusCircle/> Add New Opening
+                        <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 4v16m8-8H4"
+                            />
+                        </svg> Add New Opening
                     </button>
                 </div>
                 {error && (
@@ -271,28 +282,59 @@ const JobOpenings = () => {
                                             </colgroup>
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> CODE </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> JOB TITLE </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> DEPARTMENT </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> REQUIRED SKILLS </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> MIN. EXP </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> OPENINGS </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> STATUS </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> APPLY LINK </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> ACTIONS </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        CODE
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        JOB TITLE
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        DEPARTMENT
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        REQUIRED SKILLS
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        MIN. EXP
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        OPENINGS
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        STATUS
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        APPLY LINK
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        ACTIONS
+                                    </th>
                                 </tr>
                             </thead>
 
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
+                                        <td
+                                            colSpan="9"
+                                            className="px-4 py-8 text-center text-gray-500"
+                                        >
                                             Loading openings...
                                         </td>
                                     </tr>
                                 ) : jobOpenings.length === 0 ? (
                                     <tr>
-                                        <td colSpan="9" className="px-4 py-8 text-center text-gray-500"> No openings found. </td>
+                                        <td
+                                            colSpan="9"
+                                            className="px-4 py-8 text-center text-gray-500">
+                                            No openings found.
+                                        </td>
                                     </tr>
                                 ) : (
                                     jobOpenings.map(
@@ -303,7 +345,7 @@ const JobOpenings = () => {
                                                     index
                                                 }
                                                 className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
                                                     {job.code}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
@@ -333,7 +375,7 @@ const JobOpenings = () => {
 
                                                 {/* EXPERIENCE */}
 
-                                                <td className="px-4 py-3 text-sm text-gray-700">
+                                                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
 
                                                     {
                                                         job.minExperience
@@ -345,7 +387,7 @@ const JobOpenings = () => {
 
                                                 {/* OPENINGS */}
 
-                                                <td className="px-4 py-3 text-sm text-gray-700 text-center">
+                                                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 text-center">
 
                                                     {
                                                         job.openingCount
@@ -356,7 +398,7 @@ const JobOpenings = () => {
 
                                                 {/* STATUS */}
 
-                                                <td className="px-4 py-3">
+                                                <td className="whitespace-nowrap px-4 py-3">
 
                                                     <span
                                                         className={getStatusBadge(
@@ -377,19 +419,42 @@ const JobOpenings = () => {
 
                                                 {/* APPLY LINK */}
 
-                                                <td className="px-4 py-3 text-sm text-blue-600">
-                                                    {job.jobOpeningUrl || job.jobid ? (() => {
+                                                <td className="px-4 py-3 text-sm">
+                                                    {!job.isActive ? (
+                                                        <span className="text-gray-400">-</span>
+                                                    ) : !(job.jobOpeningUrl || job.jobid) ? (
+                                                        <span className="text-gray-400">-</span>
+                                                    ) : (() => {
                                                         const url = job.jobOpeningUrl || `${window.location.origin}/cif-form?jobid=${job.jobid}`;
                                                         const displayUrl = url.length > 20 ? `${url.slice(0, 20)}...` : url;
+
                                                         return (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => copyJobOpeningUrl(url)}
-                                                                title={url}
-                                                                className="max-w-55 truncate text-left hover:underline"
-                                                            >
-                                                                {displayUrl}
-                                                            </button>
+                                                            <div className="flex items-center gap-2">
+                                                                <span
+                                                                    title={url}
+                                                                    className="max-w-55 truncate"
+                                                                >
+                                                                    {displayUrl}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => copyJobOpeningUrl(url)}
+                                                                    title="Copy apply URL"
+                                                                    aria-label="Copy apply URL"
+                                                                    className="inline-flex shrink-0 items-center justify-center rounded p-1 text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+                                                                >
+                                                                    <svg
+                                                                        className="h-4 w-4"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill="none"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2"
+                                                                    >
+                                                                        <rect x="9" y="9" width="11" height="11" rx="2" />
+                                                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
                                                         );
                                                     })()}
                                                 </td>

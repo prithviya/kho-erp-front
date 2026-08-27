@@ -295,6 +295,44 @@ const EmployeeOnboarding = () => {
     }
   };
 
+  const saveOnboarding = async (status) => {
+    if (!selectedEmployee?.id) {
+      alert('Select an employee before saving onboarding details.');
+      return false;
+    }
+
+    try {
+      setLoading(true);
+      const response = await request('/onboardings/record', {
+        method: 'POST',
+        body: JSON.stringify({
+          cifid: selectedEmployee.id,
+          formData,
+          status,
+        }),
+      });
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Unable to save onboarding details.');
+      }
+
+      alert(status === 'FINAL' ? 'Onboarding submitted successfully.' : 'Onboarding draft saved successfully.');
+      return true;
+    } catch (error) {
+      console.error('Save onboarding error:', error);
+      alert(error?.message || 'Unable to save onboarding details.');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNext = async () => {
+    if (await saveOnboarding('DRAFT')) {
+      nextStep();
+    }
+  };
+
   const renderStepContent = () => {
     switch(currentStep) {
       case 1:
@@ -1468,18 +1506,29 @@ const EmployeeOnboarding = () => {
                 <div className="flex gap-3">
                   {!isViewMode && (
                     <>
-                      <button className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => saveOnboarding('DRAFT')}
+                        disabled={loading}
+                        className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                      >
                         Save as Draft
                       </button>
                       {currentStep < 6 ? (
                         <button
-                          onClick={nextStep}
+                          onClick={handleNext}
+                          disabled={loading}
                           className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors"
                         >
                           Next
                         </button>
                       ) : (
-                        <button className="px-6 py-2 bg-green-700 text-white rounded-md hover:bg-green-800 transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => saveOnboarding('FINAL')}
+                          disabled={loading}
+                          className="px-6 py-2 bg-green-700 text-white rounded-md hover:bg-green-800 transition-colors disabled:opacity-50"
+                        >
                           Final Submit
                         </button>
                       )}
