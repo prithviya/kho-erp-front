@@ -10,10 +10,31 @@ const EmployeeOnboarding = () => {
   
   const [awaitingEmployees, setAwaitingEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasExistingRecord, setHasExistingRecord] = useState(false);
+  const [selectedDocumentType, setSelectedDocumentType] = useState('');
+  const [selectedDocumentFile, setSelectedDocumentFile] = useState(null);
+  const [generatedEmployeeId, setGeneratedEmployeeId] = useState('KHO-001');
 
   useEffect(() => {
     fetchAwaitingEmployees();
+    fetchNextEmployeeId();
   }, []);
+
+  const fetchNextEmployeeId = async () => {
+    try {
+      const response = await request('/onboardings/next-employee-id', { method: 'GET' });
+      const backendEmployeeId = response?.data?.employeeId;
+      if (backendEmployeeId) {
+        setGeneratedEmployeeId(backendEmployeeId);
+        return backendEmployeeId;
+      }
+    } catch (error) {
+      console.error('Error fetching next employee ID:', error);
+    }
+
+    return generatedEmployeeId;
+  };
 
   const fetchAwaitingEmployees = async () => {
     try {
@@ -48,7 +69,7 @@ const EmployeeOnboarding = () => {
     firstName: '',
     lastName: '',
     nickName: '',
-    employeeId: 'KHO-015',
+    employeeId: generatedEmployeeId,
     officialEmail: '',
     personalEmail: 'gowtham134@gmail.com1',
     personalPhone: '',
@@ -149,31 +170,199 @@ const EmployeeOnboarding = () => {
     },
   });
 
+  const getDefaultFormData = (employeeId = generatedEmployeeId) => ({
+    firstName: '',
+    lastName: '',
+    nickName: '',
+    employeeId,
+    officialEmail: '',
+    personalEmail: '',
+    personalPhone: '',
+    officePhone: '',
+    gender: '',
+    maritalStatus: '',
+    dateOfBirth: '',
+    dateOfJoining: '',
+    employeeType: '',
+    erpRole: '',
+    sourceOfHire: '',
+    department: '',
+    permanent: '',
+    manager: '',
+    referral: '',
+    designation: '',
+    reportingHead: '',
+    uanNumber: '',
+    panNumber: '',
+    currentSalary: '',
+    systemAdmin: 'System Admin',
+    superAdmin: 'Super_admin',
+    currentAddress: { line1: '', line2: '', city: '', state: '', pincode: '' },
+    permanentAddress: { line1: '', line2: '', city: '', state: '', pincode: '' },
+    experience: [{ company: '', designation: '', startDate: '', endDate: '', totalExp: '', reason: '' }],
+    education: [{ qualification: '', institution: '', board: '', year: '', percentage: '' }],
+    icebreaker: {
+      favoriteCake: '',
+      favoriteColor: '',
+      favoriteSong: '',
+      favoriteMovie: '',
+      favoriteFood: '',
+      favoriteActor: '',
+      dreamVacation: '',
+      weekendActivity: '',
+      coffeeOrTea: '',
+      favoriteSports: '',
+    },
+    health: {
+      anyTablets: '',
+      healthIssues: '',
+      bloodGroup: '',
+      medicalAssistance: '',
+      emergencyContact: '',
+      emergencyName: '',
+      emergencyNumber: '',
+    },
+    documents: [],
+    bankDetails: {
+      accountHolder: '',
+      accountNumber: '',
+      ifscCode: '',
+      bankName: '',
+      branchName: '',
+    },
+    officeTour: {
+      reception: false,
+      workstation: false,
+      meetingRoom: false,
+      cafeteria: false,
+      hrCabin: false,
+    },
+    induction: {
+      companyIntro: false,
+      hrPolicies: false,
+      attendanceRules: false,
+      leavePolicy: false,
+      securityGuidelines: false,
+      teamIntro: false,
+    },
+    kit: {
+      laptop: false,
+      mouse: false,
+      keyboard: false,
+      entryCard: false,
+      headset: false,
+      welcomeKit: false,
+    },
+  });
+
+  const mapCandidateToFormData = (candidate) => {
+    const base = getDefaultFormData();
+    const nameParts = candidate?.fullName ? candidate.fullName.split(' ') : [];
+
+    return {
+      ...base,
+      firstName: nameParts[0] || '',
+      lastName: nameParts.slice(1).join(' ') || '',
+      personalEmail: candidate?.email || '',
+      personalPhone: candidate?.phoneNumber || '',
+      designation: candidate?.opening?.jobTitle || '',
+    };
+  };
+
+  const loadOnboardingRecord = async (employee, fallbackData) => {
+    try {
+      const response = await request(`/onboardings/record/${employee.id}`, { method: 'GET' });
+      if (response?.success && response?.data?.formData) {
+        setHasExistingRecord(true);
+        setFormData(prev => ({ ...prev, ...response.data.formData }));
+        return;
+      }
+    } catch (error) {
+      console.error('No existing onboarding record found:', error);
+    }
+
+    if (fallbackData) {
+      setFormData(fallbackData);
+    }
+  };
+
+  const saveOnboardingRecord = async (status) => {
+    if (!selectedEmployee?.id) {
+      alert('Please select a candidate first.');
+      return false;
+    }
+
+    try {
+      setIsSaving(true);
+      const isUpdate = hasExistingRecord;
+      await request(isUpdate ? `/onboardings/record/${selectedEmployee.id}` : '/onboardings/record', {
+        method: isUpdate ? 'PUT' : 'POST',
+        body: JSON.stringify({
+          cifid: selectedEmployee.id,
+          status,
+          formData,
+        }),
+      });
+      setHasExistingRecord(true);
+      return true;
+    } catch (error) {
+      alert(error?.message || 'Failed to save onboarding details.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleNext = async () => {
+    const saved = await saveOnboardingRecord('DRAFT');
+    if (saved && currentStep < 6) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleSaveAsDraft = async () => {
+    const saved = await saveOnboardingRecord('DRAFT');
+    if (saved) {
+      alert('Draft saved successfully.');
+    }
+  };
+
+  const handleFinalSubmit = async () => {
+    const saved = await saveOnboardingRecord('FINAL');
+    if (!saved) {
+      return;
+    }
+
+    alert('Onboarding submitted successfully.');
+    setShowOnboardingForm(false);
+    setIsViewMode(false);
+    setCurrentStep(1);
+    setSelectedEmployee(null);
+    setHasExistingRecord(false);
+    const nextEmployeeId = await fetchNextEmployeeId();
+    setFormData(getDefaultFormData(nextEmployeeId));
+    await fetchAwaitingEmployees();
+  };
+
   const location = useLocation();
 
   useEffect(() => {
     if (location.state && location.state.candidateData) {
       const candidate = location.state.candidateData;
-      const nameParts = candidate.fullName ? candidate.fullName.split(' ') : [];
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
+      const candidateFormData = mapCandidateToFormData(candidate);
 
-      setFormData(prev => ({
-        ...prev,
-        firstName,
-        lastName,
-        personalEmail: candidate.email || '',
-        personalPhone: candidate.phoneNumber || '',
-        designation: candidate.opening?.jobTitle || '',
-      }));
+      setFormData(candidateFormData);
       
-      setSelectedEmployee({
+      const employee = {
         id: candidate.cifid,
         name: candidate.fullName,
         email: candidate.email,
         phone: candidate.phoneNumber
-      });
+      };
+
+      setSelectedEmployee(employee);
       setShowOnboardingForm(true);
+      loadOnboardingRecord(employee, candidateFormData);
       
       // Clean up the state so it doesn't reopen on refresh
       window.history.replaceState({}, document.title)
@@ -244,20 +433,51 @@ const EmployeeOnboarding = () => {
     setFormData(prev => ({ ...prev, [section]: updated }));
   };
 
+  const handleAddDocument = () => {
+    if (isViewMode) return;
+    if (!selectedDocumentType || !selectedDocumentFile) return;
+
+    const fileName = selectedDocumentFile.name || '';
+    if (!fileName) return;
+
+    setFormData(prev => ({
+      ...prev,
+      documents: [
+        ...(prev.documents || []),
+        {
+          documentType: selectedDocumentType,
+          fileName,
+        },
+      ],
+    }));
+
+    setSelectedDocumentType('');
+    setSelectedDocumentFile(null);
+  };
+
+  const removeDocument = (index) => {
+    if (isViewMode) return;
+    setFormData(prev => ({
+      ...prev,
+      documents: (prev.documents || []).filter((_, i) => i !== index),
+    }));
+  };
+
   const handleViewEmployee = (employee) => {
     setSelectedEmployee(employee);
     setIsViewMode(true);
     setShowOnboardingForm(true);
     setCurrentStep(1);
-    // Populate form with employee data for viewing
-    setFormData(prev => ({
-      ...prev,
+    const fallbackData = {
+      ...getDefaultFormData(),
       firstName: employee.name.split(' ')[0] || '',
       lastName: employee.name.split(' ').slice(1).join(' ') || '',
       personalEmail: employee.email,
       personalPhone: employee.phone || '',
       department: employee.department || '',
-    }));
+    };
+    setFormData(fallbackData);
+    loadOnboardingRecord(employee, fallbackData);
   };
 
   const handleEditEmployee = (employee) => {
@@ -265,15 +485,16 @@ const EmployeeOnboarding = () => {
     setIsViewMode(false);
     setShowOnboardingForm(true);
     setCurrentStep(1);
-    // Populate form with employee data for editing
-    setFormData(prev => ({
-      ...prev,
+    const fallbackData = {
+      ...getDefaultFormData(),
       firstName: employee.name.split(' ')[0] || '',
       lastName: employee.name.split(' ').slice(1).join(' ') || '',
       personalEmail: employee.email,
       personalPhone: employee.phone || '',
       department: employee.department || '',
-    }));
+    };
+    setFormData(fallbackData);
+    loadOnboardingRecord(employee, fallbackData);
   };
 
   const handleAddEmployee = (employee) => {
@@ -281,6 +502,17 @@ const EmployeeOnboarding = () => {
     setIsViewMode(false);
     setShowOnboardingForm(true);
     setCurrentStep(1);
+    const fallbackData = {
+      ...getDefaultFormData(),
+      firstName: employee.name.split(' ')[0] || '',
+      lastName: employee.name.split(' ').slice(1).join(' ') || '',
+      personalEmail: employee.email,
+      personalPhone: employee.phone || '',
+      department: employee.department || '',
+      designation: employee.designation || '',
+    };
+    setFormData(fallbackData);
+    loadOnboardingRecord(employee, fallbackData);
   };
 
   const nextStep = () => {
@@ -292,44 +524,6 @@ const EmployeeOnboarding = () => {
   const prevStep = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const saveOnboarding = async (status) => {
-    if (!selectedEmployee?.id) {
-      alert('Select an employee before saving onboarding details.');
-      return false;
-    }
-
-    try {
-      setLoading(true);
-      const response = await request('/onboardings/record', {
-        method: 'POST',
-        body: JSON.stringify({
-          cifid: selectedEmployee.id,
-          formData,
-          status,
-        }),
-      });
-
-      if (!response?.success) {
-        throw new Error(response?.message || 'Unable to save onboarding details.');
-      }
-
-      alert(status === 'FINAL' ? 'Onboarding submitted successfully.' : 'Onboarding draft saved successfully.');
-      return true;
-    } catch (error) {
-      console.error('Save onboarding error:', error);
-      alert(error?.message || 'Unable to save onboarding details.');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleNext = async () => {
-    if (await saveOnboarding('DRAFT')) {
-      nextStep();
     }
   };
 
@@ -1155,7 +1349,12 @@ const EmployeeOnboarding = () => {
         <h4 className="text-md font-semibold text-gray-800 mb-4">Documents</h4>
         <p className="text-sm text-gray-500 mb-4">Allowed formats: PDF, JPG, PNG. Max file size: 5MB per file</p>
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <select className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent" disabled={isViewMode}>
+          <select
+            value={selectedDocumentType}
+            onChange={(e) => setSelectedDocumentType(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+            disabled={isViewMode}
+          >
             <option value="">Select Document Type</option>
             <option value="Aadhar">Aadhar Card</option>
             <option value="PAN">PAN Card</option>
@@ -1167,11 +1366,16 @@ const EmployeeOnboarding = () => {
           </select>
           <input
             type="file"
+            onChange={(e) => setSelectedDocumentFile(e.target.files?.[0] || null)}
             disabled={isViewMode}
             className={`flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 ${isViewMode ? 'bg-gray-50' : ''}`}
           />
           {!isViewMode && (
-            <button className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors">
+            <button
+              type="button"
+              onClick={handleAddDocument}
+              className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors"
+            >
               Add
             </button>
           )}
@@ -1188,11 +1392,31 @@ const EmployeeOnboarding = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              <tr>
-                <td colSpan="3" className="px-4 py-8 text-center text-gray-500">
-                  No documents uploaded yet
-                </td>
-              </tr>
+              {(formData.documents || []).length === 0 ? (
+                <tr>
+                  <td colSpan="3" className="px-4 py-8 text-center text-gray-500">
+                    No documents uploaded yet
+                  </td>
+                </tr>
+              ) : (
+                (formData.documents || []).map((doc, index) => (
+                  <tr key={`${doc.documentType}-${doc.fileName}-${index}`}>
+                    <td className="px-4 py-3 text-sm text-gray-700">{doc.documentType || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{doc.fileName || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {!isViewMode && (
+                        <button
+                          type="button"
+                          onClick={() => removeDocument(index)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -1507,27 +1731,25 @@ const EmployeeOnboarding = () => {
                   {!isViewMode && (
                     <>
                       <button
-                        type="button"
-                        onClick={() => saveOnboarding('DRAFT')}
-                        disabled={loading}
-                        className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        onClick={handleSaveAsDraft}
+                        disabled={isSaving}
+                        className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         Save as Draft
                       </button>
                       {currentStep < 6 ? (
                         <button
                           onClick={handleNext}
-                          disabled={loading}
-                          className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors"
+                          disabled={isSaving}
+                          className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          Next
+                          {isSaving ? 'Saving...' : 'Next'}
                         </button>
                       ) : (
                         <button
-                          type="button"
-                          onClick={() => saveOnboarding('FINAL')}
-                          disabled={loading}
-                          className="px-6 py-2 bg-green-700 text-white rounded-md hover:bg-green-800 transition-colors disabled:opacity-50"
+                          onClick={handleFinalSubmit}
+                          disabled={isSaving}
+                          className="px-6 py-2 bg-green-700 text-white rounded-md hover:bg-green-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                           Final Submit
                         </button>
