@@ -1,9 +1,4 @@
-import {
-  Users,
-  UserRound,
-  Trophy,
-  Activity,
-} from "lucide-react";
+import { Users, UserRound, Trophy, Activity, } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -50,9 +45,7 @@ export default function Dashboard() {
             convertedDeals: 0,
             activeUsers: 0
           },
-          activeUsers: payload?.activeUsers || [],
-          recentLeads: payload?.recentLeads || [],
-          hiring: payload?.hiring || []
+          activeUsers: payload?.activeUsers || [], recentLeads: payload?.recentLeads || [], hiring: payload?.hiring || []
         });
       } catch (error) {
         if (mounted) {
@@ -70,44 +63,17 @@ export default function Dashboard() {
   }, []);
 
   const stats = useMemo(() => ([
-    {
-      title: "TOTAL LEADS",
-      value: dashboard.stats.totalLeads,
-      icon: <Users size={22} className="text-blue-700" />,
-      bg: "bg-blue-100"
-    },
-    {
-      title: "RECENT LEADS",
-      value: dashboard.stats.recentLeads,
-      icon: <UserRound size={22} className="text-sky-600" />,
-      bg: "bg-cyan-100"
-    },
-    {
-      title: "CONVERTED DEALS",
-      value: dashboard.stats.convertedDeals,
-      icon: <Trophy size={22} className="text-emerald-600" />,
-      bg: "bg-emerald-100"
-    },
-    {
-      title: "ACTIVE USERS",
-      value: dashboard.stats.activeUsers,
-      icon: <Activity size={22} className="text-amber-600" />,
-      bg: "bg-amber-100"
-    }
+    { title: "TOTAL LEADS", value: dashboard.stats.totalLeads, icon: <Users size={22} className="text-blue-700" />, bg: "bg-blue-100" },
+    { title: "RECENT LEADS", value: dashboard.stats.recentLeads, icon: <UserRound size={22} className="text-sky-600" />, bg: "bg-cyan-100" },
+    { title: "CONVERTED DEALS", value: dashboard.stats.convertedDeals, icon: <Trophy size={22} className="text-emerald-600" />, bg: "bg-emerald-100" },
+    { title: "ACTIVE USERS", value: dashboard.stats.activeUsers, icon: <Activity size={22} className="text-amber-600" />, bg: "bg-amber-100" }
   ]), [dashboard.stats]);
 
   return (
     <div className="min-h-screen bg-linear-to-b from-gray-100 via-gray-50 to-white p-4 sm:p-6">
       <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((item) => (
-          <div
-            key={item.title}
-            className="rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm transition-transform hover:-translate-y-0.5"
-          >
-            {/* <div className="mb-3 flex items-center justify-between">
-              <span className={`inline-flex rounded-xl p-2 ${item.bg}`}>{item.icon}</span>
-              <span className="text-xs font-medium text-gray-500">Live</span>
-            </div> */}
+          <div key={item.title} className="rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm transition-transform hover:-translate-y-0.5" >
             <p className="text-xs font-semibold tracking-wide text-gray-500">{item.title}</p>
             <p className="mt-1 text-2xl font-bold text-gray-900">{loading ? "..." : item.value}</p>
           </div>
@@ -240,7 +206,7 @@ export default function Dashboard() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Experience</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MIN. EXP</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Link</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vacany</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -253,10 +219,8 @@ export default function Dashboard() {
                   <tr key={job.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-900">{job.jobTitle}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{job.experience}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{job.minExp} Years</td>
-                    <td className="px-4 py-3 text-sm font-medium text-blue-600">
-                      <a href={`/careers/${job.id}`} className="hover:underline">View</a>
-                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{job.minExp}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-blue-600"> {job.openingCount} </td>
                   </tr>
                 ))
               ) : (

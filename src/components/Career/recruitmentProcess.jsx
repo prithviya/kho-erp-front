@@ -33,50 +33,23 @@ const RecruitmentPipeline = () => {
   const fetchShortlistedCandidates = async () => {
     try {
       setLoading(true);
-      const response = await request('/cif-submissions', {
-        method: 'GET',
-      });
-      console.log( 'Recruitment Applications Response:', response);
+      const response = await request('/cif-submissions', { method: 'GET',  });
+      // console.log( 'Recruitment Applications Response:', response);
       if (response?.success) {
-          const shortlistedCandidates = (
-            response.data || []
-          ).filter((candidate) => {
-           
-            if (candidate.recruitment) {
-              return true;
-            }
-
-            const currentStatus = (
-              candidate.status || candidate.submission?.appliedStatus || ''
-            ).toLowerCase();
-
-            return [
-              'shortlist',
-              'shortlisted',
-              'interviewing',
-              'selected',
-              'hold',
-            ].includes(currentStatus);
+          const shortlistedCandidates = ( response.data || [] ).filter((candidate) => {
+            if (candidate.recruitment) { return true; }
+            const currentStatus = ( candidate.status || candidate.submission?.appliedStatus || '' ).toLowerCase();
+            return [ 'shortlist','shortlisted','interviewing','selected','hold', ].includes(currentStatus);
           });
-        console.log( 'Shortlisted Candidates:',  shortlistedCandidates );
+        // console.log( 'Shortlisted Candidates:',  shortlistedCandidates );
         setCandidates(shortlistedCandidates);
       } else {
-        toast.error(
-          response?.message ||
-            'Failed to fetch shortlisted candidates'
-        );
+        toast.error( response?.message || 'Failed to fetch shortlisted candidates' );
       }
-    } catch (error) {
-      console.error(
-        'Fetch Shortlisted Candidates Error:',
-        error
-      );
-
-      toast.error(
-        error?.message ||
-          'Failed to fetch shortlisted candidates'
-      );
-    } finally {
+    } catch (error) {console.error('Fetch Shortlisted Candidates Error:', error );
+      toast.error( error?.message || 'Failed to fetch shortlisted candidates' );
+    } 
+    finally { 
       setLoading(false);
     }
   };
@@ -113,21 +86,12 @@ const RecruitmentPipeline = () => {
     setSelectedCandidateId(candidate.cifid);
     setShowDetailsModal(true);
   };
-
   const handleStatusChange = (e) => {
-    setSelectedCandidateDetails({
-      ...selectedCandidateDetails,
-      status: e.target.value,
-    });
+    setSelectedCandidateDetails({ ...selectedCandidateDetails, status: e.target.value, });
   };
-
   const handleInputChange = (e, field) => {
-    setSelectedCandidateDetails({
-      ...selectedCandidateDetails,
-      [field]: e.target.value,
-    });
+    setSelectedCandidateDetails({ ...selectedCandidateDetails, [field]: e.target.value, });
   };
-
   const handleSaveRecruitment = async () => {
     try {
       setSaving(true);
@@ -140,7 +104,7 @@ const RecruitmentPipeline = () => {
           interviewMode: selectedCandidateDetails.interviewMode,
           hrScreeningFeedback: selectedCandidateDetails.hrFeedback,
           technicalInterviewFeedback:
-            selectedCandidateDetails.technicalFeedback,
+          selectedCandidateDetails.technicalFeedback,
           mdFeedback: selectedCandidateDetails.mdFeedback,
           recruitmentStatus: selectedCandidateDetails.status,
           statusChangeNote: selectedCandidateDetails.statusNote,
@@ -152,15 +116,11 @@ const RecruitmentPipeline = () => {
         await fetchShortlistedCandidates();
         setShowDetailsModal(false);
       } else {
-        toast.error(
-          response?.message || 'Failed to save recruitment details'
-        );
+        toast.error( response?.message || 'Failed to save recruitment details' );
       }
     } catch (error) {
       console.error('Save Recruitment Details Error:', error);
-      toast.error(
-        error?.message || 'Failed to save recruitment details'
-      );
+      toast.error( error?.message || 'Failed to save recruitment details' );
     } finally {
       setSaving(false);
     }
@@ -168,14 +128,7 @@ const RecruitmentPipeline = () => {
 
   const getStatusColor = (status) => {
     const colors = {
-      Shortlist:'bg-blue-100 text-blue-800',
-      Shortlisted:'bg-blue-100 text-blue-800',
-      Interviewing:'bg-blue-100 text-blue-800',
-      Selected:'bg-green-100 text-green-800',
-      Pending:'bg-yellow-100 text-yellow-800',
-      Reject:'bg-red-100 text-red-800',
-      Rejected:'bg-red-100 text-red-800',
-      Hold:'bg-purple-100 text-purple-800',
+      Shortlist:'bg-blue-100 text-blue-800', Shortlisted:'bg-blue-100 text-blue-800', Interviewing:'bg-blue-100 text-blue-800', Selected:'bg-green-100 text-green-800', Pending:'bg-yellow-100 text-yellow-800', Reject:'bg-red-100 text-red-800', Rejected:'bg-red-100 text-red-800', Hold:'bg-purple-100 text-purple-800',
     };
     return (colors[status] ||'bg-gray-100 text-gray-800');
   };
@@ -186,16 +139,10 @@ const RecruitmentPipeline = () => {
 
   const getStatusBadge = (status) => {
     let displayStatus = status;
-    if (status === 'Shortlist') {
-      displayStatus = 'Shortlist';
-    }
-    if (status === 'reject') {
-      displayStatus = 'reject';
-    }
+    if (status === 'Shortlist') { displayStatus = 'Shortlist'; }
+    if (status === 'reject') { displayStatus = 'reject'; }
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor( status )}`} >
-        {displayStatus || '-'}
-      </span>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor( status )}`} > {displayStatus || '-'} </span>
     );
   };
 
@@ -203,35 +150,18 @@ const RecruitmentPipeline = () => {
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div>
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Recruitment Pipeline
-          </h1>
-          <p className="text-sm text-gray-500">
-            Manage interview schedules, internal review comments,
-            and candidate status
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900"> Recruitment Pipeline </h1>
         </div>
-
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Candidate Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Job Opening
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Interview Info
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Current Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Action
-                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate Name </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Opening </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interview Info </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Status </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action </th>
                 </tr>
               </thead>
 
@@ -239,134 +169,37 @@ const RecruitmentPipeline = () => {
                 {loading ? (
                   <tr>
                     <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
-                      <div className="flex justify-center items-center">
-                        <svg
-                          className="animate-spin h-5 w-5 mr-3 text-blue-600"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                            fill="none"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-
-                        Loading shortlisted candidates...
-
-                      </div>
-
+                      <div className="flex justify-center items-center">Loading shortlisted candidates... </div>
                     </td>
-
                   </tr>
-
                 ) : candidates.length === 0 ? (
-
-                  /* EMPTY */
-
-                  <tr>
-
-                    <td
-                      colSpan="5"
-                      className="px-4 py-8 text-center text-gray-500"
-                    >
-                      No shortlisted candidates found.
-                    </td>
-
-                  </tr>
-
+                <tr>
+                  <td colSpan="5" className="px-4 py-8 text-center text-gray-500" >  No shortlisted candidates found.</td>
+                </tr>
                 ) : (
-
-                  /* DATA */
-
-                  candidates.map((candidate) => (
-
-                    <tr
-                      key={candidate.cifid}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-
-                      {/* CANDIDATE */}
-
+                    candidates.map((candidate) => (
+                      <tr key={candidate.cifid} className="hover:bg-gray-50 transition-colors" >
                       <td className="px-4 py-3">
-
                         <div>
-
-                          <p className="text-sm font-medium text-gray-900">
-
-                            {candidate.fullName || '-'}
-
-                          </p>
-
-                          <p className="text-xs text-gray-500">
-
-                            {candidate.email || '-'}
-
-                          </p>
-
-                          <p className="text-xs text-gray-500">
-
-                            {candidate.phoneNumber || '-'}
-
-                          </p>
-
+                          <p className="text-sm font-medium text-gray-900"> {candidate.fullName || '-'} </p>
+                          <p className="text-xs text-gray-500"> {candidate.email || '-'} </p>
+                          <p className="text-xs text-gray-500"> {candidate.phoneNumber || '-'} </p>
                         </div>
-
                       </td>
-
-
-                      {/* JOB */}
-
                       <td className="px-4 py-3">
-
-                        <p className="text-sm text-gray-700">
-
-                          {candidate.opening?.jobTitle ||
-                            '-'}
-
-                        </p>
-
+                        <p className="text-sm text-gray-700"> {candidate.opening?.jobTitle || '-'}</p>
                       </td>
-
-
-                      {/* INTERVIEW */}
-
                       <td className="px-4 py-3">
-
-                        {candidate.interviewDate ? (
-
+                         {candidate.interviewDate ? (
                           <>
-                            <p className="text-sm text-gray-700">
-                              {candidate.interviewDate}
-                            </p>
-
-                            <p className="text-xs text-gray-500">
-                              {candidate.interviewMode ||
-                                '-'}
-                            </p>
+                            <p className="text-sm text-gray-700"> {candidate.interviewDate} </p>
+                            <p className="text-xs text-gray-500"> {candidate.interviewMode || '-'} </p>
                           </>
-
-                        ) : (
-
-                          <p className="text-sm text-gray-400">
-                            Not scheduled
-                          </p>
-
-                        )}
-
+                          ) : (
+                            <p className="text-sm text-gray-400"> Not scheduled </p>
+                          )
+                        }
                       </td>
-
-
-                      {/* STATUS */}
-
                       <td className="px-4 py-3">
 
                         {getStatusBadge(

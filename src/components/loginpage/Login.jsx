@@ -43,7 +43,7 @@ export default function Login() {
           <form onSubmit={LoginBtn} className="space-y-5">
             <div>
               <label className="block mb-2 text-gray-700">
-                Username / Email
+                User Email
               </label>
 
               <input
@@ -94,7 +94,7 @@ export default function Login() {
         className="hidden lg:block w-1/2 bg-cover bg-left"
         style={{
           backgroundImage:
-            "url('https://khosocial.direct.quickconnect.to:5001/webman/login_background.jpg?id=3')",
+            "url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1rZbW9GsXD5FRPlSliRR7rXnUvOTBAjlqgpdJNpfJ3mpi9xpK3I0bKvc&s=10')",
         }}
       />
 

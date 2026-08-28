@@ -166,30 +166,17 @@
                             {/* Search */}
                             <div className="relative">
                                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input
-                                    type="text"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Search leads..."
-                                    className="rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 w-52"
-                                />
+                                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search leads..." className="rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 w-52" />
                             </div>
                             {/* Status filter */}
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-                            >
+                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-blue-500" >
                                 <option value="">All Status</option>
                                 {statuses.map((s) => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
                             </select>
                             {/* Add Lead */}
-                            <button
-                                onClick={() => setCreateOpen(true)}
-                                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
-                            >
+                            <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition" >
                                 + Add Lead
                             </button>
                         </div>
@@ -231,8 +218,7 @@
                                 )}
                                 {!loading && !error && leads.map((lead, idx) => {
                                     const assignedName = lead.assignedUser
-                                        ? `${lead.assignedUser.firstName ?? ""} ${lead.assignedUser.lastName ?? ""}`.trim()
-                                        : "—";
+                                        ? `${lead.assignedUser.firstName ?? ""} ${lead.assignedUser.lastName ?? ""}`.trim(): "—";
                                     const followUp = formatDate(lead.nextFollowupDate);
                                     const isOverdue = lead.nextFollowupDate && new Date(lead.nextFollowupDate) < new Date();
                                     const statusColor = lead.leadStatus?.color;
@@ -240,10 +226,7 @@
 
                                     return (
                                         <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
-                                            {/* # */}
                                             <td className="px-4 py-3 text-center text-gray-500">{idx + 1}</td>
-
-                                            {/* Company & Contact */}
                                             <td className="px-4 py-3">
                                                 <p className="font-semibold text-gray-900">{lead.companyName}</p>
                                                 <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
@@ -255,20 +238,14 @@
                                                     </span>
                                                 </div>
                                             </td>
-
-                                            {/* Source */}
                                             <td className="px-4 py-3">
                                                 <span className={`rounded-md px-2.5 py-1 text-xs font-medium ${sourceBadgeCls(lead.leadSource?.name)}`}>
                                                     {lead.leadSource?.name ?? "—"}
                                                 </span>
                                             </td>
-
-                                            {/* Status */}
                                             <td className="px-4 py-3">
                                                 {lead.leadStatus ? (
-                                                    <span
-                                                        className="rounded-full px-2.5 py-1 text-xs font-medium"
-                                                        style={statusColor
+                                                    <span className="rounded-full px-2.5 py-1 text-xs font-medium" style={statusColor
                                                             ? { backgroundColor: `${statusColor}20`, color: statusColor }
                                                             : { backgroundColor: "#f3f4f6", color: "#374151" }
                                                         }
@@ -277,21 +254,15 @@
                                                     </span>
                                                 ) : "—"}
                                             </td>
-
-                                            {/* Assigned To */}
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
-                                                    {/* <Avatar name={assignedName} /> */}
                                                     <span className="text-gray-700">{assignedName}</span>
                                                 </div>
                                             </td>
-
-                                            {/* Next Follow-up */}
                                             <td className="px-4 py-3">
                                                 {followUp ? (
                                                     <span className={`flex items-center gap-1.5 text-xs font-medium ${isOverdue ? "text-red-600" : "text-gray-700"}`}>
-                                                        <CalendarDays size={13} className={isOverdue ? "text-red-500" : "text-gray-400"} />
-                                                        {followUp}
+                                                        <CalendarDays size={13} className={isOverdue ? "text-red-500" : "text-gray-400"} /> {followUp}
                                                     </span>
                                                 ) : (
                                                     <span className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -303,40 +274,19 @@
                                             {/* Actions */}
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center justify-center gap-1.5">
-                                                    <button
-                                                        title="View"
-                                                        onClick={() => { setSelectedLead(lead); setViewOpen(true); }}
-                                                        className="rounded-md p-1.5 text-blue-500 hover:bg-blue-50 transition"
-                                                    >
+                                                    <button title="View" onClick={() => { setSelectedLead(lead); setViewOpen(true); }} className="rounded-md p-1.5 text-blue-500 hover:bg-blue-50 transition"  >
                                                         <Eye size={16} />
                                                     </button>
-                                                    <button
-                                                        title="Edit"
-                                                        onClick={() => { setSelectedLead(lead); setEditOpen(true); }}
-                                                        className="rounded-md p-1.5 text-green-500 hover:bg-green-50 transition"
-                                                    >
+                                                    <button title="Edit" onClick={() => { setSelectedLead(lead); setEditOpen(true); }} className="rounded-md p-1.5 text-green-500 hover:bg-green-50 transition">
                                                         <Pencil size={16} />
                                                     </button>
                                                     {isConverted && (
-                                                        <button
-                                                            title="Move to Project"
-                                                            onClick={() => navigate("/onboard-prjt", {
-                                                                state: {
-                                                                    leadId: lead.id,
-                                                                    userId: lead.assignedTo || null
-                                                                }
-                                                            })}
-                                                            className="rounded-md p-1.5 text-purple-500 hover:bg-purple-50 transition"
-                                                        >
+                                                        <button title="Move to Project" onClick={() => navigate("/onboard-prjt", { state: { leadId: lead.id, userId: lead.assignedTo || null } })} className="rounded-md p-1.5 text-purple-500 hover:bg-purple-50 transition" >
                                                             <Rocket size={16} />
                                                         </button>
                                                     )}
                                                     {canDeleteLead && (
-                                                        <button
-                                                            title="Delete"
-                                                            onClick={() => { setDeleteError(""); setDeleteTarget(lead); }}
-                                                            className="rounded-md p-1.5 text-red-500 hover:bg-red-50 transition"
-                                                        >
+                                                        <button title="Delete" onClick={() => { setDeleteError(""); setDeleteTarget(lead); }} className="rounded-md p-1.5 text-red-500 hover:bg-red-50 transition" >
                                                             <Trash2 size={16} />
                                                         </button>
                                                     )}
@@ -351,22 +301,9 @@
                 </div>
 
                 {/* Panels */}
-                <CreateLead
-                    open={createOpen}
-                    onClose={() => setCreateOpen(false)}
-                    onCreated={() => { setCreateOpen(false); fetchLeads(); }}
-                />
-                <EditLead
-                    open={editOpen}
-                    onClose={() => setEditOpen(false)}
-                    lead={selectedLead}
-                    onUpdated={() => { setEditOpen(false); fetchLeads(); }}
-                />
-                <ViewLead
-                    open={viewOpen}
-                    onClose={() => setViewOpen(false)}
-                    lead={selectedLead}
-                />
+                <CreateLead open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => { setCreateOpen(false); fetchLeads(); }}/>
+                <EditLead open={editOpen} onClose={() => setEditOpen(false)} lead={selectedLead} onUpdated={() => { setEditOpen(false); fetchLeads(); }}/>
+                <ViewLead open={viewOpen} onClose={() => setViewOpen(false)} lead={selectedLead}/>
 
                 {/* Delete confirmation modal */}
                 {deleteTarget && (

@@ -50,6 +50,7 @@ const EmployeeOnboarding = () => {
           group: 'N/A',
           email: c.email || 'N/A',
           phone: c.phoneNumber || 'N/A',
+          DOB: c.DOB || 'N/A',
           department: 'N/A',
           status: 'Awaiting Onboarding',
           rawCandidate: c
@@ -474,6 +475,7 @@ const EmployeeOnboarding = () => {
       lastName: employee.name.split(' ').slice(1).join(' ') || '',
       personalEmail: employee.email,
       personalPhone: employee.phone || '',
+      dateOfBirth: employee.DOB || '',
       department: employee.department || '',
     };
     setFormData(fallbackData);
@@ -491,6 +493,7 @@ const EmployeeOnboarding = () => {
       lastName: employee.name.split(' ').slice(1).join(' ') || '',
       personalEmail: employee.email,
       personalPhone: employee.phone || '',
+      dateOfBirth: employee.DOB || '',
       department: employee.department || '',
     };
     setFormData(fallbackData);
