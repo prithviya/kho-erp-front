@@ -15,7 +15,7 @@ export default function AppLayout() {
                 <AppHeader
                     toggleSidebar={() => setMobileSidebar(true)}
                 />
-                <main className="flex-1 p-3">
+                <main className="flex-1">
                     <Outlet />
                 </main>
                 <Chatbot/>

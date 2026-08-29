@@ -1933,7 +1933,7 @@ const TaskBoard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto h-[85vh]">
         {/* Top Bar */}
         <header className="bg-white border-b border-gray-200 px-6 py-3 sticky top-0 z-10">
           <div className="flex items-center justify-between">

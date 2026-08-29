@@ -14,7 +14,7 @@ import AssignTask from "../components/project/assignTask";
 import Applied from "../components/Career/applied";
 import JobOpening from "../components/Career/JobOpenings";
 import RecruitmentProcess from "../components/Career/recruitmentProcess";
-import Onboarding from "../components/Career/onboarding";
+import Onboarding from "../components/Career/onBoarding";
 import Employee from "../components/Career/employee";
 import Salary from "../components/SalaryPay/Salary";
 import Leave from "../components/SalaryPay/leave";

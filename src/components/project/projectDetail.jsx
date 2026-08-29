@@ -416,32 +416,6 @@ const ProjectManagement = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
-      <h1 className="mb-4 text-3xl font-semibold text-gray-900">Project details</h1>
-
-      <div className="mb-4 flex gap-4 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab("projects")}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === "projects"
-              ? "border-b-2 border-gray-800 text-gray-900"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Projects
-        </button>
-        <button
-          onClick={() => setActiveTab("tasks")}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === "tasks"
-              ? "border-b-2 border-gray-800 text-gray-900"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          My Tasks
-          <span className="ml-1 rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">{assignedProjects.length}</span>
-        </button>
-      </div>
-
       <div className="overflow-hidden rounded-xl bg-white shadow-lg">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">

@@ -951,20 +951,6 @@ const AssignTask = () => {
     <div className="min-h-screen bg-gray-50 py-4 px-4 sm:px-6 lg:px-8">
       <div className="">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">📋 My Tasks</h1>
-              <p className="text-sm text-gray-500">Projects assigned to you</p>
-            </div>
-            <div className="flex gap-4 text-sm">
-              <span className="bg-white px-3 py-1 rounded-full shadow-sm">
-                Total: <span className="font-semibold">{assignedProjects.length}</span>
-              </span>
-            </div>
-          </div>
-        </div>
-
         {/* Filters */}
         <div className="flex flex-wrap gap-3 mb-4">
           <button
