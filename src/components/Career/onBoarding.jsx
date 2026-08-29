@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { request } from '../../services/apiClient';
+import { toast } from 'react-toastify';
+
+const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
 const EmployeeOnboarding = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -15,6 +18,254 @@ const EmployeeOnboarding = () => {
   const [selectedDocumentType, setSelectedDocumentType] = useState('');
   const [selectedDocumentFile, setSelectedDocumentFile] = useState(null);
   const [generatedEmployeeId, setGeneratedEmployeeId] = useState('KHO-001');
+  const [validationErrors, setValidationErrors] = useState([]);
+
+  const hasText = (value) => Boolean(String(value || '').trim());
+
+  const hasFieldError = (fieldKey) => validationErrors.includes(fieldKey);
+
+  const getFieldClassName = (baseClassName, fieldKey) => {
+    return `${baseClassName} ${hasFieldError(fieldKey) ? 'border-red-500 ring-1 ring-red-500' : ''}`;
+  };
+
+  const clearFieldError = (fieldKey) => {
+    if (!fieldKey) return;
+    setValidationErrors((prev) => prev.filter((item) => item !== fieldKey));
+  };
+
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    nickName: '',
+    employeeId: generatedEmployeeId,
+    officialEmail: '',
+    personalEmail: '',
+    personalPhone: '',
+    officePhone: '',
+    gender: '',
+    maritalStatus: '',
+    dateOfBirth: '',
+    dateOfJoining: '',
+    employeeType: '',
+    erpRole: '',
+    sourceOfHire: '',
+    department: '',
+    permanent: '',
+    manager: '',
+    referral: '',
+    designation: '',
+    reportingHead: '',
+    uanNumber: '',
+    panNumber: '',
+    currentSalary: '',
+    systemAdmin: 'System Admin',
+    superAdmin: 'Super_admin',
+    currentAddress: { line1: '', line2: '', city: '', state: '', pincode: '' },
+    permanentAddress: { line1: '', line2: '', city: '', state: '', pincode: '' },
+    experience: [{ company: '', designation: '', startDate: '', endDate: '', totalExp: '', reason: '' }],
+    education: [{ qualification: '', institution: '', board: '', year: '', percentage: '' }],
+    icebreaker: {
+      favoriteCake: '',
+      favoriteColor: '',
+      favoriteSong: '',
+      favoriteMovie: '',
+      favoriteFood: '',
+      favoriteActor: '',
+      dreamVacation: '',
+      weekendActivity: '',
+      coffeeOrTea: '',
+      favoriteSports: '',
+    },
+    health: {
+      anyTablets: '',
+      healthIssues: '',
+      bloodGroup: '',
+      medicalAssistance: '',
+      emergencyContact: '',
+      emergencyName: '',
+      emergencyNumber: '',
+    },
+    documents: [],
+    bankDetails: {
+      accountHolder: '',
+      accountNumber: '',
+      ifscCode: '',
+      bankName: '',
+      branchName: '',
+    },
+    officeTour: {
+      reception: false,
+      workstation: false,
+      meetingRoom: false,
+      cafeteria: false,
+      hrCabin: false,
+    },
+    induction: {
+      companyIntro: false,
+      hrPolicies: false,
+      attendanceRules: false,
+      leavePolicy: false,
+      securityGuidelines: false,
+      teamIntro: false,
+    },
+    kit: {
+      laptop: false,
+      mouse: false,
+      keyboard: false,
+      entryCard: false,
+      headset: false,
+      welcomeKit: false,
+    },
+  });
+
+  const validateRequiredFields = () => {
+    const errors = [];
+
+    const requiredBasicFields = [
+      'firstName',
+      'lastName',
+      'employeeId',
+      'personalEmail',
+      'personalPhone',
+      'officialEmail',
+      'officePhone',
+      'gender',
+      'maritalStatus',
+      'dateOfBirth',
+      'dateOfJoining',
+    ];
+
+    requiredBasicFields.forEach((field) => {
+      if (!hasText(formData[field])) errors.push(field);
+    });
+
+    const requiredEmploymentFields = [
+      'employeeType',
+      'erpRole',
+      'sourceOfHire',
+      'department',
+      'designation',
+      'reportingHead',
+      'uanNumber',
+      'panNumber',
+      'currentSalary',
+    ];
+
+    requiredEmploymentFields.forEach((field) => {
+      if (!hasText(formData[field])) errors.push(field);
+    });
+
+    const addressChecks = [
+      ['currentAddress.line1', formData.currentAddress?.line1],
+      ['currentAddress.city', formData.currentAddress?.city],
+      ['currentAddress.state', formData.currentAddress?.state],
+      ['currentAddress.pincode', formData.currentAddress?.pincode],
+      ['permanentAddress.line1', formData.permanentAddress?.line1],
+      ['permanentAddress.city', formData.permanentAddress?.city],
+      ['permanentAddress.state', formData.permanentAddress?.state],
+      ['permanentAddress.pincode', formData.permanentAddress?.pincode],
+    ];
+
+    addressChecks.forEach(([fieldKey, value]) => {
+      if (!hasText(value)) errors.push(fieldKey);
+    });
+
+    const validEducation = Array.isArray(formData.education)
+      ? formData.education.some(
+          (edu) =>
+            hasText(edu?.qualification) &&
+            (hasText(edu?.institution) || hasText(edu?.board)) &&
+            hasText(edu?.year) &&
+            hasText(edu?.percentage)
+        )
+      : false;
+    if (!validEducation) errors.push('education');
+
+    const validExperience = Array.isArray(formData.experience)
+      ? formData.experience.some(
+          (exp) =>
+            hasText(exp?.company) &&
+            hasText(exp?.designation) &&
+            hasText(exp?.startDate) &&
+            hasText(exp?.totalExp)
+        )
+      : false;
+    if (!validExperience) errors.push('experience');
+
+    const icebreakerFields = [
+      'favoriteCake',
+      'favoriteColor',
+      'favoriteSong',
+      'favoriteMovie',
+      'favoriteFood',
+      'favoriteActor',
+      'dreamVacation',
+      'weekendActivity',
+      'coffeeOrTea',
+      'favoriteSports',
+    ];
+    icebreakerFields.forEach((key) => {
+      if (!hasText(formData.icebreaker?.[key])) {
+        errors.push(`icebreaker.${key}`);
+      }
+    });
+
+    return errors;
+  };
+
+  const validateCurrentStep = () => {
+    const baseErrors = validateRequiredFields();
+
+    if (currentStep === 1) {
+      return baseErrors;
+    }
+
+    if (currentStep === 2) {
+      const healthRequired = [
+        'health.anyTablets',
+        'health.healthIssues',
+        'health.bloodGroup',
+        'health.medicalAssistance',
+        'health.emergencyName',
+        'health.emergencyNumber',
+      ];
+
+      return healthRequired.filter((fieldKey) => {
+        const [section, key] = fieldKey.split('.');
+        return !hasText(formData?.[section]?.[key]);
+      });
+    }
+
+    if (currentStep === 3) {
+      const errors = [];
+
+      if (!Array.isArray(formData.documents) || formData.documents.length === 0) {
+        errors.push('documents');
+      }
+
+      const bankRequired = [
+        'bankDetails.accountHolder',
+        'bankDetails.accountNumber',
+        'bankDetails.ifscCode',
+        'bankDetails.bankName',
+        'bankDetails.branchName',
+      ];
+
+      bankRequired.forEach((fieldKey) => {
+        const [section, key] = fieldKey.split('.');
+        if (!hasText(formData?.[section]?.[key])) {
+          errors.push(fieldKey);
+        }
+      });
+
+      return errors;
+    }
+
+    return [];
+  };
+
+  const currentStepErrors = validateCurrentStep();
+  const isNextDisabled = isSaving || currentStepErrors.length > 0;
 
   useEffect(() => {
     fetchAwaitingEmployees();
@@ -64,112 +315,6 @@ const EmployeeOnboarding = () => {
       setLoading(false);
     }
   };
-
-  const [formData, setFormData] = useState({
-    // Basic Details
-    firstName: '',
-    lastName: '',
-    nickName: '',
-    employeeId: generatedEmployeeId,
-    officialEmail: '',
-    personalEmail: 'gowtham134@gmail.com1',
-    personalPhone: '',
-    officePhone: '',
-    gender: '',
-    maritalStatus: '',
-    dateOfBirth: '',
-    dateOfJoining: '',
-    
-    // Employment Information
-    employeeType: '',
-    erpRole: '',
-    sourceOfHire: '',
-    department: '',
-    permanent: '',
-    manager: '',
-    referral: '',
-    designation: '',
-    reportingHead: '',
-    uanNumber: '',
-    panNumber: '',
-    currentSalary: '',
-    systemAdmin: 'System Admin',
-    superAdmin: 'Super_admin',
-    
-    // Address
-    currentAddress: { line1: '', line2: '', city: '', state: '', pincode: '' },
-    permanentAddress: { line1: '', line2: '', city: '', state: '', pincode: '' },
-    
-    // Experience
-    experience: [{ company: '', designation: '', startDate: '', endDate: '', totalExp: '', reason: '' }],
-    
-    // Education
-    education: [{ qualification: '', institution: '', board: '', year: '', percentage: '' }],
-    
-    // Icebreaker
-    icebreaker: {
-      favoriteCake: '',
-      favoriteColor: '',
-      favoriteSong: '',
-      favoriteMovie: '',
-      favoriteFood: '',
-      favoriteActor: '',
-      dreamVacation: '',
-      weekendActivity: '',
-      coffeeOrTea: '',
-      favoriteSports: '',
-    },
-    
-    // Health
-    health: {
-      anyTablets: '',
-      healthIssues: '',
-      bloodGroup: '',
-      medicalAssistance: '',
-      emergencyContact: '',
-      emergencyName: '',
-      emergencyNumber: '',
-    },
-    
-    // Documents
-    documents: [],
-    bankDetails: {
-      accountHolder: '',
-      accountNumber: '',
-      ifscCode: '',
-      bankName: '',
-      branchName: '',
-    },
-    
-    // Office Tour
-    officeTour: {
-      reception: false,
-      workstation: false,
-      meetingRoom: false,
-      cafeteria: false,
-      hrCabin: false,
-    },
-    
-    // Induction
-    induction: {
-      companyIntro: false,
-      hrPolicies: false,
-      attendanceRules: false,
-      leavePolicy: false,
-      securityGuidelines: false,
-      teamIntro: false,
-    },
-    
-    // Kit
-    kit: {
-      laptop: false,
-      mouse: false,
-      keyboard: false,
-      entryCard: false,
-      headset: false,
-      welcomeKit: false,
-    },
-  });
 
   const getDefaultFormData = (employeeId = generatedEmployeeId) => ({
     firstName: '',
@@ -293,6 +438,15 @@ const EmployeeOnboarding = () => {
       return false;
     }
 
+    if (status === 'FINAL') {
+      const requiredErrors = validateRequiredFields();
+      if (requiredErrors.length > 0) {
+        setValidationErrors(requiredErrors);
+        toast.error(formatMissingFieldsSummary(requiredErrors));
+        return false;
+      }
+    }
+
     try {
       setIsSaving(true);
       const isUpdate = hasExistingRecord;
@@ -307,14 +461,111 @@ const EmployeeOnboarding = () => {
       setHasExistingRecord(true);
       return true;
     } catch (error) {
-      alert(error?.message || 'Failed to save onboarding details.');
+      const validationFields = Array.isArray(error?.errors)
+        ? error.errors.map((item) => item?.field).filter(Boolean)
+        : [];
+
+      if (status === 'FINAL' && validationFields.length > 0) {
+        setValidationErrors(validationFields);
+        toast.error(formatMissingFieldsSummary(validationFields));
+        return false;
+      }
+
+      toast.error(error?.message || 'Failed to save onboarding details.');
       return false;
     } finally {
       setIsSaving(false);
     }
   };
 
+  const formatFieldLabel = (field) => {
+    if (!field) return '';
+
+    let label = String(field).trim();
+    label = label
+      .replace(/^Employment Information: /, '')
+      .replace(/^Address Section: /, '')
+      .replace(/^Education Details: /, '')
+      .replace(/^Experience Details: /, '')
+      .replace(/^Basic Details: /, '')
+      .replace(/^Icebreaker: /, '')
+      .replace(/^Health: /, '')
+      .replace(/^Bank Details: /, '')
+      .replace(/currentAddress\./g, 'Current Address > ')
+      .replace(/permanentAddress\./g, 'Permanent Address > ')
+      .replace(/reportingHead/g, 'Reporting Head')
+      .replace(/uanNumber/g, 'UAN Number')
+      .replace(/panNumber/g, 'PAN Number')
+      .replace(/currentSalary/g, 'Current Salary')
+      .replace(/favoriteCake/g, 'Favorite Cake')
+      .replace(/favoriteColor/g, 'Favorite Color')
+      .replace(/favoriteSong/g, 'Favorite Song')
+      .replace(/favoriteMovie/g, 'Favorite Movie')
+      .replace(/favoriteFood/g, 'Favorite Food')
+      .replace(/favoriteActor/g, 'Favorite Actor')
+      .replace(/dreamVacation/g, 'Dream Vacation')
+      .replace(/weekendActivity/g, 'Weekend Activity')
+      .replace(/coffeeOrTea/g, 'Coffee or Tea')
+      .replace(/favoriteSports/g, 'Favorite Sports')
+      .replace(/anyTablets/g, 'Any Tablets Taking Currently')
+      .replace(/healthIssues/g, 'Any Health Issues')
+      .replace(/bloodGroup/g, 'Blood Group')
+      .replace(/medicalAssistance/g, 'Medical Assistance Needed')
+      .replace(/emergencyName/g, 'Emergency Contact Name')
+      .replace(/emergencyNumber/g, 'Emergency Contact Number')
+      .replace(/accountHolder/g, 'Account Holder Name')
+      .replace(/accountNumber/g, 'Account Number')
+      .replace(/ifscCode/g, 'IFSC Code')
+      .replace(/bankName/g, 'Bank Name')
+      .replace(/branchName/g, 'Branch Name')
+      .replace(/education/g, 'Education')
+      .replace(/experience/g, 'Experience')
+      .replace(/qualification/g, 'Qualification')
+      .replace(/institution/g, 'Institution')
+      .replace(/board/g, 'Board / University')
+      .replace(/year/g, 'Year')
+      .replace(/percentage/g, 'Percentage')
+      .replace(/company/g, 'Company')
+      .replace(/designation/g, 'Designation')
+      .replace(/startDate/g, 'Start Date')
+      .replace(/totalExp/g, 'Total Experience')
+      .replace(/line1/g, 'Line 1')
+      .replace(/city/g, 'City')
+      .replace(/state/g, 'State')
+      .replace(/pincode/g, 'Pincode')
+      .replace(/\./g, ' > ')
+      .replace(/\s+>\s+/g, ' > ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return label;
+  };
+
+  const formatMissingFieldsSummary = (errors) => {
+    if (!Array.isArray(errors) || errors.length === 0) return 'Please complete the required fields.';
+
+    const normalized = [...new Set(
+      errors
+        .map((field) => formatFieldLabel(field))
+        .filter(Boolean)
+    )];
+
+    if (normalized.length === 0) {
+      return 'Please complete the required fields.';
+    }
+
+    return `Missing required fields: ${normalized.join(', ')}`;
+  };
+
   const handleNext = async () => {
+    const stepErrors = validateCurrentStep();
+    if (stepErrors.length > 0) {
+      setValidationErrors(stepErrors);
+      toast.error(formatMissingFieldsSummary(stepErrors));
+      return;
+    }
+
+    setValidationErrors([]);
     const saved = await saveOnboardingRecord('DRAFT');
     if (saved && currentStep < 6) {
       setCurrentStep(currentStep + 1);
@@ -329,6 +580,13 @@ const EmployeeOnboarding = () => {
   };
 
   const handleFinalSubmit = async () => {
+    const requiredErrors = validateRequiredFields();
+    if (requiredErrors.length > 0) {
+      setValidationErrors(requiredErrors);
+      toast.error(formatMissingFieldsSummary(requiredErrors));
+      return;
+    }
+
     const saved = await saveOnboardingRecord('FINAL');
     if (!saved) {
       return;
@@ -385,6 +643,7 @@ const EmployeeOnboarding = () => {
     
     if (section) {
       if (subSection) {
+        clearFieldError(`${section}.${subSection}.${name}`);
         setFormData(prev => ({
           ...prev,
           [section]: {
@@ -396,6 +655,7 @@ const EmployeeOnboarding = () => {
           }
         }));
       } else {
+        clearFieldError(`${section}.${name}`);
         setFormData(prev => ({
           ...prev,
           [section]: {
@@ -405,6 +665,7 @@ const EmployeeOnboarding = () => {
         }));
       }
     } else {
+      clearFieldError(name);
       setFormData(prev => ({
         ...prev,
         [name]: type === 'checkbox' ? checked : value
@@ -414,6 +675,7 @@ const EmployeeOnboarding = () => {
 
   const handleArrayChange = (section, index, field, value) => {
     if (isViewMode) return;
+    clearFieldError(section);
     const updated = [...formData[section]];
     updated[index][field] = value;
     setFormData(prev => ({ ...prev, [section]: updated }));
@@ -434,26 +696,76 @@ const EmployeeOnboarding = () => {
     setFormData(prev => ({ ...prev, [section]: updated }));
   };
 
-  const handleAddDocument = () => {
+  const handleAddDocument = async () => {
     if (isViewMode) return;
     if (!selectedDocumentType || !selectedDocumentFile) return;
 
     const fileName = selectedDocumentFile.name || '';
     if (!fileName) return;
 
-    setFormData(prev => ({
-      ...prev,
-      documents: [
-        ...(prev.documents || []),
-        {
-          documentType: selectedDocumentType,
-          fileName,
-        },
-      ],
-    }));
+    try {
+      const uploadPayload = new FormData();
+      uploadPayload.append('document', selectedDocumentFile);
+      uploadPayload.append('documentType', selectedDocumentType);
+      if (selectedEmployee?.id) {
+        uploadPayload.append('cifid', String(selectedEmployee.id));
+      }
 
-    setSelectedDocumentType('');
-    setSelectedDocumentFile(null);
+      const response = await request('/onboardings/upload-document', {
+        method: 'POST',
+        body: uploadPayload,
+      });
+
+      const uploadedDoc = response?.data || {};
+      const uploadedFileName = uploadedDoc.fileName || fileName;
+      const uploadedFileUrl = uploadedDoc.fileUrl || uploadedDoc.file_url || '';
+      const uploadedStoredName = uploadedDoc.storedName || '';
+
+      const incomingKey = `${String(selectedDocumentType).toLowerCase()}::${String(uploadedFileName).toLowerCase()}`;
+
+      setFormData(prev => {
+        const existingDocs = Array.isArray(prev.documents) ? prev.documents : [];
+        const duplicateIndex = existingDocs.findIndex((doc) => {
+          const docType = String(doc?.documentType || '').toLowerCase();
+          const docName = String(doc?.fileName || '').toLowerCase();
+          return `${docType}::${docName}` === incomingKey;
+        });
+
+        if (duplicateIndex >= 0) {
+          const nextDocs = [...existingDocs];
+          nextDocs[duplicateIndex] = {
+            ...nextDocs[duplicateIndex],
+            fileUrl: uploadedFileUrl || nextDocs[duplicateIndex]?.fileUrl || '',
+            file_url: uploadedFileUrl || nextDocs[duplicateIndex]?.file_url || '',
+            storedName: uploadedStoredName || nextDocs[duplicateIndex]?.storedName || '',
+          };
+
+          return {
+            ...prev,
+            documents: nextDocs,
+          };
+        }
+
+        return {
+          ...prev,
+          documents: [
+            ...existingDocs,
+            {
+              documentType: selectedDocumentType,
+              fileName: uploadedFileName,
+              fileUrl: uploadedFileUrl,
+              file_url: uploadedFileUrl,
+              storedName: uploadedStoredName,
+            },
+          ],
+        };
+      });
+
+      setSelectedDocumentType('');
+      setSelectedDocumentFile(null);
+    } catch (error) {
+      alert(error?.message || 'Failed to upload document.');
+    }
   };
 
   const removeDocument = (index) => {
@@ -462,6 +774,24 @@ const EmployeeOnboarding = () => {
       ...prev,
       documents: (prev.documents || []).filter((_, i) => i !== index),
     }));
+  };
+
+  const getDocumentDownloadUrl = (doc) => {
+    const rawUrl = String(doc?.fileUrl || doc?.file_url || '').trim();
+    const storedName = String(doc?.storedName || '').trim();
+
+    if (!rawUrl && storedName) {
+      return `${API_ROOT_URL}/uploads/onboarding-documents/${storedName}`;
+    }
+
+    if (!rawUrl) return '';
+    if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
+
+    if (rawUrl.startsWith('/')) {
+      return `${API_ROOT_URL}${rawUrl}`;
+    }
+
+    return `${API_ROOT_URL}/${rawUrl}`;
   };
 
   const handleViewEmployee = (employee) => {
@@ -551,6 +881,12 @@ const EmployeeOnboarding = () => {
 
   const renderPersonalDetails = () => (
     <div className="space-y-6">
+      {validationErrors.length > 0 && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Please fill all highlighted required fields before moving to next step.
+        </div>
+      )}
+
       {/* Basic Details */}
       <div>
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Basic Details</h3>
@@ -565,7 +901,7 @@ const EmployeeOnboarding = () => {
               value={formData.firstName}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'firstName')}
               placeholder="Enter first name"
             />
           </div>
@@ -579,7 +915,7 @@ const EmployeeOnboarding = () => {
               value={formData.lastName}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'lastName')}
               placeholder="Enter last name"
             />
           </div>
@@ -614,7 +950,7 @@ const EmployeeOnboarding = () => {
               value={formData.officialEmail}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'officialEmail')}
               placeholder="official@email.com"
             />
           </div>
@@ -626,7 +962,7 @@ const EmployeeOnboarding = () => {
               value={formData.personalEmail}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'personalEmail')}
               placeholder="personal@email.com"
             />
           </div>
@@ -638,7 +974,7 @@ const EmployeeOnboarding = () => {
               value={formData.personalPhone}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'personalPhone')}
               placeholder="Enter phone number"
             />
           </div>
@@ -650,7 +986,7 @@ const EmployeeOnboarding = () => {
               value={formData.officePhone}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'officePhone')}
               placeholder="Enter office phone"
             />
           </div>
@@ -661,7 +997,7 @@ const EmployeeOnboarding = () => {
               value={formData.gender}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'gender')}
             >
               <option value="">Select Gender</option>
               <option value="Male">Male</option>
@@ -676,7 +1012,7 @@ const EmployeeOnboarding = () => {
               value={formData.maritalStatus}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'maritalStatus')}
             >
               <option value="">Select Status</option>
               <option value="Single">Single</option>
@@ -693,7 +1029,7 @@ const EmployeeOnboarding = () => {
               value={formData.dateOfBirth}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'dateOfBirth')}
             />
           </div>
           <div>
@@ -704,7 +1040,7 @@ const EmployeeOnboarding = () => {
               value={formData.dateOfJoining}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'dateOfJoining')}
             />
           </div>
         </div>
@@ -721,7 +1057,7 @@ const EmployeeOnboarding = () => {
               value={formData.employeeType}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'employeeType')}
             >
               <option value="">Select Type</option>
               <option value="Permanent">Permanent</option>
@@ -738,7 +1074,7 @@ const EmployeeOnboarding = () => {
               value={formData.erpRole}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'erpRole')}
               placeholder="Enter ERP role"
             />
           </div>
@@ -749,7 +1085,7 @@ const EmployeeOnboarding = () => {
               value={formData.sourceOfHire}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'sourceOfHire')}
             >
               <option value="">Select Source</option>
               <option value="Referral">Referral</option>
@@ -766,7 +1102,7 @@ const EmployeeOnboarding = () => {
               value={formData.department}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'department')}
             >
               <option value="">Select Department</option>
               <option value="Content">Content</option>
@@ -784,7 +1120,7 @@ const EmployeeOnboarding = () => {
               value={formData.designation}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'designation')}
               placeholder="Enter designation"
             />
           </div>
@@ -796,7 +1132,7 @@ const EmployeeOnboarding = () => {
               value={formData.reportingHead}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'reportingHead')}
               placeholder="Enter reporting head"
             />
           </div>
@@ -808,7 +1144,7 @@ const EmployeeOnboarding = () => {
               value={formData.uanNumber}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'uanNumber')}
               placeholder="Enter UAN number"
             />
           </div>
@@ -820,7 +1156,7 @@ const EmployeeOnboarding = () => {
               value={formData.panNumber}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'panNumber')}
               placeholder="Enter PAN number"
             />
           </div>
@@ -832,7 +1168,7 @@ const EmployeeOnboarding = () => {
               value={formData.currentSalary}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentSalary')}
               placeholder="Enter current salary"
             />
           </div>
@@ -851,7 +1187,7 @@ const EmployeeOnboarding = () => {
                 value={formData.currentAddress.line1}
                 onChange={(e) => handleInputChange(e, 'currentAddress')}
                 disabled={isViewMode}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.line1')}
                 placeholder="Address Line 1"
               />
               <input
@@ -870,7 +1206,7 @@ const EmployeeOnboarding = () => {
                   value={formData.currentAddress.city}
                   onChange={(e) => handleInputChange(e, 'currentAddress')}
                   disabled={isViewMode}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.city')}
                   placeholder="City"
                 />
                 <input
@@ -879,7 +1215,7 @@ const EmployeeOnboarding = () => {
                   value={formData.currentAddress.state}
                   onChange={(e) => handleInputChange(e, 'currentAddress')}
                   disabled={isViewMode}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.state')}
                   placeholder="State"
                 />
               </div>
@@ -889,7 +1225,7 @@ const EmployeeOnboarding = () => {
                 value={formData.currentAddress.pincode}
                 onChange={(e) => handleInputChange(e, 'currentAddress')}
                 disabled={isViewMode}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.pincode')}
                 placeholder="Pincode"
               />
             </div>
@@ -903,7 +1239,7 @@ const EmployeeOnboarding = () => {
                 value={formData.permanentAddress.line1}
                 onChange={(e) => handleInputChange(e, 'permanentAddress')}
                 disabled={isViewMode}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.line1')}
                 placeholder="Address Line 1"
               />
               <input
@@ -922,7 +1258,7 @@ const EmployeeOnboarding = () => {
                   value={formData.permanentAddress.city}
                   onChange={(e) => handleInputChange(e, 'permanentAddress')}
                   disabled={isViewMode}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.city')}
                   placeholder="City"
                 />
                 <input
@@ -931,7 +1267,7 @@ const EmployeeOnboarding = () => {
                   value={formData.permanentAddress.state}
                   onChange={(e) => handleInputChange(e, 'permanentAddress')}
                   disabled={isViewMode}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.state')}
                   placeholder="State"
                 />
               </div>
@@ -941,7 +1277,7 @@ const EmployeeOnboarding = () => {
                 value={formData.permanentAddress.pincode}
                 onChange={(e) => handleInputChange(e, 'permanentAddress')}
                 disabled={isViewMode}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.pincode')}
                 placeholder="Pincode"
               />
             </div>
@@ -952,6 +1288,11 @@ const EmployeeOnboarding = () => {
       {/* Experience Details */}
       <div className="border-t border-gray-200 pt-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Experience Details</h3>
+        {hasFieldError('experience') && (
+          <p className="mb-3 text-sm text-red-600">
+            Add at least one complete experience entry (company, designation, start date, total experience).
+          </p>
+        )}
         {formData.experience.map((exp, index) => (
           <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
             {index > 0 && !isViewMode && (
@@ -1043,6 +1384,11 @@ const EmployeeOnboarding = () => {
       {/* Education Details */}
       <div className="border-t border-gray-200 pt-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Education Details</h3>
+        {hasFieldError('education') && (
+          <p className="mb-3 text-sm text-red-600">
+            Add at least one complete education entry (qualification, institution/board, year, percentage).
+          </p>
+        )}
         {formData.education.map((edu, index) => (
           <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
             {index > 0 && !isViewMode && (
@@ -1134,7 +1480,7 @@ const EmployeeOnboarding = () => {
               value={formData.icebreaker.favoriteCake}
               onChange={(e) => handleInputChange(e, 'icebreaker')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'icebreaker.favoriteCake')}
               placeholder="Favorite cake"
             />
           </div>
@@ -1146,7 +1492,7 @@ const EmployeeOnboarding = () => {
               value={formData.icebreaker.favoriteColor}
               onChange={(e) => handleInputChange(e, 'icebreaker')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'icebreaker.favoriteColor')}
               placeholder="Favorite color"
             />
           </div>
@@ -1158,7 +1504,7 @@ const EmployeeOnboarding = () => {
               value={formData.icebreaker.favoriteSong}
               onChange={(e) => handleInputChange(e, 'icebreaker')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'icebreaker.favoriteSong')}
               placeholder="Favorite song"
             />
           </div>
@@ -1170,7 +1516,7 @@ const EmployeeOnboarding = () => {
               value={formData.icebreaker.favoriteMovie}
               onChange={(e) => handleInputChange(e, 'icebreaker')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'icebreaker.favoriteMovie')}
               placeholder="Favorite movie"
             />
           </div>
@@ -1182,7 +1528,7 @@ const EmployeeOnboarding = () => {
               value={formData.icebreaker.favoriteFood}
               onChange={(e) => handleInputChange(e, 'icebreaker')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'icebreaker.favoriteFood')}
               placeholder="Favorite food"
             />
           </div>
@@ -1194,7 +1540,7 @@ const EmployeeOnboarding = () => {
               value={formData.icebreaker.favoriteActor}
               onChange={(e) => handleInputChange(e, 'icebreaker')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'icebreaker.favoriteActor')}
               placeholder="Favorite actor"
             />
           </div>
@@ -1206,7 +1552,7 @@ const EmployeeOnboarding = () => {
               value={formData.icebreaker.dreamVacation}
               onChange={(e) => handleInputChange(e, 'icebreaker')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'icebreaker.dreamVacation')}
               placeholder="Dream vacation"
             />
           </div>
@@ -1218,7 +1564,7 @@ const EmployeeOnboarding = () => {
               value={formData.icebreaker.weekendActivity}
               onChange={(e) => handleInputChange(e, 'icebreaker')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'icebreaker.weekendActivity')}
               placeholder="Weekend activity"
             />
           </div>
@@ -1229,7 +1575,7 @@ const EmployeeOnboarding = () => {
               value={formData.icebreaker.coffeeOrTea}
               onChange={(e) => handleInputChange(e, 'icebreaker')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'icebreaker.coffeeOrTea')}
             >
               <option value="">Select</option>
               <option value="Coffee">Coffee</option>
@@ -1246,7 +1592,7 @@ const EmployeeOnboarding = () => {
               value={formData.icebreaker.favoriteSports}
               onChange={(e) => handleInputChange(e, 'icebreaker')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'icebreaker.favoriteSports')}
               placeholder="Favorite sports"
             />
           </div>
@@ -1257,6 +1603,11 @@ const EmployeeOnboarding = () => {
 
   const renderHealthDetails = () => (
     <div className="space-y-6">
+      {validationErrors.length > 0 && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Please complete all required health details before continuing.
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Any tablets taking currently?</label>
@@ -1265,7 +1616,7 @@ const EmployeeOnboarding = () => {
             value={formData.health.anyTablets}
             onChange={(e) => handleInputChange(e, 'health')}
             disabled={isViewMode}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+            className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.anyTablets')}
           >
             <option value="">Select</option>
             <option value="Yes">Yes</option>
@@ -1279,7 +1630,7 @@ const EmployeeOnboarding = () => {
             value={formData.health.healthIssues}
             onChange={(e) => handleInputChange(e, 'health')}
             disabled={isViewMode}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+            className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.healthIssues')}
           >
             <option value="">Select</option>
             <option value="Yes">Yes</option>
@@ -1294,7 +1645,7 @@ const EmployeeOnboarding = () => {
             value={formData.health.bloodGroup}
             onChange={(e) => handleInputChange(e, 'health')}
             disabled={isViewMode}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+            className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.bloodGroup')}
             placeholder="e.g., O+"
           />
         </div>
@@ -1305,7 +1656,7 @@ const EmployeeOnboarding = () => {
             value={formData.health.medicalAssistance}
             onChange={(e) => handleInputChange(e, 'health')}
             disabled={isViewMode}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+            className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.medicalAssistance')}
           >
             <option value="">Select</option>
             <option value="Yes">Yes</option>
@@ -1325,7 +1676,7 @@ const EmployeeOnboarding = () => {
               value={formData.health.emergencyName}
               onChange={(e) => handleInputChange(e, 'health')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.emergencyName')}
               placeholder="Emergency contact name"
             />
           </div>
@@ -1337,7 +1688,7 @@ const EmployeeOnboarding = () => {
               value={formData.health.emergencyNumber}
               onChange={(e) => handleInputChange(e, 'health')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.emergencyNumber')}
               placeholder="Emergency contact number"
             />
           </div>
@@ -1348,6 +1699,11 @@ const EmployeeOnboarding = () => {
 
   const renderDocumentBankDetails = () => (
     <div className="space-y-6">
+      {validationErrors.length > 0 && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Please complete all required document and bank details before continuing.
+        </div>
+      )}
       <div>
         <h4 className="text-md font-semibold text-gray-800 mb-4">Documents</h4>
         <p className="text-sm text-gray-500 mb-4">Allowed formats: PDF, JPG, PNG. Max file size: 5MB per file</p>
@@ -1355,7 +1711,7 @@ const EmployeeOnboarding = () => {
           <select
             value={selectedDocumentType}
             onChange={(e) => setSelectedDocumentType(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+            className={getFieldClassName("px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent", 'documents')}
             disabled={isViewMode}
           >
             <option value="">Select Document Type</option>
@@ -1391,7 +1747,7 @@ const EmployeeOnboarding = () => {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Document Type</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -1405,17 +1761,47 @@ const EmployeeOnboarding = () => {
                 (formData.documents || []).map((doc, index) => (
                   <tr key={`${doc.documentType}-${doc.fileName}-${index}`}>
                     <td className="px-4 py-3 text-sm text-gray-700">{doc.documentType || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{doc.fileName || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {!isViewMode && (
-                        <button
-                          type="button"
-                          onClick={() => removeDocument(index)}
-                          className="text-red-600 hover:text-red-800"
+                      {getDocumentDownloadUrl(doc) ? (
+                        <a
+                          href={getDocumentDownloadUrl(doc)}
+                          target="_blank"
+                          rel="noreferrer"
+                          download={doc.fileName || true}
+                          className="text-blue-700 hover:text-blue-900 hover:underline"
+                          title="Download file"
                         >
-                          Remove
-                        </button>
+                          {doc.fileName || '-'}
+                        </a>
+                      ) : (
+                        doc.fileName || '-'
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      <div className="flex items-center gap-3">
+                        {getDocumentDownloadUrl(doc) ? (
+                          <a
+                            href={getDocumentDownloadUrl(doc)}
+                            target="_blank"
+                            rel="noreferrer"
+                            download={doc.fileName || true}
+                            className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                          >
+                            Download
+                          </a>
+                        ) : (
+                          <span className="text-gray-400">No file URL</span>
+                        )}
+                        {!isViewMode && (
+                          <button
+                            type="button"
+                            onClick={() => removeDocument(index)}
+                            className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -1436,7 +1822,7 @@ const EmployeeOnboarding = () => {
               value={formData.bankDetails.accountHolder}
               onChange={(e) => handleInputChange(e, 'bankDetails')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'bankDetails.accountHolder')}
               placeholder="Account holder name"
             />
           </div>
@@ -1448,7 +1834,7 @@ const EmployeeOnboarding = () => {
               value={formData.bankDetails.accountNumber}
               onChange={(e) => handleInputChange(e, 'bankDetails')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'bankDetails.accountNumber')}
               placeholder="Account number"
             />
           </div>
@@ -1460,7 +1846,7 @@ const EmployeeOnboarding = () => {
               value={formData.bankDetails.ifscCode}
               onChange={(e) => handleInputChange(e, 'bankDetails')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'bankDetails.ifscCode')}
               placeholder="IFSC code"
             />
           </div>
@@ -1472,7 +1858,7 @@ const EmployeeOnboarding = () => {
               value={formData.bankDetails.bankName}
               onChange={(e) => handleInputChange(e, 'bankDetails')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'bankDetails.bankName')}
               placeholder="Bank name"
             />
           </div>
@@ -1484,7 +1870,7 @@ const EmployeeOnboarding = () => {
               value={formData.bankDetails.branchName}
               onChange={(e) => handleInputChange(e, 'bankDetails')}
               disabled={isViewMode}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'bankDetails.branchName')}
               placeholder="Branch name"
             />
           </div>
@@ -1741,13 +2127,20 @@ const EmployeeOnboarding = () => {
                         Save as Draft
                       </button>
                       {currentStep < 6 ? (
-                        <button
-                          onClick={handleNext}
-                          disabled={isSaving}
-                          className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                          {isSaving ? 'Saving...' : 'Next'}
-                        </button>
+                        <div className="flex flex-col items-end gap-1">
+                          {currentStepErrors.length > 0 && (
+                            <p className="text-xs text-red-600">
+                              Fill all required fields in this step to continue.
+                            </p>
+                          )}
+                          <button
+                            onClick={handleNext}
+                            disabled={isNextDisabled}
+                            className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {isSaving ? 'Saving...' : 'Next'}
+                          </button>
+                        </div>
                       ) : (
                         <button
                           onClick={handleFinalSubmit}
