@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { toast } from 'react-toastify';  
-import { PlusSquare, Trash2, Edit3, X, Link2, Link2Off  } from 'lucide-react';
+import { PlusSquare, Edit3, X, Link2, Link2Off  } from 'lucide-react';
 import jobOpeningServices from "../../services/opening.service";
 import departmentService from "../../services/department.service";
 
 const JobOpenings = () => {
-    const navigate = useNavigate();
     const [jobOpenings, setJobOpenings] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -19,8 +17,8 @@ const JobOpenings = () => {
     const [saving, setSaving] = useState(false);
     const [departmentLoading, setDepartmentLoading] = useState(false);
 
-    const [error, setError] = useState("");
-    const [departmentError, setDepartmentError] = useState("");
+    const [, setError] = useState("");
+    const [, setDepartmentError] = useState("");
 
     const [formData, setFormData] = useState({
         jobTitle: "",
@@ -112,25 +110,6 @@ const JobOpenings = () => {
         setShowAddModal(true);
     };
 
-    const deleteJob = async (jobId) => {
-        if (window.confirm("Are you sure you want to delete this job opening?")) {
-            try {
-                setSaving(true);
-                const response = await jobOpeningServices.deleteOpening(jobId);
-                if (response?.success) {
-                    toast.success("Opening deleted successfully.");
-                    await fetchOpenings();
-                } else {
-                    toast.error(response?.message || "Failed to delete opening.");
-                }
-            } catch (error) {
-                toast.error(error?.message || "Failed to delete opening.");
-            } finally {
-                setSaving(false);
-            }
-        }
-    };
-
     const getDepartmentPrefix = (departmentId) => {
         const departmentMap = { 1: 'DM', 2: 'OP', 3: 'WD', 4: 'CO' };
         return departmentMap[departmentId] || 'GEN';
@@ -195,7 +174,7 @@ const JobOpenings = () => {
         try {
             await navigator.clipboard.writeText(url);
             toast.success("Apply URL copied.");
-        } catch (error) {
+        } catch {
             toast.error("Unable to copy apply URL.");
         }
     };
@@ -299,9 +278,6 @@ const JobOpenings = () => {
                                                         </button>
                                                     <button onClick={() => editJob(job)} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">
                                                         <Edit3 size={'14px'}/>
-                                                    </button>
-                                                    <button onClick={() => deleteJob(job.jobid)} className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200">
-                                                       <Trash2 size={'14px'}/>
                                                     </button>
                                                 </div>
                                             </td>

@@ -7,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import authService from "../../services/auth.service";
 import { clearSession } from "../../utils/session";
 export default function ProfileMenu({
-    close
 }) {
     const navigate = useNavigate();
     const logout = async () => {

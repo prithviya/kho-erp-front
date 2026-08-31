@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { request } from '../../services/apiClient';
 import { RefreshCcw, X, Eye, Split, RepeatOff, FileUser } from 'lucide-react'
 
 const Applied = () => {
-  const navigate = useNavigate();
-
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
@@ -22,7 +19,6 @@ const Applied = () => {
       setLoading(true);
 
       const response = await request('/cif-submissions', { method: 'GET', });
-      console.log('FIRST APPLICATION FULL DATA:', response?.data?.[0]);
       if (response?.success) {
         setApplications(response.data || []);
       } else {
@@ -89,16 +85,26 @@ const Applied = () => {
   };
 
   const getStatusBadge = (status) => {
-    const statusMap = { 
-      pending: 'bg-yellow-100 text-yellow-800', shortlisted: 'bg-blue-100 text-blue-800', rejected: 'bg-red-100 text-red-800', selected: 'bg-green-100 text-green-800', };
-    return ( statusMap[status?.toLowerCase()] ||'bg-gray-100 text-gray-800' );
+    const statusMap = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      shortlisted: 'bg-blue-100 text-blue-800',
+      rejected: 'bg-red-100 text-red-800',
+      selected: 'bg-green-100 text-green-800',
+    };
+    return statusMap[String(status || '').trim().toLowerCase()] || 'bg-gray-100 text-gray-800';
   };
 
   const normalizeStatus = (status) => {
     const normalizedStatus = String(status || '').trim().toLowerCase();
-    return {
-      shortlist: 'shortlisted', reject: 'rejected',
-    }[normalizedStatus] || normalizedStatus;
+    const lookup = {
+      pending: 'pending',
+      shortlist: 'shortlisted',
+      shortlisted: 'shortlisted',
+      reject: 'rejected',
+      rejected: 'rejected',
+      selected: 'selected',
+    };
+    return lookup[normalizedStatus] || normalizedStatus;
   };
 
   const resolveResumeUrl = (record) => {
@@ -200,10 +206,7 @@ const Applied = () => {
         return true;
       }
 
-      return (
-        app.status?.toLowerCase() ===
-        filterStatus.toLowerCase()
-      );
+      return normalizeStatus(app.status) === filterStatus.toLowerCase();
     });
 
   const statusOptions = [
@@ -214,10 +217,13 @@ const Applied = () => {
       value: 'pending', label: 'Pending',
     },
     {
-      value: 'shortlist', label: 'Shortlisted',
+      value: 'shortlisted', label: 'Shortlisted',
     },
     {
-      value: 'reject', label: 'Rejected',
+      value: 'selected', label: 'Selected',
+    },
+    {
+      value: 'rejected', label: 'Rejected',
     },
   ];
 
@@ -251,17 +257,21 @@ const Applied = () => {
           <div className="bg-white rounded-lg shadow p-4">
             <p className="text-sm text-gray-500"> Shortlisted </p>
             <p className="text-2xl font-bold text-blue-600">
-              { applications.filter( (a) => a.status?.toLowerCase() === 'shortlist' ).length
-              }
+              { applications.filter( (a) => normalizeStatus(a.status) === 'shortlisted' ).length }
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500"> Selected </p>
+            <p className="text-2xl font-bold text-green-600">
+              { applications.filter( (a) => normalizeStatus(a.status) === 'selected' ).length }
             </p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-4">
             <p className="text-sm text-gray-500"> Rejected </p>
-            <p className="text-2xl font-bold text-green-600">
-              {
-                applications.filter( (a) => a.status?.toLowerCase() ==='reject' ).length
-              }
+            <p className="text-2xl font-bold text-red-600">
+              { applications.filter( (a) => normalizeStatus(a.status) === 'rejected' ).length }
             </p>
           </div>
         </div>
@@ -341,25 +351,50 @@ const Applied = () => {
                               onClick={() => updateStatus(app.cifid, 'Shortlisted')}
                               disabled={
                                 updating ||
-                                app.status?.toLowerCase() === 'shortlisted' ||
-                                app.status?.toLowerCase() === 'rejected' ||
-                                app.status?.toLowerCase() === 'selected'
+                                normalizeStatus(app.status) === 'shortlisted' ||
+                                normalizeStatus(app.status) === 'rejected' ||
+                                normalizeStatus(app.status) === 'selected'
                               }
                               className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
-                                app.status?.toLowerCase() === 'shortlisted'
+                                normalizeStatus(app.status) === 'shortlisted'
                                   ? 'bg-green-100 text-green-700 cursor-not-allowed'
-                                  : app.status?.toLowerCase() === 'rejected' ||
-                                    app.status?.toLowerCase() === 'selected'
+                                  : normalizeStatus(app.status) === 'rejected' ||
+                                    normalizeStatus(app.status) === 'selected'
                                   ? 'bg-gray-200 text-gray-700 cursor-not-allowed'
                                   : 'bg-green-100 text-green-700 hover:bg-green-200'
                               }`}
                             >
-                              {app.status?.toLowerCase() === 'shortlisted' ? (
+                              {normalizeStatus(app.status) === 'shortlisted' ? (
                                 'Already Shortlisted'
                               ) : (
                                 <>
                                   <Split size={14} />
-                                  
+                                  Shortlist
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => updateStatus(app.cifid, 'Selected')}
+                              disabled={
+                                updating ||
+                                normalizeStatus(app.status) === 'selected' ||
+                                normalizeStatus(app.status) === 'rejected'
+                              }
+                              className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                                normalizeStatus(app.status) === 'selected'
+                                  ? 'bg-emerald-100 text-emerald-700 cursor-not-allowed'
+                                  : normalizeStatus(app.status) === 'rejected'
+                                  ? 'bg-gray-200 text-gray-700 cursor-not-allowed'
+                                  : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                              }`}
+                            >
+                              {normalizeStatus(app.status) === 'selected' ? (
+                                'Selected'
+                              ) : (
+                                <>
+                                  <FileUser size={14} />
+                                  Select
                                 </>
                               )}
                             </button>
@@ -368,19 +403,19 @@ const Applied = () => {
                               onClick={() => updateStatus(app.cifid, 'Rejected')}
                               disabled={
                                 updating ||
-                                app.status?.toLowerCase() === 'rejected' ||
-                                app.status?.toLowerCase() === 'selected'
+                                normalizeStatus(app.status) === 'rejected' ||
+                                normalizeStatus(app.status) === 'selected'
                               }
                               title="Reject"
                               className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
-                                app.status?.toLowerCase() === 'rejected'
+                                normalizeStatus(app.status) === 'rejected'
                                   ? 'bg-red-100 text-red-700 cursor-not-allowed'
-                                  : app.status?.toLowerCase() === 'selected'
+                                  : normalizeStatus(app.status) === 'selected'
                                   ? 'bg-gray-200 text-gray-700 cursor-not-allowed'
                                   : 'bg-red-100 text-red-700 hover:bg-red-200'
                               }`}
                             >
-                              {app.status?.toLowerCase() === 'rejected' ? (
+                              {normalizeStatus(app.status) === 'rejected' ? (
                                 'Already Rejected'
                               ) : (
                                 <>
@@ -539,7 +574,7 @@ const Applied = () => {
         }
 
       {showResumeModal && (
-        <div className="fixed inset-0 z-[60] overflow-y-auto">
+        <div className="fixed inset-0 z-60 overflow-y-auto">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowResumeModal(false)} />
           <div className="flex min-h-full items-center justify-center p-4">
             <div className="relative bg-white rounded-lg shadow-xl w-full max-w-5xl h-[85vh] flex flex-col">

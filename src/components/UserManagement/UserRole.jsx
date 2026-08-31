@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import AddRole from "./AddRole";
-import { Pencil, Trash2, UserPlus } from "lucide-react";
+import { Pencil, UserPlus } from "lucide-react";
 import userManagementService from "../../services/userManagement.service";
 import { toast } from "react-toastify";
 
@@ -19,7 +19,6 @@ function UserRole() {
     const [formError, setFormError] = useState("");
     const [tableError, setTableError] = useState("");
     const [editingUser, setEditingUser] = useState(null);
-    const [deleteTarget, setDeleteTarget] = useState(null);
 
     const loadData = async (searchText = "") => {
         try {
@@ -49,7 +48,6 @@ function UserRole() {
         return () => clearTimeout(timer);
     }, [search]);
 
-    const usersCount = users.length;
     const employeeOptions = useMemo(() => {
         const values = users.map((user) => {
             const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unknown User";
@@ -113,18 +111,6 @@ function UserRole() {
             setFormError(err.message || "Failed to save user.");
         } finally {
             setSaving(false);
-        }
-    };
-
-      const handleDeleteUser = async () => {
-        if (!deleteTarget?.id) return;
-        try {
-            await userManagementService.deleteUser(deleteTarget.id);
-            toast.success("User deleted successfully.");
-            setDeleteTarget(null);
-            await loadData(search.trim());
-        } catch (err) {
-            toast.error(err.message || "Failed to delete user.");
         }
     };
 
@@ -220,17 +206,6 @@ function UserRole() {
                                                         Edit
                                                     </span>
                                                 </button>
-                                               
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setDeleteTarget(user)}
-                                                    className="group relative rounded-md p-1.5 text-red-600 hover:bg-red-50"
-                                                >
-                                                    <Trash2 size={14} />
-                                                    <span className="pointer-events-none absolute -top-7 right-0 rounded bg-red-600 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
-                                                        Delete
-                                                    </span>
-                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -251,33 +226,6 @@ function UserRole() {
                 saving={saving}
                 error={formError}
             />
-
-            {deleteTarget && (
-                <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
-                        <h3 className="text-lg font-semibold text-gray-900">Delete User</h3>
-                        <p className="mt-2 text-sm text-gray-600">
-                            Are you sure you want to delete this user account?
-                        </p>
-                        <div className="mt-5 flex justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setDeleteTarget(null)}
-                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleDeleteUser}
-                                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

@@ -1,4 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import { hasAnyRole } from "../../utils/auth";
+
 export default function SidebarItem({
     item,
     collapsed,
@@ -8,6 +10,12 @@ export default function SidebarItem({
     const location = useLocation();
     const Icon = item.icon;
     const active = location.pathname === item.path;
+    const canAccess = Array.isArray(item.roles) && item.roles.length > 0 && hasAnyRole(item.roles);
+
+    if (!canAccess) {
+        return null;
+    }
+
     const handleClick = () => {
         if (!item.path) return;
         navigate(item.path);
@@ -39,7 +47,7 @@ export default function SidebarItem({
             <Icon
                 size={19}
                 strokeWidth={2}
-                className="flex-shrink-0"
+                className="shrink-0"
             />
             {
                 !collapsed &&

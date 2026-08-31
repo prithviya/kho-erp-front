@@ -5,7 +5,7 @@ import leadService from '../../services/lead.service';
 import { toast } from 'react-toastify';
 import { 
     X, Building2, User, Phone, Mail, DollarSign, 
-    Pencil, Trash2, Eye, Search, Plus,
+    Pencil, Eye, Search, Plus,
     Globe, Camera, Video, Image, FileText, Briefcase,
     Layers, Code, Palette, TrendingUp, Megaphone,
     CheckCircle, Clock, Circle, Layout, Monitor,
@@ -710,18 +710,6 @@ const VendorManagement = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Are you sure you want to delete this vendor?')) {
-            try {
-                await ventorService.delete(id);
-                toast.success('Vendor deleted successfully');
-                await fetchVendors();
-            } catch (error) {
-                toast.error(error.message || 'Failed to delete vendor');
-            }
-        }
-    };
-
     const resetForm = () => {
         setFormData({
             name: '',
@@ -1009,13 +997,6 @@ const VendorManagement = () => {
                                                         title="Edit"
                                                     >
                                                         <Pencil size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(vendor.id)}
-                                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 size={16} />
                                                     </button>
                                                 </div>
                                             </td>

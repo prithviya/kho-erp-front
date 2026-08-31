@@ -22,7 +22,12 @@ import Cif from "../components/cifForm/ciform";
 import MainLayout from "../layouts/MainLayout";
 import PrivateRoute from "./PrivateRoute";
 import PublicRoute from "./PublicRoute";
+import RoleRoute from "./RoleRoute";
+import { getCurrentUser, getDefaultHomePath } from "../utils/auth";
+
 export default function AppRoutes() {
+    const fallbackPath = getDefaultHomePath(getCurrentUser());
+
     return (
         <Routes>
             <Route
@@ -33,7 +38,6 @@ export default function AppRoutes() {
                     </PublicRoute>
                 }
             />
-            <Route path="/cif-form" element={<Cif />} />
             <Route
                 element={
                     <PrivateRoute>
@@ -41,25 +45,26 @@ export default function AppRoutes() {
                     </PrivateRoute>
                 }
             >
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/lead-overview" element={<LeadOverview />} />
-                <Route path="/report" element={<Report />} />
-                <Route path="/onboard-prjt" element={<ProjectOnboarding />} />
-                <Route path="/prjt-details" element={<ProjectDetail />} />
-                <Route path="/tasks" element={<AssignTask />} />
-                <Route path="/task-board" element={<TaskBoard />} />
-                <Route path="/user-management" element={<UserManagement />} />
-                <Route path="/master" element={<Master/>} />
-                <Route path="/ventor-management" element={<VentorManagement />} />
-                <Route path="/ventor-assigned" element={<VentorAssigned />} />
-                <Route path="/applied" element={<Applied/>} />
-                <Route path="/job" element={<JobOpening />} />
-                <Route path="/recruitment-process" element={<RecruitmentProcess />} />
-                <Route path="/onboarding" element={<Onboarding />} />
-                <Route path="/employee" element={<Employee />} />
-                <Route path="/payroll" element={<Salary />} />
-                <Route path="/leave" element={<Leave />} />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<RoleRoute roles={["SUPER_ADMIN"]}><Dashboard /></RoleRoute>} />
+                <Route path="/lead-overview" element={<RoleRoute roles={["SUPER_ADMIN", "CRM_EXECUTIVE"]}><LeadOverview /></RoleRoute>} />
+                <Route path="/report" element={<RoleRoute roles={["SUPER_ADMIN"]}><Report /></RoleRoute>} />
+                <Route path="/onboard-prjt" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><ProjectOnboarding /></RoleRoute>} />
+                <Route path="/prjt-details" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><ProjectDetail /></RoleRoute>} />
+                <Route path="/tasks" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><AssignTask /></RoleRoute>} />
+                <Route path="/task-board" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><TaskBoard /></RoleRoute>} />
+                <Route path="/user-management" element={<RoleRoute roles={["SUPER_ADMIN"]}><UserManagement /></RoleRoute>} />
+                <Route path="/master" element={<RoleRoute roles={["SUPER_ADMIN"]}><Master/></RoleRoute>} />
+                <Route path="/ventor-management" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><VentorManagement /></RoleRoute>} />
+                <Route path="/ventor-assigned" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><VentorAssigned /></RoleRoute>} />
+                <Route path="/applied" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Applied/></RoleRoute>} />
+                <Route path="/job" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><JobOpening /></RoleRoute>} />
+                <Route path="/recruitment-process" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><RecruitmentProcess /></RoleRoute>} />
+                <Route path="/onboarding" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Onboarding /></RoleRoute>} />
+                <Route path="/employee" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Employee /></RoleRoute>} />
+                <Route path="/payroll" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Salary /></RoleRoute>} />
+                <Route path="/leave" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER", "CRM_EXECUTIVE"]}><Leave /></RoleRoute>} />
+                <Route path="/cif-form" element={<RoleRoute roles={["SUPER_ADMIN"]}><Cif /></RoleRoute>} />
+                <Route path="*" element={<Navigate to={fallbackPath} replace />} />
             </Route>
         </Routes>
     );

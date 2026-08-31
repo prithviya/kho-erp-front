@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { setSession } from "../../utils/session";
 import authService from "../../services/auth.service";
 import { toast } from "react-toastify";
+import { getDefaultHomePath } from "../../utils/auth";
 
 export default function Login() {
   const [showModal, setShowModal] = useState(false);
@@ -13,6 +14,11 @@ export default function Login() {
 
   const LoginBtn = async (e) => {
     e.preventDefault();
+
+    if (!String(email || "").trim() || !String(password || "").trim()) {
+      toast.error("Email and password are required.");
+      return;
+    }
 
     try {
       const response = await authService.login({
@@ -26,10 +32,10 @@ export default function Login() {
         });
 
         toast.success(`Welcome back, ${response.data.user.firstName}!`);
-        navigate("/dashboard");
+        navigate(getDefaultHomePath(response.data.user));
       }
     } catch (error) {
-      console.log(error);
+      toast.error(error?.message || "Login failed. Please try again.");
     }
   };
 

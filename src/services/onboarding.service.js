@@ -2,8 +2,6 @@ import { request } from "./apiClient";
 
 const onboardingService ={
    create(payload) {
-    console.log('payload: ',payload);
-    
         return request("/cif-personals", {
             method: "POST",
             body: JSON.stringify({
@@ -14,7 +12,7 @@ const onboardingService ={
                 DOB: payload.DOB,
                 address: payload.address,
                 city: payload.city,
-                state: payload.address,
+                state: payload.state,
                 pinCode: payload.pinCode,
                 gender: payload.gender,
                 maritalStatus: payload. maritalStatus,

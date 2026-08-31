@@ -12,8 +12,7 @@ import {
     HandCoins,
     FileUser,
     Network,
-    RotateCwSquare,
-    SplitIcon
+    RotateCwSquare
 } from "lucide-react";
 const menu = [
     {
@@ -24,7 +23,7 @@ const menu = [
                 title: "Dashboard Overview",
                 icon: LayoutDashboard,
                 path: "/dashboard",
-                roles: ["SUPER_ADMIN", "ADMIN", "EMPLOYEE"]
+                roles: ["SUPER_ADMIN"]
             }
         ]
     },
@@ -36,14 +35,14 @@ const menu = [
                 title: "Lead Overview",
                 icon: Users,
                 path: "/lead-overview",
-                roles: ["SUPER_ADMIN", "ADMIN"]
+                roles: ["SUPER_ADMIN", "CRM_EXECUTIVE"]
             },
             {
                 name: "Reports",
                 title: "Report Overview",
                 icon: ChartNoAxesCombined,
                 path: "/report",
-                roles: ["SUPER_ADMIN", "ADMIN"]
+                roles: ["SUPER_ADMIN"]
             }
         ]
     },
@@ -55,21 +54,21 @@ const menu = [
                 title: "Project Onboarding",
                 icon: KanbanSquare,
                 path: "/onboard-prjt",
-                roles: ["SUPER_ADMIN", "ADMIN"]
+                roles: ["SUPER_ADMIN", "MANAGER"]
             },
             {
                 name: "Project details",
                 title: "Project details",
                 icon: Waypoints,
                 path: "/prjt-details",
-                roles: ["SUPER_ADMIN", "ADMIN"]
+                roles: ["SUPER_ADMIN", "MANAGER"]
             },
             {
                 name: "Work Allocation",
                 title: "Assign Task",
                 icon: ClipboardCheck,
                 path: "/tasks",
-                roles: ["SUPER_ADMIN", "ADMIN", "EMPLOYEE"],
+                roles: ["SUPER_ADMIN", "MANAGER"],
                 badge: 5
             },
             {
@@ -77,7 +76,7 @@ const menu = [
                 title: "Task Board",
                 icon: ClipboardCheck,
                 path: "/task-board",
-                roles: ["SUPER_ADMIN", "ADMIN", "EMPLOYEE"],
+                roles: ["SUPER_ADMIN", "MANAGER"],
                 badge: 8
             }
         ]
@@ -90,31 +89,36 @@ const menu = [
                 name: "Opening",
                 title: "Job Opening",
                 icon: Briefcase,
-                path: "/job"
+                path: "/job",
+                roles: ["SUPER_ADMIN", "HR"]
             },
             {
                 name: "Applied",
                 title: "job Applied",
                 icon: Split,
-                path: "/applied"
+                path: "/applied",
+                roles: ["SUPER_ADMIN", "HR"]
             },
             {
                 name: "Recruitment",
                 title: "Recruitment Process",
                 icon: UserPlus,
-                path: "/recruitment-process"
+                path: "/recruitment-process",
+                roles: ["SUPER_ADMIN", "HR"]
             },
             {
                 name: "Onboarding",
                 title: "Onboarding",
                 icon: BadgeCheck,
-                path: "/onboarding"
+                path: "/onboarding",
+                roles: ["SUPER_ADMIN", "HR"]
             },
             {
                 name: "Employee",
                 title: "Employee",
                 icon: Puzzle,
-                path: "/employee"
+                path: "/employee",
+                roles: ["SUPER_ADMIN", "HR"]
             }
         ]
     },
@@ -125,13 +129,15 @@ const menu = [
                 name: "Payroll",
                 title: "Payroll",
                 icon: HandCoins,
-                path: "/payroll"
+                path: "/payroll",
+                roles: ["SUPER_ADMIN", "HR"]
             },
             {
                 name: "Leave",
                 title: "Leave",
                 icon: Users,
-                path: "/leave"
+                path: "/leave",
+                roles: ["SUPER_ADMIN", "HR", "MANAGER", "CRM_EXECUTIVE"]
             }
         ]
     },
@@ -157,14 +163,14 @@ const menu = [
                 title: "Ventor Management",
                 icon: RotateCwSquare,
                 path: "/ventor-management",
-                roles: ["SUPER_ADMIN"]
+                roles: ["SUPER_ADMIN", "MANAGER"]
             },
             {
                 name: "Ventor Assigned",
                 title: "Ventor Assigned",
                 icon: RotateCwSquare,   
                 path: "/ventor-assigned",
-                roles: ["SUPER_ADMIN"]
+                roles: ["SUPER_ADMIN", "MANAGER"]
             },
             {
                 name: "CIF Form",

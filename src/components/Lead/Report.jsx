@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Eye,
   Search,
   Building2,
   UserRound,
@@ -104,22 +103,9 @@ function Report() {
   };
 
   const getPhone = (lead) => {
-    return (
-      lead.phone ||
-      lead.phone ||
-      lead.phone ||
-      "-"
-    );
+    return lead.phone || "-";
   };
 
-  const getRequirement = (lead) => {
-    return (
-      lead.requirement ||
-      lead.requirement ||
-      lead.requirement ||
-      "-"
-    );
-  }
   const getSource = (lead) => {
     return (
       lead.leadSource?.name ||

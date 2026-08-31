@@ -126,7 +126,6 @@ function Master() {
     });
   }, [session]);
 
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [categories, setCategories] = useState([]);
@@ -187,7 +186,6 @@ function Master() {
 
   const loadMasterData = async () => {
     try {
-      setLoading(true);
       setError("");
 
       const [categoriesResult, leadStatusesResult, leadSourcesResult, departmentsResult] = await Promise.allSettled([
@@ -233,8 +231,6 @@ function Master() {
       }
     } catch (err) {
       setError(err.message || "Unable to load master data.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -331,18 +327,6 @@ function Master() {
       });
     }
     setModalType(type);
-  };
-
-  const handleDelete = async (label, runDelete) => {
-    if (!window.confirm(`Delete this ${label}?`)) return;
-    try {
-      setError("");
-      await runDelete();
-      await loadMasterData();
-      toast.success(`${label} deleted.`);
-    } catch (err) {
-      setError(err.message || `Unable to delete ${label}.`);
-    }
   };
 
   const handleCategorySubmit = async (event) => {
@@ -525,7 +509,6 @@ function Master() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button type="button" onClick={() => openEditModal("category", category)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
-                      <button type="button" onClick={() => handleDelete("category", () => leadService.deleteServiceCategory(category.id))} className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50">Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -569,7 +552,6 @@ function Master() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button type="button" onClick={() => openEditModal("service", service)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
-                      <button type="button" onClick={() => handleDelete("service", () => leadService.deleteService(service.id))} className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50">Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -645,7 +627,6 @@ function Master() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button type="button" onClick={() => openEditModal("status", status)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
-                      <button type="button" onClick={() => handleDelete("status", () => leadService.deleteLeadStatus(status.id))} className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50">Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -685,7 +666,6 @@ function Master() {
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button type="button" onClick={() => openEditModal("source", source)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
-                        <button type="button" onClick={() => handleDelete("lead source", () => leadService.deleteLeadSource(source.id))} className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50">Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -750,22 +730,6 @@ function Master() {
                               className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
                             >
                               Edit
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleDelete(
-                                  "department",
-                                  () =>
-                                    departmentService.delete(
-                                      department.id
-                                    )
-                                )
-                              }
-                              className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
-                            >
-                              Delete
                             </button>
                           </div>
                         </td>

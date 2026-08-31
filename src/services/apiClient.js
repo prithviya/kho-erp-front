@@ -36,7 +36,7 @@ export async function refreshSession() {
 export async function request(url, options = {}, retry = true) {
   const isFormData = options.body instanceof FormData;
   const headers = {
-    ...(options.headers || {}),
+    ...options.headers,
   };
 
   if (!isFormData && !headers["Content-Type"]) {

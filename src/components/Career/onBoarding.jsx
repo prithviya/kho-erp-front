@@ -16,12 +16,44 @@ const EmployeeOnboarding = () => {
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasExistingRecord, setHasExistingRecord] = useState(false);
+  const [isPermanentAddressSame, setIsPermanentAddressSame] = useState(false);
   const [selectedDocumentType, setSelectedDocumentType] = useState('');
   const [selectedDocumentFile, setSelectedDocumentFile] = useState(null);
   const [generatedEmployeeId, setGeneratedEmployeeId] = useState('');
   const [validationErrors, setValidationErrors] = useState([]);
 
   const hasText = (value) => Boolean(String(value || '').trim());
+
+  const addressFieldKeys = ['line1', 'line2', 'city', 'state', 'pincode'];
+
+  const areAddressesEqual = (currentAddress, permanentAddress) => {
+    return addressFieldKeys.every((key) =>
+      String(currentAddress?.[key] || '').trim() === String(permanentAddress?.[key] || '').trim()
+    );
+  };
+
+  const hasAnyAddressValue = (address) => {
+    return addressFieldKeys.some((key) => hasText(address?.[key]));
+  };
+
+  const syncPermanentAddressFlag = (data) => {
+    const sameAddress =
+      areAddressesEqual(data?.currentAddress, data?.permanentAddress) &&
+      hasAnyAddressValue(data?.currentAddress);
+
+    setIsPermanentAddressSame(sameAddress);
+  };
+
+  const resolveCandidateId = (candidateLike) => {
+    const rawId =
+      candidateLike?.id ??
+      candidateLike?.cifid ??
+      candidateLike?.candidateId ??
+      candidateLike?.submission?.[0]?.candidateId;
+
+    const parsedId = Number(rawId);
+    return Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null;
+  };
 
   const hasFieldError = (fieldKey) => validationErrors.includes(fieldKey);
 
@@ -127,7 +159,6 @@ const EmployeeOnboarding = () => {
     const requiredBasicFields = [
       'firstName',
       'lastName',
-      'employeeId',
       'personalEmail',
       'personalPhone',
       'officialEmail',
@@ -285,20 +316,30 @@ const EmployeeOnboarding = () => {
       setLoading(true);
       const response = await request('/cif-submissions', { method: 'GET' });
       if (response?.success) {
-        const selected = (response.data || []).filter(c => c.status === 'Selected');
-        
-        const mappedEmployees = selected.map(c => ({
-          id: c.cifid,
-          name: c.fullName || 'N/A',
-          designation: c.opening?.jobTitle || 'N/A',
-          group: 'N/A',
-          email: c.email || 'N/A',
-          phone: c.phoneNumber || 'N/A',
-          DOB: c.DOB || 'N/A',
-          department: 'N/A',
-          status: 'Awaiting Onboarding',
-          rawCandidate: c
-        }));
+        const selected = (response.data || []).filter((c) => {
+          const s = String(c?.status || '').trim().toLowerCase();
+          return s === 'selected';
+        });
+
+        const mappedEmployees = selected
+          .map(c => {
+            const candidateId = resolveCandidateId(c);
+            if (!candidateId) return null;
+
+            return {
+              id: candidateId,
+              name: c.fullName || 'N/A',
+              designation: c.opening?.jobTitle || 'N/A',
+              group: 'N/A',
+              email: c.email || 'N/A',
+              phone: c.phoneNumber || 'N/A',
+              DOB: c.DOB || c.dob || 'N/A',
+              department: 'N/A',
+              status: 'Awaiting Onboarding',
+              rawCandidate: c
+            };
+          })
+          .filter(Boolean);
         
         setAwaitingEmployees(mappedEmployees);
       }
@@ -409,11 +450,22 @@ const EmployeeOnboarding = () => {
   };
 
   const loadOnboardingRecord = async (employee, fallbackData) => {
+    const candidateId = resolveCandidateId(employee);
+    if (!candidateId) {
+      if (fallbackData) {
+        setFormData(fallbackData);
+        syncPermanentAddressFlag(fallbackData);
+      }
+      return;
+    }
+
     try {
-      const response = await request(`/onboardings/record/${employee.id}`, { method: 'GET' });
+      const response = await request(`/onboardings/record/${candidateId}`, { method: 'GET' });
       if (response?.success && response?.data?.formData) {
         setHasExistingRecord(true);
-        setFormData(prev => ({ ...prev, ...response.data.formData }));
+        const mergedData = { ...(fallbackData || {}), ...response.data.formData };
+        setFormData(mergedData);
+        syncPermanentAddressFlag(mergedData);
         return;
       }
     } catch (error) {
@@ -422,6 +474,7 @@ const EmployeeOnboarding = () => {
 
     if (fallbackData) {
       setFormData(fallbackData);
+      syncPermanentAddressFlag(fallbackData);
     }
   };
 
@@ -591,6 +644,7 @@ const EmployeeOnboarding = () => {
     setCurrentStep(1);
     setSelectedEmployee(null);
     setHasExistingRecord(false);
+    setIsPermanentAddressSame(false);
     const nextEmployeeId = await fetchNextEmployeeId();
     setFormData(getDefaultFormData(nextEmployeeId));
     await fetchAwaitingEmployees();
@@ -602,11 +656,18 @@ const EmployeeOnboarding = () => {
     if (location.state && location.state.candidateData) {
       const candidate = location.state.candidateData;
       const candidateFormData = mapCandidateToFormData(candidate);
+      const candidateId = resolveCandidateId(candidate);
 
       setFormData(candidateFormData);
+      syncPermanentAddressFlag(candidateFormData);
+
+      if (!candidateId) {
+        toast.error('Candidate ID is missing. Please open onboarding from selected candidates list again.');
+        return;
+      }
       
       const employee = {
-        id: candidate.cifid,
+        id: candidateId,
         name: candidate.fullName,
         email: candidate.email,
         phone: candidate.phoneNumber
@@ -649,13 +710,31 @@ const EmployeeOnboarding = () => {
         }));
       } else {
         clearFieldError(`${section}.${name}`);
-        setFormData(prev => ({
-          ...prev,
-          [section]: {
+        setFormData(prev => {
+          const incomingValue = type === 'checkbox' ? checked : value;
+          const normalizedValue =
+            (section === 'currentAddress' || section === 'permanentAddress') && name === 'pincode'
+              ? String(incomingValue || '').replace(/\D/g, '').slice(0, 6)
+              : incomingValue;
+
+          const nextSectionValues = {
             ...prev[section],
-            [name]: type === 'checkbox' ? checked : value
+            [name]: normalizedValue
+          };
+
+          const nextState = {
+            ...prev,
+            [section]: nextSectionValues
+          };
+
+          if (section === 'currentAddress' && isPermanentAddressSame) {
+            nextState.permanentAddress = {
+              ...nextSectionValues,
+            };
           }
-        }));
+
+          return nextState;
+        });
       }
     } else {
       clearFieldError(name);
@@ -664,6 +743,23 @@ const EmployeeOnboarding = () => {
         [name]: type === 'checkbox' ? checked : value
       }));
     }
+  };
+
+  const handlePermanentAddressSameToggle = (checked) => {
+    setIsPermanentAddressSame(checked);
+
+    if (!checked) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      permanentAddress: {
+        ...prev.currentAddress,
+      },
+    }));
+
+    setValidationErrors((prev) =>
+      prev.filter((key) => !String(key).startsWith('permanentAddress.'))
+    );
   };
 
   const handleArrayChange = (section, index, field, value) => {
@@ -788,6 +884,11 @@ const EmployeeOnboarding = () => {
   };
 
   const handleViewEmployee = (employee) => {
+    if (!resolveCandidateId(employee)) {
+      toast.error('Candidate ID is missing for this row. Please refresh and try again.');
+      return;
+    }
+
     setSelectedEmployee(employee);
     setIsViewMode(true);
     setShowOnboardingForm(true);
@@ -802,10 +903,16 @@ const EmployeeOnboarding = () => {
       department: employee.department || '',
     };
     setFormData(fallbackData);
+    syncPermanentAddressFlag(fallbackData);
     loadOnboardingRecord(employee, fallbackData);
   };
 
   const handleEditEmployee = (employee) => {
+    if (!resolveCandidateId(employee)) {
+      toast.error('Candidate ID is missing for this row. Please refresh and try again.');
+      return;
+    }
+
     setSelectedEmployee(employee);
     setIsViewMode(false);
     setShowOnboardingForm(true);
@@ -820,10 +927,16 @@ const EmployeeOnboarding = () => {
       department: employee.department || '',
     };
     setFormData(fallbackData);
+    syncPermanentAddressFlag(fallbackData);
     loadOnboardingRecord(employee, fallbackData);
   };
 
   const handleAddEmployee = (employee) => {
+    if (!resolveCandidateId(employee)) {
+      toast.error('Candidate ID is missing for this row. Please refresh and try again.');
+      return;
+    }
+
     setSelectedEmployee(employee);
     setIsViewMode(false);
     setShowOnboardingForm(true);
@@ -838,6 +951,7 @@ const EmployeeOnboarding = () => {
       designation: employee.designation || '',
     };
     setFormData(fallbackData);
+    syncPermanentAddressFlag(fallbackData);
     loadOnboardingRecord(employee, fallbackData);
   };
 
@@ -1172,37 +1286,41 @@ const EmployeeOnboarding = () => {
 
       {/* Address Section */}
       <div className="border-t border-gray-200 pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="text-md font-semibold text-gray-800 mb-3">Current Address <span className="text-red-500">*</span></h4>
-            <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <h4 className="text-md font-semibold text-gray-800">Current Address <span className="text-red-500">*</span></h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                name="line1"
-                value={formData.currentAddress.line1}
-                onChange={(e) => handleInputChange(e, 'currentAddress')}
-                disabled={isViewMode}
-                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.line1')}
-                placeholder="Address Line 1"
-              />
+                <input
+                  type="text"
+                  name="line1"
+                  value={formData.currentAddress.line1}
+                  onChange={(e) => handleInputChange(e, 'currentAddress')}
+                  disabled={isViewMode}
+                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.line1')}
+                  placeholder="Address Line 1"
+                />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
-              <input
-                type="text"
-                name="line2"
-                value={formData.currentAddress.line2}
-                onChange={(e) => handleInputChange(e, 'currentAddress')}
-                disabled={isViewMode}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
-                placeholder="Address Line 2"
-              />
+                <input
+                  type="text"
+                  name="line2"
+                  value={formData.currentAddress.line2}
+                  onChange={(e) => handleInputChange(e, 'currentAddress')}
+                  disabled={isViewMode}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
+                  placeholder="Address Line 2"
+                />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">City <span className="text-red-500">*</span></label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">City <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   name="city"
@@ -1213,6 +1331,7 @@ const EmployeeOnboarding = () => {
                   placeholder="City"
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">State <span className="text-red-500">*</span></label>
                 <input
@@ -1224,74 +1343,111 @@ const EmployeeOnboarding = () => {
                   className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.state')}
                   placeholder="State"
                 />
-                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Pincode <span className="text-red-500">*</span></label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pincode <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 name="pincode"
                 value={formData.currentAddress.pincode}
                 onChange={(e) => handleInputChange(e, 'currentAddress')}
                 disabled={isViewMode}
-                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.pincode')}
-                placeholder="Pincode"
+                inputMode="numeric"
+                maxLength={6}
+                pattern="[0-9]{6}"
+                className={getFieldClassName(`w-40 max-w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.pincode')}
+                placeholder="6-digit"
               />
-              </div>
             </div>
           </div>
-          <div>
-            <h4 className="text-md font-semibold text-gray-800 mb-3">Permanent Address</h4>
-            <div className="grid grid-cols-2 gap-3">
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-md font-semibold text-gray-800">Permanent Address</h4>
+              <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={isPermanentAddressSame}
+                  onChange={(e) => handlePermanentAddressSameToggle(e.target.checked)}
+                  disabled={isViewMode}
+                  className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400"
+                />
+                Same as current address
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                name="line1"
-                value={formData.permanentAddress.line1}
-                onChange={(e) => handleInputChange(e, 'permanentAddress')}
-                disabled={isViewMode}
-                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.line1')}
-                placeholder="Address Line 1"
-              />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
-              <input
-                type="text"
-                name="line2"
-                value={formData.permanentAddress.line2}
-                onChange={(e) => handleInputChange(e, 'permanentAddress')}
-                disabled={isViewMode}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
-                placeholder="Address Line 2"
-              />
-              </div>
-              <div>
-               <div className="grid grid-cols-2 gap-3">
-                  <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">City <span className="text-red-500">*</span></label>
-                    <input
-                      type="text" name="city" value={formData.permanentAddress.city} onChange={(e) => handleInputChange(e, 'permanentAddress')} disabled={isViewMode}
-                      className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.city')}
-                      placeholder="City"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">State <span className="text-red-500">*</span></label>
-                    <input type="text" name="state" value={formData.permanentAddress.state} onChange={(e) => handleInputChange(e, 'permanentAddress')} disabled={isViewMode}
-                      className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.state')}
-                      placeholder="State"
-                    />
-                </div>               
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Pincode <span className="text-red-500">*</span></label>
-                <input type="text" name="pincode" value={formData.permanentAddress.pincode} onChange={(e) => handleInputChange(e, 'permanentAddress')} disabled={isViewMode} className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.pincode')} placeholder="Pincode"
+                <input
+                  type="text"
+                  name="line1"
+                  value={formData.permanentAddress.line1}
+                  onChange={(e) => handleInputChange(e, 'permanentAddress')}
+                  disabled={isViewMode || isPermanentAddressSame}
+                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${(isViewMode || isPermanentAddressSame) ? 'bg-gray-50' : ''}`, 'permanentAddress.line1')}
+                  placeholder="Address Line 1"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
+                <input
+                  type="text"
+                  name="line2"
+                  value={formData.permanentAddress.line2}
+                  onChange={(e) => handleInputChange(e, 'permanentAddress')}
+                  disabled={isViewMode || isPermanentAddressSame}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${(isViewMode || isPermanentAddressSame) ? 'bg-gray-50' : ''}`}
+                  placeholder="Address Line 2"
+                />
               </div>
-             <div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">City <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.permanentAddress.city}
+                  onChange={(e) => handleInputChange(e, 'permanentAddress')}
+                  disabled={isViewMode || isPermanentAddressSame}
+                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${(isViewMode || isPermanentAddressSame) ? 'bg-gray-50' : ''}`, 'permanentAddress.city')}
+                  placeholder="City"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">State <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  name="state"
+                  value={formData.permanentAddress.state}
+                  onChange={(e) => handleInputChange(e, 'permanentAddress')}
+                  disabled={isViewMode || isPermanentAddressSame}
+                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${(isViewMode || isPermanentAddressSame) ? 'bg-gray-50' : ''}`, 'permanentAddress.state')}
+                  placeholder="State"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pincode <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                name="pincode"
+                value={formData.permanentAddress.pincode}
+                onChange={(e) => handleInputChange(e, 'permanentAddress')}
+                disabled={isViewMode || isPermanentAddressSame}
+                inputMode="numeric"
+                maxLength={6}
+                pattern="[0-9]{6}"
+                className={getFieldClassName(`w-40 max-w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${(isViewMode || isPermanentAddressSame) ? 'bg-gray-50' : ''}`, 'permanentAddress.pincode')}
+                placeholder="6-digit"
+              />
             </div>
           </div>
         </div>
@@ -1631,7 +1787,6 @@ const EmployeeOnboarding = () => {
         </div>
       </div>
     </div>
-    </div>
   );
 
   const renderHealthDetails = () => (
@@ -1739,7 +1894,7 @@ const EmployeeOnboarding = () => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
   );
 
   const renderDocumentBankDetails = () => (
@@ -1947,7 +2102,7 @@ const EmployeeOnboarding = () => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
   );
 
   const renderOfficeTour = () => (

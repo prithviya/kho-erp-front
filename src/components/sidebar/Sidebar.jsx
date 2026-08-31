@@ -4,6 +4,7 @@ import SidebarHeader from "./SidebarHeader";
 import SidebarFooter from "./SidebarFooter";
 import SidebarItem from "./SidebarItem";
 import menu from "./menu";
+import { hasAnyRole } from "../../utils/auth";
 export default function Sidebar() {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -27,6 +28,16 @@ export default function Sidebar() {
     const toggleSidebar = () => {
         setCollapsed(!collapsed);
     };
+
+    const visibleMenu = menu
+        .map((section) => ({
+            ...section,
+            items: (section.items || []).filter(
+                (item) => Array.isArray(item.roles) && item.roles.length > 0 && hasAnyRole(item.roles)
+            ),
+        }))
+        .filter((section) => section.items.length > 0);
+
     return (
         <>
             {/* Mobile Hamburger */}
@@ -85,7 +96,7 @@ export default function Sidebar() {
                 {/* Menu */}
                 <div className="flex-1 px-3 py-2 overflow-auto">
                     {
-                        menu.map(section => (
+                        visibleMenu.map(section => (
                             <div
                                 key={section.title}
                                 className="mb-5"

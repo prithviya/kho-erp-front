@@ -1,15 +1,14 @@
     import { useState, useEffect, useCallback } from "react";
     import { useNavigate } from "react-router-dom";
     import {
-        Users, BadgeCheck, Phone, MessageSquare, FileText, Handshake,
-        Eye, Pencil, Trash2, Rocket, Search, CalendarDays,
+        Users, Phone,
+        Eye, Pencil, Rocket, Search, CalendarDays,
     } from "lucide-react";
     import CreateLead from "./CreateLead";
     import EditLead from "./EditLead";
     import ViewLead from "./ViewLead";
     import leadService from "../../services/lead.service";
     import { hasRole } from "../../utils/auth";
-    import { toast } from "react-toastify";
 
     // Source badge colours keyed by source name (case-insensitive match)
     const SOURCE_COLORS = {
@@ -24,21 +23,6 @@
 
     function sourceBadgeCls(name = "") {
         return SOURCE_COLORS[name.toLowerCase()] ?? "bg-gray-100 text-gray-600";
-    }
-
-    // Avatar circle from first letter of name
-    function Avatar({ name = "" }) {
-        const letter = name.trim()[0]?.toUpperCase() ?? "?";
-        const colors = [
-            "bg-red-500", "bg-orange-500", "bg-amber-500", "bg-green-500",
-            "bg-teal-500", "bg-blue-500", "bg-indigo-500", "bg-purple-500",
-        ];
-        const color = colors[letter.charCodeAt(0) % colors.length];
-        return (
-            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-white ${color}`}>
-                {letter}
-            </span>
-        );
     }
 
     function formatDate(dateStr) {
@@ -59,12 +43,9 @@
         const [editOpen, setEditOpen] = useState(false);
         const [viewOpen, setViewOpen] = useState(false);
         const [selectedLead, setSelectedLead] = useState(null);
-        const [deleteTarget, setDeleteTarget] = useState(null);
-        const [deleting, setDeleting] = useState(false);
-        const [deleteError, setDeleteError] = useState("");
         const navigate = useNavigate();
 
-        const canDeleteLead = hasRole("SUPER_ADMIN");
+        const canCreateLead = hasRole("SUPER_ADMIN");
 
         const normalizeList = (payload) => {
             if (Array.isArray(payload)) return payload;
@@ -95,27 +76,6 @@
             fetchLeads();
         }, [fetchLeads]);
 
-        const confirmDeleteLead = async () => {
-            if (!deleteTarget?.id) return;
-            setDeleting(true);
-            setDeleteError("");
-            try {
-                await leadService.deleteLead(deleteTarget.id);
-                if (selectedLead?.id === deleteTarget.id) {
-                    setSelectedLead(null);
-                    setViewOpen(false);
-                    setEditOpen(false);
-                }
-                setDeleteTarget(null);
-                toast.success("Lead deleted successfully.");
-                fetchLeads();
-            } catch (err) {
-                setDeleteError(err.message || "Failed to delete lead.");
-            } finally {
-                setDeleting(false);
-            }
-        };
-
         // Derived stats
         const totalLeads = leads.length;
         const convertedDeals = leads.filter(
@@ -129,19 +89,19 @@
         }, {});
 
         const STAT_CARDS = [
-            { label: "Total Leads",     value: totalLeads,      icon: Users,          bg: "bg-blue-100",   color: "text-blue-600"  },
-            { label: "Converted Deals", value: convertedDeals,  icon: BadgeCheck,     bg: "bg-green-100",  color: "text-green-600" },
-            { label: "Contacted",       value: statusCounts["Contacted"]  || 0, icon: Phone,         bg: "bg-yellow-100", color: "text-yellow-600" },
-            { label: "Discussion",      value: statusCounts["Discussion"] || 0, icon: MessageSquare, bg: "bg-purple-100", color: "text-purple-600" },
-            { label: "Proposal",        value: statusCounts["Proposal"]   || 0, icon: FileText,      bg: "bg-orange-100", color: "text-orange-600" },
-            { label: "Negotiation",     value: statusCounts["Negotiation"]|| 0, icon: Handshake,     bg: "bg-pink-100",   color: "text-pink-600"  },
+            { label: "Total Leads", value: totalLeads },
+            { label: "Converted Deals", value: convertedDeals },
+            { label: "Contacted", value: statusCounts["Contacted"] || 0 },
+            { label: "Discussion", value: statusCounts["Discussion"] || 0 },
+            { label: "Proposal", value: statusCounts["Proposal"] || 0 },
+            { label: "Negotiation", value: statusCounts["Negotiation"] || 0 },
         ];
 
         return (
             <div className="p-4 space-y-4">
                 {/* Stat cards */}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                    {STAT_CARDS.map(({ label, value, icon: Icon, bg, color }) => (
+                    {STAT_CARDS.map(({ label, value }) => (
                         <div key={label} className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5">
                             <div>
                                 <p className="text-sm font-medium text-gray-500">{label}</p>
@@ -176,9 +136,11 @@
                                 ))}
                             </select>
                             {/* Add Lead */}
-                            <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition" >
-                                + Add Lead
-                            </button>
+                            {canCreateLead && (
+                                <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition" >
+                                    + Add Lead
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -285,11 +247,6 @@
                                                             <Rocket size={16} />
                                                         </button>
                                                     )}
-                                                    {canDeleteLead && (
-                                                        <button title="Delete" onClick={() => { setDeleteError(""); setDeleteTarget(lead); }} className="rounded-md p-1.5 text-red-500 hover:bg-red-50 transition" >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -304,43 +261,6 @@
                 <CreateLead open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => { setCreateOpen(false); fetchLeads(); }}/>
                 <EditLead open={editOpen} onClose={() => setEditOpen(false)} lead={selectedLead} onUpdated={() => { setEditOpen(false); fetchLeads(); }}/>
                 <ViewLead open={viewOpen} onClose={() => setViewOpen(false)} lead={selectedLead}/>
-
-                {/* Delete confirmation modal */}
-                {deleteTarget && (
-                    <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 p-4">
-                        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-                            <h3 className="text-lg font-semibold text-gray-900">Delete Lead</h3>
-                            <p className="mt-2 text-sm text-gray-600">
-                                Are you sure you want to delete
-                                <span className="font-semibold text-gray-800"> {deleteTarget.companyName || "this lead"}</span>?
-                                This action can be restored only from database backups.
-                            </p>
-                            {deleteError && (
-                                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                                    {deleteError}
-                                </div>
-                            )}
-                            <div className="mt-5 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => { setDeleteTarget(null); setDeleteError(""); }}
-                                    disabled={deleting}
-                                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={confirmDeleteLead}
-                                    disabled={deleting}
-                                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
-                                >
-                                    {deleting ? "Deleting..." : "Delete"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         );
     }

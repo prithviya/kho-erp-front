@@ -261,8 +261,6 @@ const handleSubmit = async (e) => {
       appliedPosition: Number(personalformData.appliedPosition),
     };
 
-    console.log("PERSONAL PAYLOAD:", personalPayload);
-
     const submissionPayload = {
       personal: personalPayload,
       academics: educationformData
@@ -331,8 +329,6 @@ const handleSubmit = async (e) => {
       method: 'POST',
       body: formData,
     });
-
-    console.log("CIF SUBMISSION RESPONSE:", submissionResult);
 
     // =====================================================
     // SUCCESS
