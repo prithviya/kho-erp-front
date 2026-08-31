@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { request } from '../../services/apiClient';
 import { toast } from 'react-toastify';
+import {Eye, Edit, Rocket} from 'lucide-react';
 
 const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
@@ -17,7 +18,7 @@ const EmployeeOnboarding = () => {
   const [hasExistingRecord, setHasExistingRecord] = useState(false);
   const [selectedDocumentType, setSelectedDocumentType] = useState('');
   const [selectedDocumentFile, setSelectedDocumentFile] = useState(null);
-  const [generatedEmployeeId, setGeneratedEmployeeId] = useState('KHO-001');
+  const [generatedEmployeeId, setGeneratedEmployeeId] = useState('');
   const [validationErrors, setValidationErrors] = useState([]);
 
   const hasText = (value) => Boolean(String(value || '').trim());
@@ -32,6 +33,8 @@ const EmployeeOnboarding = () => {
     if (!fieldKey) return;
     setValidationErrors((prev) => prev.filter((item) => item !== fieldKey));
   };
+
+  const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -128,7 +131,6 @@ const EmployeeOnboarding = () => {
       'personalEmail',
       'personalPhone',
       'officialEmail',
-      'officePhone',
       'gender',
       'maritalStatus',
       'dateOfBirth',
@@ -146,7 +148,6 @@ const EmployeeOnboarding = () => {
       'department',
       'designation',
       'reportingHead',
-      'uanNumber',
       'panNumber',
       'currentSalary',
     ];
@@ -193,16 +194,8 @@ const EmployeeOnboarding = () => {
     if (!validExperience) errors.push('experience');
 
     const icebreakerFields = [
-      'favoriteCake',
-      'favoriteColor',
-      'favoriteSong',
-      'favoriteMovie',
-      'favoriteFood',
-      'favoriteActor',
-      'dreamVacation',
       'weekendActivity',
-      'coffeeOrTea',
-      'favoriteSports',
+     
     ];
     icebreakerFields.forEach((key) => {
       if (!hasText(formData.icebreaker?.[key])) {
@@ -630,11 +623,11 @@ const EmployeeOnboarding = () => {
 
   const steps = [
     { id: 1, name: 'Personal', progress: 32 },
-    { id: 2, name: 'Health', progress: 48 },
+    { id: 2, name: 'Medical History', progress: 48 },
     { id: 3, name: 'Document', progress: 48 },
     { id: 4, name: 'Office Tour', progress: 64 },
     { id: 5, name: 'Induction', progress: 80 },
-    { id: 6, name: 'Kit', progress: 96 },
+    { id: 6, name: 'Welcome Kit', progress: 96 },
   ];
 
   const handleInputChange = (e, section, subSection) => {
@@ -932,8 +925,8 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-            <input
+            <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID <span className="text-red-500">*</span></label>
+            <input 
               type="text"
               name="employeeId"
               value={formData.employeeId}
@@ -943,7 +936,7 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Official Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Official Email <span className="text-red-500">*</span></label>
             <input
               type="email"
               name="officialEmail"
@@ -955,7 +948,7 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Personal Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Personal Email <span className="text-red-500">*</span></label>
             <input
               type="email"
               name="personalEmail"
@@ -967,7 +960,9 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Personal Phone</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Personal Phone <RequiredAsterisk />
+            </label>
             <input
               type="tel"
               name="personalPhone"
@@ -991,7 +986,7 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Gender <span className="text-red-500">*</span></label>
             <select
               name="gender"
               value={formData.gender}
@@ -1006,7 +1001,7 @@ const EmployeeOnboarding = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Marital Status</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Marital Status <span className="text-red-500">*</span></label>
             <select
               name="maritalStatus"
               value={formData.maritalStatus}
@@ -1022,7 +1017,7 @@ const EmployeeOnboarding = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth <span className="text-red-500">*</span></label>
             <input
               type="date"
               name="dateOfBirth"
@@ -1033,7 +1028,7 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date of Joining</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date of Joining <span className="text-red-500">*</span></label>
             <input
               type="date"
               name="dateOfJoining"
@@ -1048,10 +1043,10 @@ const EmployeeOnboarding = () => {
 
       {/* Employment Information */}
       <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Employment Information</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Employment Information </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Employee Type</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Employee Type <span className="text-red-500">*</span></label>
             <select
               name="employeeType"
               value={formData.employeeType}
@@ -1067,7 +1062,7 @@ const EmployeeOnboarding = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ERP Role</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ERP Role <span className="text-red-500">*</span></label>
             <input
               type="text"
               name="erpRole"
@@ -1079,7 +1074,7 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Source of Hire</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Source of Hire <span className="text-red-500">*</span></label>
             <select
               name="sourceOfHire"
               value={formData.sourceOfHire}
@@ -1096,7 +1091,7 @@ const EmployeeOnboarding = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Department <span className="text-red-500">*</span></label>
             <select
               name="department"
               value={formData.department}
@@ -1113,7 +1108,7 @@ const EmployeeOnboarding = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Designation <span className="text-red-500">*</span></label>
             <input
               type="text"
               name="designation"
@@ -1125,7 +1120,7 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reporting Head</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reporting Head <span className="text-red-500">*</span></label>
             <input
               type="text"
               name="reportingHead"
@@ -1149,7 +1144,7 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">PAN Number</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">PAN Number <span className="text-red-500">*</span></label>
             <input
               type="text"
               name="panNumber"
@@ -1161,7 +1156,7 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Current Salary</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Current Salary <span className="text-red-500">*</span></label>
             <input
               type="text"
               name="currentSalary"
@@ -1179,8 +1174,10 @@ const EmployeeOnboarding = () => {
       <div className="border-t border-gray-200 pt-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h4 className="text-md font-semibold text-gray-800 mb-3">Current Address</h4>
-            <div className="space-y-3">
+            <h4 className="text-md font-semibold text-gray-800 mb-3">Current Address <span className="text-red-500">*</span></h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 name="line1"
@@ -1190,6 +1187,9 @@ const EmployeeOnboarding = () => {
                 className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.line1')}
                 placeholder="Address Line 1"
               />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
               <input
                 type="text"
                 name="line2"
@@ -1199,7 +1199,10 @@ const EmployeeOnboarding = () => {
                 className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
                 placeholder="Address Line 2"
               />
+              </div>
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">City <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   name="city"
@@ -1209,6 +1212,9 @@ const EmployeeOnboarding = () => {
                   className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.city')}
                   placeholder="City"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">State <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   name="state"
@@ -1218,7 +1224,10 @@ const EmployeeOnboarding = () => {
                   className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.state')}
                   placeholder="State"
                 />
+                </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pincode <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 name="pincode"
@@ -1228,11 +1237,14 @@ const EmployeeOnboarding = () => {
                 className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.pincode')}
                 placeholder="Pincode"
               />
+              </div>
             </div>
           </div>
           <div>
             <h4 className="text-md font-semibold text-gray-800 mb-3">Permanent Address</h4>
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 name="line1"
@@ -1242,6 +1254,9 @@ const EmployeeOnboarding = () => {
                 className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.line1')}
                 placeholder="Address Line 1"
               />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
               <input
                 type="text"
                 name="line2"
@@ -1251,35 +1266,32 @@ const EmployeeOnboarding = () => {
                 className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
                 placeholder="Address Line 2"
               />
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.permanentAddress.city}
-                  onChange={(e) => handleInputChange(e, 'permanentAddress')}
-                  disabled={isViewMode}
-                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.city')}
-                  placeholder="City"
-                />
-                <input
-                  type="text"
-                  name="state"
-                  value={formData.permanentAddress.state}
-                  onChange={(e) => handleInputChange(e, 'permanentAddress')}
-                  disabled={isViewMode}
-                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.state')}
-                  placeholder="State"
+              </div>
+              <div>
+               <div className="grid grid-cols-2 gap-3">
+                  <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">City <span className="text-red-500">*</span></label>
+                    <input
+                      type="text" name="city" value={formData.permanentAddress.city} onChange={(e) => handleInputChange(e, 'permanentAddress')} disabled={isViewMode}
+                      className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.city')}
+                      placeholder="City"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">State <span className="text-red-500">*</span></label>
+                    <input type="text" name="state" value={formData.permanentAddress.state} onChange={(e) => handleInputChange(e, 'permanentAddress')} disabled={isViewMode}
+                      className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.state')}
+                      placeholder="State"
+                    />
+                </div>               
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pincode <span className="text-red-500">*</span></label>
+                <input type="text" name="pincode" value={formData.permanentAddress.pincode} onChange={(e) => handleInputChange(e, 'permanentAddress')} disabled={isViewMode} className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.pincode')} placeholder="Pincode"
                 />
               </div>
-              <input
-                type="text"
-                name="pincode"
-                value={formData.permanentAddress.pincode}
-                onChange={(e) => handleInputChange(e, 'permanentAddress')}
-                disabled={isViewMode}
-                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'permanentAddress.pincode')}
-                placeholder="Pincode"
-              />
+              </div>
+             <div>
             </div>
           </div>
         </div>
@@ -1305,7 +1317,9 @@ const EmployeeOnboarding = () => {
               </button>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Company Name <RequiredAsterisk />
+              </label>
               <input
                 type="text"
                 value={exp.company}
@@ -1316,7 +1330,9 @@ const EmployeeOnboarding = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Designation <RequiredAsterisk />
+              </label>
               <input
                 type="text"
                 value={exp.designation}
@@ -1327,7 +1343,9 @@ const EmployeeOnboarding = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Start Date <RequiredAsterisk />
+              </label>
               <input
                 type="date"
                 value={exp.startDate}
@@ -1347,7 +1365,9 @@ const EmployeeOnboarding = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Total Experience</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Total Experience <RequiredAsterisk />
+              </label>
               <input
                 type="text"
                 value={exp.totalExp}
@@ -1357,7 +1377,7 @@ const EmployeeOnboarding = () => {
                 placeholder="e.g., 2 years"
               />
             </div>
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Leaving</label>
               <input
                 type="text"
@@ -1401,7 +1421,9 @@ const EmployeeOnboarding = () => {
               </button>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Qualification</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Qualification <RequiredAsterisk />
+              </label>
               <input
                 type="text"
                 value={edu.qualification}
@@ -1412,7 +1434,9 @@ const EmployeeOnboarding = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Institution Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Institution Name <RequiredAsterisk />
+              </label>
               <input
                 type="text"
                 value={edu.institution}
@@ -1423,7 +1447,9 @@ const EmployeeOnboarding = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Board / University</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Board / University <RequiredAsterisk />
+              </label>
               <input
                 type="text"
                 value={edu.board}
@@ -1434,7 +1460,9 @@ const EmployeeOnboarding = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Year of Passing</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Year of Passing <RequiredAsterisk />
+              </label>
               <input
                 type="text"
                 value={edu.year}
@@ -1445,7 +1473,9 @@ const EmployeeOnboarding = () => {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Percentage / CGPA</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Percentage / CGPA <RequiredAsterisk />
+              </label>
               <input
                 type="text"
                 value={edu.percentage}
@@ -1471,7 +1501,7 @@ const EmployeeOnboarding = () => {
       {/* Icebreaker */}
       <div className="border-t border-gray-200 pt-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Icebreaker (Fun Questions)</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Favorite Cake</label>
             <input
@@ -1557,7 +1587,9 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Weekend Activity</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Weekend Activity <RequiredAsterisk />
+            </label>
             <input
               type="text"
               name="weekendActivity"
@@ -1599,6 +1631,7 @@ const EmployeeOnboarding = () => {
         </div>
       </div>
     </div>
+    </div>
   );
 
   const renderHealthDetails = () => (
@@ -1610,7 +1643,9 @@ const EmployeeOnboarding = () => {
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Any tablets taking currently?</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Any tablets taking currently? <RequiredAsterisk />
+          </label>
           <select
             name="anyTablets"
             value={formData.health.anyTablets}
@@ -1624,7 +1659,9 @@ const EmployeeOnboarding = () => {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Any Health Issues?</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Any Health Issues? <RequiredAsterisk />
+          </label>
           <select
             name="healthIssues"
             value={formData.health.healthIssues}
@@ -1638,7 +1675,9 @@ const EmployeeOnboarding = () => {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Blood Group <RequiredAsterisk />
+          </label>
           <input
             type="text"
             name="bloodGroup"
@@ -1650,7 +1689,9 @@ const EmployeeOnboarding = () => {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Medical assistance needed?</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Medical assistance needed? <RequiredAsterisk />
+          </label>
           <select
             name="medicalAssistance"
             value={formData.health.medicalAssistance}
@@ -1669,7 +1710,9 @@ const EmployeeOnboarding = () => {
         <h4 className="text-md font-semibold text-gray-800 mb-4">Emergency Contact</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Emergency Contact Name <RequiredAsterisk />
+            </label>
             <input
               type="text"
               name="emergencyName"
@@ -1681,7 +1724,9 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Number</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Emergency Contact Number <RequiredAsterisk />
+            </label>
             <input
               type="tel"
               name="emergencyNumber"
@@ -1708,35 +1753,51 @@ const EmployeeOnboarding = () => {
         <h4 className="text-md font-semibold text-gray-800 mb-4">Documents</h4>
         <p className="text-sm text-gray-500 mb-4">Allowed formats: PDF, JPG, PNG. Max file size: 5MB per file</p>
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <select
-            value={selectedDocumentType}
-            onChange={(e) => setSelectedDocumentType(e.target.value)}
-            className={getFieldClassName("px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent", 'documents')}
-            disabled={isViewMode}
-          >
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Document Type <RequiredAsterisk />
+            </label>
+            <select
+              value={selectedDocumentType}
+              onChange={(e) => setSelectedDocumentType(e.target.value)}
+              className={getFieldClassName("w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent", 'documents')}
+              disabled={isViewMode}
+            >
             <option value="">Select Document Type</option>
             <option value="Aadhar">Aadhar Card</option>
             <option value="PAN">PAN Card</option>
             <option value="Passport">Passport</option>
             <option value="Driving License">Driving License</option>
             <option value="Voter ID">Voter ID</option>
+            <option value="Bank Passbook">Bank Passbook</option>
+            <option value="Salary Statement">Salary Statement</option>
+            <option value="Relieving Letter">Relieving Letter</option>
+            <option value="Passport Photo">Passport Photo</option>
             <option value="Degree Certificate">Degree Certificate</option>
             <option value="Experience Letter">Experience Letter</option>
-          </select>
-          <input
-            type="file"
-            onChange={(e) => setSelectedDocumentFile(e.target.files?.[0] || null)}
-            disabled={isViewMode}
-            className={`flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 ${isViewMode ? 'bg-gray-50' : ''}`}
-          />
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Upload File <RequiredAsterisk />
+            </label>
+            <input
+              type="file"
+              onChange={(e) => setSelectedDocumentFile(e.target.files?.[0] || null)}
+              disabled={isViewMode}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 ${isViewMode ? 'bg-gray-50' : ''}`}
+            />
+          </div>
           {!isViewMode && (
-            <button
-              type="button"
-              onClick={handleAddDocument}
-              className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors"
-            >
-              Add
-            </button>
+            <div className="self-end">
+              <button
+                type="button"
+                onClick={handleAddDocument}
+                className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors"
+              >
+                Add
+              </button>
+            </div>
           )}
         </div>
         <p className="text-xs text-gray-400 mb-4">Max size: 2MB. Formats: PDF, JPG, PNG</p>
@@ -1815,7 +1876,9 @@ const EmployeeOnboarding = () => {
         <h4 className="text-md font-semibold text-gray-800 mb-4">Bank Details</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Account Holder Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Account Holder Name <RequiredAsterisk />
+            </label>
             <input
               type="text"
               name="accountHolder"
@@ -1827,7 +1890,9 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Account Number <RequiredAsterisk />
+            </label>
             <input
               type="text"
               name="accountNumber"
@@ -1839,7 +1904,9 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">IFSC Code</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              IFSC Code <RequiredAsterisk />
+            </label>
             <input
               type="text"
               name="ifscCode"
@@ -1851,7 +1918,9 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Bank Name <RequiredAsterisk />
+            </label>
             <input
               type="text"
               name="bankName"
@@ -1863,7 +1932,9 @@ const EmployeeOnboarding = () => {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Branch Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Branch Name <RequiredAsterisk />
+            </label>
             <input
               type="text"
               name="branchName"
@@ -1886,7 +1957,7 @@ const EmployeeOnboarding = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
           { key: 'reception', label: 'Reception' },
-          { key: 'workstation', label: 'Workstation/Sheet' },
+          { key: 'workstation', label: 'Workstation/Seat' },
           { key: 'meetingRoom', label: 'Meeting Room' },
           { key: 'cafeteria', label: 'Cafeteria' },
           { key: 'hrCabin', label: 'HR Cabin' },
@@ -1917,7 +1988,7 @@ const EmployeeOnboarding = () => {
           { key: 'hrPolicies', label: 'HR Policies' },
           { key: 'attendanceRules', label: 'Attendance Rules' },
           { key: 'leavePolicy', label: 'Leave Policy' },
-          { key: 'securityGuidelines', label: 'Security Guidelines' },
+          { key: 'OfficialSim', label: 'Official Phone Number' },
           { key: 'teamIntro', label: 'Team Introduction' },
         ].map((item) => (
           <label key={item.key} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
@@ -1944,10 +2015,10 @@ const EmployeeOnboarding = () => {
         {[
           { key: 'laptop', label: 'Laptop' },
           { key: 'mouse', label: 'Mouse' },
-          { key: 'keyboard', label: 'Keyboard' },
-          { key: 'entryCard', label: 'Entry Card/Recognition' },
+          { key: 'PC', label: 'PC' },
+          { key: 'entryCard', label: 'ID Card/Biometric' },
           { key: 'headset', label: 'Headset' },
-          { key: 'welcomeKit', label: 'Welcome Kit' },
+           { key: 'OfficialSim', label: 'Official Phone Number' },
         ].map((item) => (
           <label key={item.key} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
             <input
@@ -2024,19 +2095,19 @@ const EmployeeOnboarding = () => {
                             onClick={() => handleViewEmployee(employee)}
                             className="px-3 py-1 bg-gray-600 text-white text-xs rounded-md hover:bg-gray-700 transition-colors"
                           >
-                            View
+                            <Eye size={16} />
                           </button>
                           <button
                             onClick={() => handleEditEmployee(employee)}
                             className="px-3 py-1 bg-gray-800 text-white text-xs rounded-md hover:bg-gray-900 transition-colors"
                           >
-                            Edit
+                            <Edit size={16} />
                           </button>
                           <button
                             onClick={() => handleAddEmployee(employee)}
                             className="px-3 py-1 bg-green-700 text-white text-xs rounded-md hover:bg-green-800 transition-colors"
                           >
-                            Onboard
+                            <Rocket size={16} />
                           </button>
                         </div>
                       </td>

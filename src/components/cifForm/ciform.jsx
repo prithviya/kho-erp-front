@@ -5,6 +5,8 @@ import Logo from '../../assets/kho.webp';
 import jobOpeningServices from '../../services/opening.service';
 import { request } from '../../services/apiClient';
 
+const MAX_RESUME_SIZE = 10 * 1024 * 1024;
+
 const ciform = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -234,6 +236,11 @@ const handleSubmit = async (e) => {
   try {
     setSubmitting(true);
 
+    if (personalformData.resume instanceof File && personalformData.resume.size > MAX_RESUME_SIZE) {
+      toast.error('Resume size should be 10 MB or less.');
+      return;
+    }
+
     // =====================================================
     // STEP 1: CREATE PERSONAL
     // =====================================================
@@ -250,10 +257,7 @@ const handleSubmit = async (e) => {
       gender: personalformData.gender,
       maritalStatus: personalformData.maritalStatus,
       portfolioLink: personalformData.portfolioLink,
-      resume: null,
-
-      // IMPORTANT:
-      // appliedPosition must be the actual jobid
+      resume: personalformData.resume instanceof File ? personalformData.resume.name : null,
       appliedPosition: Number(personalformData.appliedPosition),
     };
 
@@ -310,9 +314,22 @@ const handleSubmit = async (e) => {
         })),
     };
 
-    const submissionResult = await request("/cif-submissions", {
-      method: "POST",
-      body: JSON.stringify(submissionPayload),
+    const formData = new FormData();
+    formData.append('personal', JSON.stringify(personalPayload));
+    formData.append('academics', JSON.stringify(submissionPayload.academics));
+    formData.append('experiences', JSON.stringify(submissionPayload.experiences));
+    formData.append('skills', JSON.stringify(submissionPayload.skills));
+    formData.append('softwares', JSON.stringify(submissionPayload.softwares));
+    formData.append('languages', JSON.stringify(submissionPayload.languages));
+    formData.append('references', JSON.stringify(submissionPayload.references));
+
+    if (personalformData.resume instanceof File) {
+      formData.append('resume', personalformData.resume, personalformData.resume.name);
+    }
+
+    const submissionResult = await request('/cif-submissions', {
+      method: 'POST',
+      body: formData,
     });
 
     console.log("CIF SUBMISSION RESPONSE:", submissionResult);
@@ -342,16 +359,16 @@ const handleSubmit = async (e) => {
 };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        // Convert file to base64 string
-        const base64String = event.target.result;
-        setpersonalFormData((prev) => ({ ...prev, resume: base64String }));
-      };
-      reader.readAsDataURL(file);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_RESUME_SIZE) {
+      toast.error('Resume size should be 10 MB or less.');
+      e.target.value = '';
+      return;
     }
+
+    setpersonalFormData((prev) => ({ ...prev, resume: file }));
   };
 
   const renderSection = (title, children) => (
@@ -453,10 +470,11 @@ const handleSubmit = async (e) => {
               {renderField('PORTFOLIO LINK', 'portfolioLink', 'url', false, 'behance.net or dribbble.com link')}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">RESUME
-                  <span className="text-xs text-gray-500 ml-2">(PDF, DOC, DOCX (Max 5MB))</span>
+                  <span className="text-xs text-gray-500 ml-2">(PDF, DOC, DOCX (Max 10MB))</span>
                 </label>
                 <input
                   type="file"
+                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   onChange={handleFileChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />

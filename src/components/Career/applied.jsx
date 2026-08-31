@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { request } from '../../services/apiClient';
-import { RefreshCcw, X, Eye, Split, RepeatOff } from 'lucide-react'
+import { RefreshCcw, X, Eye, Split, RepeatOff, FileUser } from 'lucide-react'
 
 const Applied = () => {
   const navigate = useNavigate();
@@ -12,6 +12,8 @@ const Applied = () => {
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [resumeUrlToView, setResumeUrlToView] = useState('');
 
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -97,6 +99,76 @@ const Applied = () => {
     return {
       shortlist: 'shortlisted', reject: 'rejected',
     }[normalizedStatus] || normalizedStatus;
+  };
+
+  const resolveResumeUrl = (record) => {
+    const seen = new Set();
+
+    const walk = (value) => {
+      if (!value || typeof value !== 'object') {
+        if (typeof value === 'string') {
+          const stringValue = value.trim();
+          if (!stringValue) return null;
+          if (stringValue.startsWith('data:')) return stringValue;
+          if (stringValue.startsWith('http://') || stringValue.startsWith('https://')) return stringValue;
+          if (stringValue.startsWith('/')) return `${window.location.origin}${stringValue}`;
+          
+          // If it's just a filename, assume it's in the backend's assets/resume folder
+          const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5000';
+          return `${baseUrl}/assets/resume/${stringValue}`;
+        }
+        return null;
+      }
+
+      if (seen.has(value)) return null;
+      seen.add(value);
+
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          const found = walk(item);
+          if (found) return found;
+        }
+        return null;
+      }
+
+      const keys = Object.keys(value);
+
+      for (const key of keys) {
+        const normalizedKey = String(key).toLowerCase();
+        const lowerValue = value[key];
+
+        if (/(resume|cv|document|file)/.test(normalizedKey)) {
+          const found = walk(lowerValue);
+          if (found) return found;
+        }
+
+        if (normalizedKey === 'url' || normalizedKey === 'link' || normalizedKey === 'path') {
+          const found = walk(lowerValue);
+          if (found) return found;
+        }
+
+        if (typeof lowerValue === 'object') {
+          const found = walk(lowerValue);
+          if (found) return found;
+        }
+      }
+
+      return null;
+    };
+
+    return walk(record);
+  };
+
+  const openResume = (record) => {
+    const resumeUrl = resolveResumeUrl(record);
+
+    if (!resumeUrl) {
+      toast.error('No resume uploaded for this candidate.');
+      return;
+    }
+
+    setResumeUrlToView(resumeUrl);
+    setShowResumeModal(true);
   };
 
   const formatDate = (date) => {
@@ -257,6 +329,13 @@ const Applied = () => {
                           <div className="flex gap-2">
                             <button onClick={() => viewApplication( app.cifid ) } className="px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-100 text-blue-700  hover:bg-blue-200" >
                               <Eye size={'16'} />
+                            </button>
+                            <button
+                              onClick={() => openResume(app)}
+                              className="px-2 py-1 rounded text-xs font-medium transition-colors bg-violet-100 text-violet-700 hover:bg-violet-200"
+                              title="View Resume"
+                            >
+                              <FileUser size={'16'} />
                             </button>
                             <button
                               onClick={() => updateStatus(app.cifid, 'Shortlisted')}
@@ -439,6 +518,16 @@ const Applied = () => {
                     )}
 
                     <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
+                      {resolveResumeUrl(selectedApplication) ? (
+                        <button
+                          onClick={() => openResume(selectedApplication)}
+                          className="px-4 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700"
+                        >
+                          View Resume
+                        </button>
+                      ) : (
+                        <span className="px-4 py-2 text-sm text-gray-500">No resume uploaded</span>
+                      )}
                       <button onClick={ () => setShowModal(false) } className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">  Close
                       </button>
                     </div>
@@ -448,6 +537,39 @@ const Applied = () => {
             </div>
           )
         }
+
+      {showResumeModal && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setShowResumeModal(false)} />
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-5xl h-[85vh] flex flex-col">
+              <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-800">Resume Preview</h2>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={resumeUrlToView}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Open in New Tab
+                  </a>
+                  <button onClick={() => setShowResumeModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 p-0 overflow-hidden relative">
+                <iframe
+                  src={resumeUrlToView}
+                  title="Resume"
+                  className="w-full h-full border-0"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

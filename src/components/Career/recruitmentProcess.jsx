@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { request } from '../../services/apiClient';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
-
+import { Rocket, Eye } from 'lucide-react';
 const RecruitmentPipeline = () => {
   const navigate = useNavigate();
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -220,29 +220,7 @@ const RecruitmentPipeline = () => {
                           className="text-blue-600 hover:text-blue-800 transition-colors"
                           title="View Details"
                         >
-
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                            />
-
-                          </svg>
+                          <Eye size={'16'} />
 
                         </button>
 
@@ -252,9 +230,7 @@ const RecruitmentPipeline = () => {
                             className="text-green-600 hover:text-green-800 transition-colors"
                             title="Launch to Onboarding"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                            </svg>
+                            <Rocket size={'16'} />
                           </button>
                         )}
 
