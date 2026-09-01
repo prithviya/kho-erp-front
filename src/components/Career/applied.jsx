@@ -14,6 +14,10 @@ const Applied = () => {
 
   const [filterStatus, setFilterStatus] = useState('all');
 
+  const resolveCandidateId = (application) => (
+    application?.id ?? application?.cifid ?? application?.candidateId
+  );
+
   const fetchApplications = async () => {
     try {
       setLoading(true);
@@ -305,8 +309,11 @@ const Applied = () => {
                   </tr>
                 ) : (
                   filteredApplications.map(
-                    (app, index) => (
-                      <tr key={ app.cifid || index } className="hover:bg-gray-50 transition-colors" >
+                    (app, index) => {
+                      const candidateId = resolveCandidateId(app);
+
+                      return (
+                      <tr key={ candidateId || index } className="hover:bg-gray-50 transition-colors" >
                         <td className="px-4 py-3 text-sm text-gray-500"> {index + 1} </td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-900"> 
                           { app.personal ?.fullName || app.fullName || '-' }
@@ -337,7 +344,7 @@ const Applied = () => {
 
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
-                            <button onClick={() => viewApplication( app.cifid ) } className="px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-100 text-blue-700  hover:bg-blue-200" >
+                            <button onClick={() => viewApplication(candidateId)} className="px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-100 text-blue-700  hover:bg-blue-200" >
                               <Eye size={'16'} />
                             </button>
                             <button
@@ -348,7 +355,7 @@ const Applied = () => {
                               <FileUser size={'16'} />
                             </button>
                             <button
-                              onClick={() => updateStatus(app.cifid, 'Shortlisted')}
+                              onClick={() => updateStatus(candidateId, 'Shortlisted')}
                               disabled={
                                 updating ||
                                 normalizeStatus(app.status) === 'shortlisted' ||
@@ -375,7 +382,7 @@ const Applied = () => {
                             </button>
 
                             <button
-                              onClick={() => updateStatus(app.cifid, 'Selected')}
+                              onClick={() => updateStatus(candidateId, 'Selected')}
                               disabled={
                                 updating ||
                                 normalizeStatus(app.status) === 'selected' ||
@@ -400,7 +407,7 @@ const Applied = () => {
                             </button>
 
                             <button
-                              onClick={() => updateStatus(app.cifid, 'Rejected')}
+                              onClick={() => updateStatus(candidateId, 'Rejected')}
                               disabled={
                                 updating ||
                                 normalizeStatus(app.status) === 'rejected' ||
@@ -426,7 +433,8 @@ const Applied = () => {
                           </div>
                         </td>
                       </tr>
-                    )
+                      );
+                    }
                   )
                 )}
               </tbody>
