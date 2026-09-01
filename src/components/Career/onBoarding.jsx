@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { request } from '../../services/apiClient';
+import departmentService from '../../services/department.service';
+import userManagementService from '../../services/userManagement.service';
 import { toast } from 'react-toastify';
 import {Eye, Edit, Rocket} from 'lucide-react';
 
@@ -21,10 +23,20 @@ const EmployeeOnboarding = () => {
   const [selectedDocumentFile, setSelectedDocumentFile] = useState(null);
   const [generatedEmployeeId, setGeneratedEmployeeId] = useState('');
   const [validationErrors, setValidationErrors] = useState([]);
+  const [reportingHeadOptions, setReportingHeadOptions] = useState([]);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+  const [erpRoleOptions, setErpRoleOptions] = useState([]);
 
   const hasText = (value) => Boolean(String(value || '').trim());
+  const sanitizePhoneNumber = (value) => String(value ?? '').replace(/\D/g, '').slice(0, 10);
+  const sanitizeNumericOnly = (value) => String(value ?? '').replace(/\D/g, '');
+  const isValidPhoneNumber = (value) => {
+    const digits = sanitizePhoneNumber(value);
+    return digits.length === 10;
+  };
+  const isValidNumericOnly = (value) => sanitizeNumericOnly(value).length > 0 && sanitizeNumericOnly(value) === String(value ?? '').replace(/\s+/g, '');
 
-  const addressFieldKeys = ['line1', 'line2', 'city', 'state', 'pincode'];
+  const addressFieldKeys = ['line1', 'city', 'state', 'pincode'];
 
   const areAddressesEqual = (currentAddress, permanentAddress) => {
     return addressFieldKeys.every((key) =>
@@ -69,8 +81,7 @@ const EmployeeOnboarding = () => {
   const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    fullName: '',
     nickName: '',
     employeeId: generatedEmployeeId,
     officialEmail: '',
@@ -95,8 +106,8 @@ const EmployeeOnboarding = () => {
     currentSalary: '',
     systemAdmin: 'System Admin',
     superAdmin: 'Super_admin',
-    currentAddress: { line1: '', line2: '', city: '', state: '', pincode: '' },
-    permanentAddress: { line1: '', line2: '', city: '', state: '', pincode: '' },
+    currentAddress: { line1: '', city: '', state: '', pincode: '' },
+    permanentAddress: { line1: '', city: '', state: '', pincode: '' },
     experience: [{ company: '', designation: '', startDate: '', endDate: '', totalExp: '', reason: '' }],
     education: [{ qualification: '', institution: '', board: '', year: '', percentage: '' }],
     icebreaker: {
@@ -157,8 +168,7 @@ const EmployeeOnboarding = () => {
     const errors = [];
 
     const requiredBasicFields = [
-      'firstName',
-      'lastName',
+      'fullName',
       'personalEmail',
       'personalPhone',
       'officialEmail',
@@ -166,10 +176,33 @@ const EmployeeOnboarding = () => {
       'maritalStatus',
       'dateOfBirth',
       'dateOfJoining',
+      'employeeId',
     ];
 
     requiredBasicFields.forEach((field) => {
-      if (!hasText(formData[field])) errors.push(field);
+      if (!hasText(formData[field])) {
+        errors.push(field);
+      }
+    });
+
+    const phoneFields = [
+      ['personalPhone', true],
+      ['officePhone', false],
+    ];
+
+    phoneFields.forEach(([fieldKey, isRequired]) => {
+      const value = fieldKey.includes('.')
+        ? fieldKey.split('.').reduce((acc, key) => acc?.[key], formData)
+        : formData[fieldKey];
+
+      if (isRequired && !hasText(value)) {
+        errors.push(fieldKey);
+        return;
+      }
+
+      if (hasText(value) && !isValidPhoneNumber(value)) {
+        errors.push(fieldKey);
+      }
     });
 
     const requiredEmploymentFields = [
@@ -184,7 +217,14 @@ const EmployeeOnboarding = () => {
     ];
 
     requiredEmploymentFields.forEach((field) => {
-      if (!hasText(formData[field])) errors.push(field);
+      if (!hasText(formData[field])) {
+        errors.push(field);
+        return;
+      }
+
+      if (field === 'currentSalary' && !/^\d+$/.test(String(formData[field]).trim())) {
+        errors.push(field);
+      }
     });
 
     const addressChecks = [
@@ -254,10 +294,15 @@ const EmployeeOnboarding = () => {
         'health.emergencyNumber',
       ];
 
-      return healthRequired.filter((fieldKey) => {
+      const healthErrors = healthRequired.filter((fieldKey) => {
         const [section, key] = fieldKey.split('.');
-        return !hasText(formData?.[section]?.[key]);
+        const value = formData?.[section]?.[key];
+        if (!hasText(value)) return true;
+        if (key === 'emergencyNumber') return !isValidPhoneNumber(value);
+        return false;
       });
+
+      return healthErrors;
     }
 
     if (currentStep === 3) {
@@ -277,7 +322,14 @@ const EmployeeOnboarding = () => {
 
       bankRequired.forEach((fieldKey) => {
         const [section, key] = fieldKey.split('.');
-        if (!hasText(formData?.[section]?.[key])) {
+        const value = formData?.[section]?.[key];
+
+        if (!hasText(value)) {
+          errors.push(fieldKey);
+          return;
+        }
+
+        if (key === 'accountNumber' && !/^\d+$/.test(String(value).trim())) {
           errors.push(fieldKey);
         }
       });
@@ -294,7 +346,46 @@ const EmployeeOnboarding = () => {
   useEffect(() => {
     fetchAwaitingEmployees();
     fetchNextEmployeeId();
+    fetchReportingHeads();
+    fetchDepartments();
+    fetchErpRoles();
   }, []);
+
+  const fetchErpRoles = async () => {
+    try {
+      const response = await userManagementService.getRoles();
+      const roles = Array.isArray(response?.data) ? response.data : [];
+      const allowed = roles
+        .map((role) => String(role?.code || role?.name || '').trim())
+        .filter((roleCode) => {
+          const normalized = roleCode.toUpperCase();
+          return normalized === 'CRM' || normalized === 'TEAM_MEMBER' || normalized === 'MANAGER';
+        })
+        .filter((value, index, arr) => arr.indexOf(value) === index)
+        .sort((a, b) => a.localeCompare(b));
+
+      setErpRoleOptions(allowed);
+    } catch (error) {
+      console.error('Error fetching ERP roles:', error);
+      setErpRoleOptions(['CRM', 'TEAM_MEMBER', 'MANAGER']);
+    }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await departmentService.getDepartments();
+      const departments = Array.isArray(response?.data) ? response.data : [];
+      const names = departments
+        .map((department) => String(department?.name || '').trim())
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b));
+
+      setDepartmentOptions(names);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+      setDepartmentOptions([]);
+    }
+  };
 
   const fetchNextEmployeeId = async () => {
     try {
@@ -302,6 +393,10 @@ const EmployeeOnboarding = () => {
       const backendEmployeeId = response?.data?.employeeId;
       if (backendEmployeeId) {
         setGeneratedEmployeeId(backendEmployeeId);
+        setFormData((prev) => ({
+          ...prev,
+          employeeId: prev.employeeId && prev.employeeId.trim() ? prev.employeeId : backendEmployeeId,
+        }));
         return backendEmployeeId;
       }
     } catch (error) {
@@ -309,6 +404,36 @@ const EmployeeOnboarding = () => {
     }
 
     return generatedEmployeeId;
+  };
+
+  const fetchReportingHeads = async () => {
+    try {
+      const response = await request('/users', { method: 'GET' });
+      const users = Array.isArray(response?.data) ? response.data : [];
+      const normalizedOptions = users
+        .map((user) => {
+          const roles = Array.isArray(user?.roles) ? user.roles : [];
+          const roleCodes = roles.map((role) => String(role?.code || role?.name || '')).filter(Boolean);
+          const normalizedRoleCodes = roleCodes.map((roleCode) => String(roleCode).trim().toUpperCase().replace(/[_\s-]+/g, ''));
+          const hasEligibleRole = normalizedRoleCodes.some((roleCode) => roleCode === 'MANAGER' || roleCode === 'SUPERADMIN' || roleCode === 'SUPER_ADMIN');
+
+          if (!hasEligibleRole) return null;
+
+          const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'User';
+          return {
+            value: displayName,
+            label: displayName,
+            email: user?.email || '',
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.label.localeCompare(b.label));
+
+      setReportingHeadOptions(normalizedOptions);
+    } catch (error) {
+      console.error('Error fetching reporting head options:', error);
+      setReportingHeadOptions([]);
+    }
   };
 
   const fetchAwaitingEmployees = async () => {
@@ -330,7 +455,7 @@ const EmployeeOnboarding = () => {
               id: candidateId,
               name: c.fullName || 'N/A',
               designation: c.opening?.jobTitle || 'N/A',
-              group: 'N/A',
+              group: c.opening?.department?.name || 'N/A',
               email: c.email || 'N/A',
               phone: c.phoneNumber || 'N/A',
               DOB: c.DOB || c.dob || 'N/A',
@@ -351,8 +476,7 @@ const EmployeeOnboarding = () => {
   };
 
   const getDefaultFormData = (employeeId = generatedEmployeeId) => ({
-    firstName: '',
-    lastName: '',
+    fullName: '',
     nickName: '',
     employeeId,
     officialEmail: '',
@@ -377,8 +501,8 @@ const EmployeeOnboarding = () => {
     currentSalary: '',
     systemAdmin: 'System Admin',
     superAdmin: 'Super_admin',
-    currentAddress: { line1: '', line2: '', city: '', state: '', pincode: '' },
-    permanentAddress: { line1: '', line2: '', city: '', state: '', pincode: '' },
+    currentAddress: { line1: '', city: '', state: '', pincode: '' },
+    permanentAddress: { line1: '', city: '', state: '', pincode: '' },
     experience: [{ company: '', designation: '', startDate: '', endDate: '', totalExp: '', reason: '' }],
     education: [{ qualification: '', institution: '', board: '', year: '', percentage: '' }],
     icebreaker: {
@@ -435,17 +559,105 @@ const EmployeeOnboarding = () => {
     },
   });
 
+  const normalizeText = (value) => String(value ?? '').trim();
+
+  const buildAddressObject = (source, type) => {
+    const rawAddress = source?.[type === 'current' ? 'currentAddress' : 'permanentAddress'];
+    const directAddress = rawAddress && typeof rawAddress === 'object' ? rawAddress : {};
+    const line1Value = normalizeText(
+      directAddress.line1 ||
+      directAddress.address ||
+      directAddress.street ||
+      source?.[type === 'current' ? 'address' : 'permanentAddress'] ||
+      source?.[type === 'current' ? 'currentAddressLine1' : 'permanentAddressLine1'] ||
+      ''
+    );
+
+    return {
+      line1: line1Value,
+      city: normalizeText(
+        directAddress.city ||
+        source?.[type === 'current' ? 'city' : 'permanentCity'] ||
+        source?.[type === 'current' ? 'currentCity' : ''] ||
+        ''
+      ),
+      state: normalizeText(
+        directAddress.state ||
+        source?.[type === 'current' ? 'state' : 'permanentState'] ||
+        source?.[type === 'current' ? 'currentState' : ''] ||
+        ''
+      ),
+      pincode: normalizeText(
+        directAddress.pincode ||
+        source?.[type === 'current' ? 'pinCode' : 'permanentPincode'] ||
+        source?.[type === 'current' ? 'currentPincode' : ''] ||
+        ''
+      ),
+    };
+  };
+
+  const mergeFormDataWithFallback = (savedData, fallbackData) => {
+    const baseFallback = fallbackData || {};
+    const baseSaved = savedData || {};
+    const merged = {
+      ...baseFallback,
+      ...baseSaved,
+    };
+
+    const mergeAddressSection = (targetSection, fallbackSection) => {
+      const savedAddress = baseSaved?.[targetSection] || {};
+      const fallbackAddress = baseFallback?.[fallbackSection] || {};
+      merged[targetSection] = {
+        ...fallbackAddress,
+        ...savedAddress,
+      };
+
+      Object.keys(merged[targetSection]).forEach((key) => {
+        if (!hasText(merged[targetSection][key]) && hasText(fallbackAddress[key])) {
+          merged[targetSection][key] = fallbackAddress[key];
+        }
+      });
+    };
+
+    mergeAddressSection('currentAddress', 'currentAddress');
+    mergeAddressSection('permanentAddress', 'permanentAddress');
+
+    Object.keys(merged).forEach((key) => {
+      if (typeof merged[key] === 'string' && !hasText(merged[key]) && hasText(baseFallback[key])) {
+        merged[key] = baseFallback[key];
+      }
+    });
+
+    return merged;
+  };
+
   const mapCandidateToFormData = (candidate) => {
     const base = getDefaultFormData();
-    const nameParts = candidate?.fullName ? candidate.fullName.split(' ') : [];
+    const currentAddress = buildAddressObject(candidate, 'current');
+    const permanentAddress = buildAddressObject(candidate, 'permanent');
 
     return {
       ...base,
-      firstName: nameParts[0] || '',
-      lastName: nameParts.slice(1).join(' ') || '',
+      fullName: candidate?.fullName || '',
       personalEmail: candidate?.email || '',
       personalPhone: candidate?.phoneNumber || '',
-      designation: candidate?.opening?.jobTitle || '',
+      gender: candidate?.gender || '',
+      maritalStatus: candidate?.maritalStatus || '',
+      dateOfBirth: candidate?.dob || candidate?.DOB || '',
+      department:
+        candidate?.opening?.department?.name ||
+        candidate?.departmentName ||
+        candidate?.department ||
+        candidate?.opening?.department ||
+        '',
+      designation:
+        candidate?.opening?.jobTitle ||
+        candidate?.jobTitle ||
+        candidate?.designation ||
+        candidate?.appliedPositionName ||
+        '',
+      currentAddress,
+      permanentAddress,
     };
   };
 
@@ -463,7 +675,7 @@ const EmployeeOnboarding = () => {
       const response = await request(`/onboardings/record/${candidateId}`, { method: 'GET' });
       if (response?.success && response?.data?.formData) {
         setHasExistingRecord(true);
-        const mergedData = { ...(fallbackData || {}), ...response.data.formData };
+        const mergedData = mergeFormDataWithFallback(response.data.formData, fallbackData);
         setFormData(mergedData);
         syncPermanentAddressFlag(mergedData);
         return;
@@ -621,7 +833,7 @@ const EmployeeOnboarding = () => {
   const handleSaveAsDraft = async () => {
     const saved = await saveOnboardingRecord('DRAFT');
     if (saved) {
-      alert('Draft saved successfully.');
+      toast.success('Draft saved successfully.');
     }
   };
 
@@ -638,7 +850,7 @@ const EmployeeOnboarding = () => {
       return;
     }
 
-    alert('Onboarding submitted successfully.');
+    toast.success('Onboarding submitted successfully.');
     setShowOnboardingForm(false);
     setIsViewMode(false);
     setCurrentStep(1);
@@ -694,7 +906,15 @@ const EmployeeOnboarding = () => {
   const handleInputChange = (e, section, subSection) => {
     if (isViewMode) return;
     const { name, value, type, checked } = e.target;
-    
+    const shouldRestrictPhone = ['personalPhone', 'officePhone'].includes(name) || (section === 'health' && name === 'emergencyNumber');
+    const shouldRestrictNumeric = ['accountNumber', 'currentSalary'].includes(name);
+    const shouldAutoFillNextEmployeeId = name === 'employeeId';
+    const sanitizedValue = shouldRestrictPhone
+      ? sanitizePhoneNumber(value)
+      : shouldRestrictNumeric
+        ? sanitizeNumericOnly(value)
+        : value;
+
     if (section) {
       if (subSection) {
         clearFieldError(`${section}.${subSection}.${name}`);
@@ -704,18 +924,26 @@ const EmployeeOnboarding = () => {
             ...prev[section],
             [subSection]: {
               ...prev[section][subSection],
-              [name]: type === 'checkbox' ? checked : value
+              [name]: type === 'checkbox' ? checked : sanitizedValue
             }
           }
         }));
       } else {
         clearFieldError(`${section}.${name}`);
         setFormData(prev => {
-          const incomingValue = type === 'checkbox' ? checked : value;
+          const incomingValue = type === 'checkbox' ? checked : sanitizedValue;
           const normalizedValue =
             (section === 'currentAddress' || section === 'permanentAddress') && name === 'pincode'
               ? String(incomingValue || '').replace(/\D/g, '').slice(0, 6)
               : incomingValue;
+
+          if (shouldAutoFillNextEmployeeId) {
+            const nextEmployeeId = String(normalizedValue || '').trim();
+            return {
+              ...prev,
+              employeeId: nextEmployeeId || generatedEmployeeId || prev.employeeId || '',
+            };
+          }
 
           const nextSectionValues = {
             ...prev[section],
@@ -738,10 +966,20 @@ const EmployeeOnboarding = () => {
       }
     } else {
       clearFieldError(name);
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
+      setFormData(prev => {
+        if (shouldAutoFillNextEmployeeId) {
+          const nextEmployeeId = String(type === 'checkbox' ? checked : sanitizedValue || '').trim();
+          return {
+            ...prev,
+            employeeId: nextEmployeeId || generatedEmployeeId || prev.employeeId || '',
+          };
+        }
+
+        return {
+          ...prev,
+          [name]: type === 'checkbox' ? checked : sanitizedValue
+        };
+      });
     }
   };
 
@@ -896,7 +1134,6 @@ const EmployeeOnboarding = () => {
     const fallbackData = {
       ...getDefaultFormData(),
       firstName: employee.name.split(' ')[0] || '',
-      lastName: employee.name.split(' ').slice(1).join(' ') || '',
       personalEmail: employee.email,
       personalPhone: employee.phone || '',
       dateOfBirth: employee.DOB || '',
@@ -919,8 +1156,7 @@ const EmployeeOnboarding = () => {
     setCurrentStep(1);
     const fallbackData = {
       ...getDefaultFormData(),
-      firstName: employee.name.split(' ')[0] || '',
-      lastName: employee.name.split(' ').slice(1).join(' ') || '',
+      fullName: employee.name || '',
       personalEmail: employee.email,
       personalPhone: employee.phone || '',
       dateOfBirth: employee.DOB || '',
@@ -943,8 +1179,7 @@ const EmployeeOnboarding = () => {
     setCurrentStep(1);
     const fallbackData = {
       ...getDefaultFormData(),
-      firstName: employee.name.split(' ')[0] || '',
-      lastName: employee.name.split(' ').slice(1).join(' ') || '',
+      fullName: employee.name || '',
       personalEmail: employee.email,
       personalPhone: employee.phone || '',
       department: employee.department || '',
@@ -1000,30 +1235,16 @@ const EmployeeOnboarding = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              First Name <span className="text-red-500">*</span>
+              Full Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              name="firstName"
-              value={formData.firstName}
+              name="fullName"
+              value={formData.fullName}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'firstName')}
-              placeholder="Enter first name"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Last Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="lastName"
-              value={formData.lastName}
-              onChange={handleInputChange}
-              disabled={isViewMode}
-              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'lastName')}
-              placeholder="Enter last name"
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'fullName')}
+              placeholder="Enter full name"
             />
           </div>
           <div>
@@ -1045,8 +1266,9 @@ const EmployeeOnboarding = () => {
               name="employeeId"
               value={formData.employeeId}
               onChange={handleInputChange}
-              disabled
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent bg-gray-50"
+              disabled={isViewMode}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'employeeId')}
+              placeholder="Enter employee ID"
             />
           </div>
           <div>
@@ -1177,15 +1399,18 @@ const EmployeeOnboarding = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">ERP Role <span className="text-red-500">*</span></label>
-            <input
-              type="text"
+            <select
               name="erpRole"
               value={formData.erpRole}
               onChange={handleInputChange}
               disabled={isViewMode}
               className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'erpRole')}
-              placeholder="Enter ERP role"
-            />
+            >
+              <option value="">Select ERP Role</option>
+              {erpRoleOptions.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Source of Hire <span className="text-red-500">*</span></label>
@@ -1214,11 +1439,19 @@ const EmployeeOnboarding = () => {
               className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'department')}
             >
               <option value="">Select Department</option>
-              <option value="Content">Content</option>
-              <option value="Operations">Operations</option>
-              <option value="Media">Media</option>
-              <option value="Designer">Designer</option>
-              <option value="Development">Development</option>
+              {departmentOptions.length > 0 ? (
+                departmentOptions.map((departmentName) => (
+                  <option key={departmentName} value={departmentName}>{departmentName}</option>
+                ))
+              ) : (
+                <>
+                  <option value="Content">Content</option>
+                  <option value="Operations">Operations</option>
+                  <option value="Media">Media</option>
+                  <option value="Designer">Designer</option>
+                  <option value="Development">Development</option>
+                </>
+              )}
             </select>
           </div>
           <div>
@@ -1235,15 +1468,18 @@ const EmployeeOnboarding = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Reporting Head <span className="text-red-500">*</span></label>
-            <input
-              type="text"
+            <select
               name="reportingHead"
               value={formData.reportingHead}
               onChange={handleInputChange}
               disabled={isViewMode}
               className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'reportingHead')}
-              placeholder="Enter reporting head"
-            />
+            >
+              <option value="">Select reporting head</option>
+              {reportingHeadOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">UAN Number</label>
@@ -1290,32 +1526,17 @@ const EmployeeOnboarding = () => {
           <div className="space-y-3">
             <h4 className="text-md font-semibold text-gray-800">Current Address <span className="text-red-500">*</span></h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  name="line1"
-                  value={formData.currentAddress.line1}
-                  onChange={(e) => handleInputChange(e, 'currentAddress')}
-                  disabled={isViewMode}
-                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.line1')}
-                  placeholder="Address Line 1"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
-                <input
-                  type="text"
-                  name="line2"
-                  value={formData.currentAddress.line2}
-                  onChange={(e) => handleInputChange(e, 'currentAddress')}
-                  disabled={isViewMode}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`}
-                  placeholder="Address Line 2"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Address <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                name="line1"
+                value={formData.currentAddress.line1}
+                onChange={(e) => handleInputChange(e, 'currentAddress')}
+                disabled={isViewMode}
+                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'currentAddress.line1')}
+                placeholder="Address"
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1378,32 +1599,17 @@ const EmployeeOnboarding = () => {
               </label>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  name="line1"
-                  value={formData.permanentAddress.line1}
-                  onChange={(e) => handleInputChange(e, 'permanentAddress')}
-                  disabled={isViewMode || isPermanentAddressSame}
-                  className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${(isViewMode || isPermanentAddressSame) ? 'bg-gray-50' : ''}`, 'permanentAddress.line1')}
-                  placeholder="Address Line 1"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
-                <input
-                  type="text"
-                  name="line2"
-                  value={formData.permanentAddress.line2}
-                  onChange={(e) => handleInputChange(e, 'permanentAddress')}
-                  disabled={isViewMode || isPermanentAddressSame}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${(isViewMode || isPermanentAddressSame) ? 'bg-gray-50' : ''}`}
-                  placeholder="Address Line 2"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Address <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                name="line1"
+                value={formData.permanentAddress.line1}
+                onChange={(e) => handleInputChange(e, 'permanentAddress')}
+                disabled={isViewMode || isPermanentAddressSame}
+                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${(isViewMode || isPermanentAddressSame) ? 'bg-gray-50' : ''}`, 'permanentAddress.line1')}
+                placeholder="Address"
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

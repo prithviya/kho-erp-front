@@ -28,7 +28,7 @@ function validate(form) {
     if (!form.companyName.trim()) errors.companyName = "Company name is required.";
     if (!form.contactPerson.trim()) errors.contactPerson = "Contact person is required.";
     if (!form.phone.trim()) errors.phone = "Phone number is required.";
-    else if (!/^\+?[\d\s\-]{7,15}$/.test(form.phone)) errors.phone = "Invalid phone number.";
+    else if (!/^\d{10}$/.test(form.phone)) errors.phone = "Phone number must contain exactly 10 digits.";
     if (!form.email.trim()) errors.email = "Email is required.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email address.";
     if (!form.leadSourceId) errors.leadSourceId = "Lead source is required.";
@@ -110,7 +110,10 @@ export default function CreateLead({ open, onClose, onCreated }) {
 
     function handleChange(e) {
         const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+        const nextValue = name === "phone"
+            ? value.replace(/\D/g, "").slice(0, 10)
+            : value;
+        setForm((prev) => ({ ...prev, [name]: nextValue }));
         setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
     }
 
@@ -264,6 +267,9 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                         type="tel"
                                         name="phone"
                                         value={form.phone}
+                                        inputMode="numeric"
+                                        maxLength={10}
+                                        pattern="[0-9]{10}"
                                         onChange={handleChange}
                                         placeholder="+91 ..."
                                         className={inputCls("phone")}

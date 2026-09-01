@@ -108,8 +108,23 @@ export default function ProjectOnboarding() {
 
   const userName = (user) => `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email;
 
-  const selectedManagers = users.filter((u) => formData.projectManagerIds.includes(u.id));
-  const selectedSpocs = users.filter((u) => formData.spocIds.includes(u.id));
+  const normalizeRoleCode = (value) => String(value || "").trim().toUpperCase().replace(/[\s_-]+/g, "");
+
+  const hasManagerAccess = (user) => {
+    const roles = Array.isArray(user?.roles) ? user.roles : [];
+    return roles.some((role) => {
+      const roleCode = normalizeRoleCode(role?.code || role?.name || "");
+      return roleCode === "MANAGER" || roleCode === "SUPERADMIN" || roleCode === "SUPER_ADMIN";
+    });
+  };
+
+  const hasSpocAccess = (user) => !hasManagerAccess(user);
+
+  const managerOptions = useMemo(() => users.filter(hasManagerAccess), [users]);
+  const spocOptions = useMemo(() => users.filter(hasSpocAccess), [users]);
+
+  const selectedManagers = managerOptions.filter((u) => formData.projectManagerIds.includes(u.id));
+  const selectedSpocs = spocOptions.filter((u) => formData.spocIds.includes(u.id));
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -315,7 +330,7 @@ export default function ProjectOnboarding() {
     }
   };
 
-  const UserSelect = ({ selected, setSelected, show, setShow, placeholder, tone = "blue" }) => (
+  const UserSelect = ({ selected, setSelected, show, setShow, placeholder, tone = "blue", options = users }) => (
     <div className="relative">
       <div
         className="min-h-10.5 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2"
@@ -346,7 +361,9 @@ export default function ProjectOnboarding() {
 
       {show && (
         <div className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-300 bg-white shadow-lg">
-          {users.map((u) => {
+          {options.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-400">No users available</div>
+          ) : options.map((u) => {
             const checked = selected.some((x) => x.id === u.id);
             return (
               <label
@@ -447,6 +464,7 @@ export default function ProjectOnboarding() {
                     setShow={setShowManagerDropdown}
                     placeholder="Select Project Manager"
                     tone="blue"
+                    options={managerOptions}
                   />
                 </div>
                 <div>
@@ -458,6 +476,7 @@ export default function ProjectOnboarding() {
                     setShow={setShowSpocDropdown}
                     placeholder="Select SPOC"
                     tone="green"
+                    options={spocOptions}
                   />
                 </div>
               </div>

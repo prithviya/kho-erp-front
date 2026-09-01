@@ -1,6 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
+import { request } from '../../services/apiClient';
 import employeeService from '../../services/employee.service';
+
+const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
+
+const getEmployeeDocumentDownloadUrl = (doc) => {
+  const rawUrl = String(doc?.fileUrl || doc?.file_url || '').trim();
+  const storedName = String(doc?.storedName || '').trim();
+
+  if (!rawUrl && storedName) {
+    return `${API_ROOT_URL}/uploads/onboarding-documents/${storedName}`;
+  }
+
+  if (!rawUrl) return '';
+  if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
+  if (rawUrl.startsWith('/')) return `${API_ROOT_URL}${rawUrl}`;
+
+  return `${API_ROOT_URL}/${rawUrl}`;
+};
 
 const Employee = () => {
   const [employees, setEmployees] = useState([]);
@@ -11,6 +29,8 @@ const Employee = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [employeeDocuments, setEmployeeDocuments] = useState([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [editIndex, setEditIndex] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -74,14 +94,43 @@ const Employee = () => {
   }, []);
 
   const getStatusBadge = (status) => {
-    return status === 'Active' 
-      ? 'bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium'
-      : 'bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium';
+    return status === 'Active'
+      ? 'Active' : 'Inactive';
   };
 
-  const handleView = (employee) => {
+  const fetchEmployeeDocuments = async (employee) => {
+    const employeeCode = String(
+      employee?.employeeId ||
+      employee?.original?.employeeCode ||
+      employee?.original?.employeeId ||
+      ''
+    ).trim();
+
+    if (!employeeCode) {
+      setEmployeeDocuments([]);
+      return;
+    }
+
+    try {
+      setLoadingDocuments(true);
+      const response = await request(`/onboardings/record/employee_code/${encodeURIComponent(employeeCode)}`);
+      const record = response?.data || null;
+      const docs = Array.isArray(record?.formData?.documents)
+        ? record.formData.documents
+        : [];
+      setEmployeeDocuments(docs);
+    } catch (error) {
+      setEmployeeDocuments([]);
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
+
+  const handleView = async (employee) => {
     setSelectedEmployee(employee);
+    setEmployeeDocuments([]);
     setShowViewModal(true);
+    await fetchEmployeeDocuments(employee);
   };
 
   const handleEdit = (employee, index) => {
@@ -152,8 +201,8 @@ const Employee = () => {
   const filteredEmployees = employees.filter(emp => {
     const matchesDepartment = selectedDepartment === 'All Positions' || emp.department === selectedDepartment;
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          emp.id.toLowerCase().includes(searchTerm.toLowerCase());
+      emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.id.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesDepartment && matchesSearch;
   });
 
@@ -303,7 +352,7 @@ const Employee = () => {
       {/* View Modal */}
       {showViewModal && selectedEmployee && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 transition-opacity"
             onClick={() => setShowViewModal(false)}
           ></div>
@@ -313,7 +362,10 @@ const Employee = () => {
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold text-gray-800">Employee Details</h2>
                   <button
-                    onClick={() => setShowViewModal(false)}
+                    onClick={() => {
+                      setShowViewModal(false);
+                      setEmployeeDocuments([]);
+                    }}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -371,9 +423,51 @@ const Employee = () => {
                     </p>
                   </div>
                 </div>
+                <div className="pt-6 mt-6 border-t border-gray-200">
+                  <h3 className="text-md font-semibold text-gray-800 mb-3">Documents</h3>
+                  {loadingDocuments ? (
+                    <p className="text-sm text-gray-500">Loading documents...</p>
+                  ) : employeeDocuments.length > 0 ? (
+                    <div className="space-y-3">
+                      {employeeDocuments.map((doc, index) => {
+                        const documentName = doc?.fileName || doc?.file_name || `Document ${index + 1}`;
+                        const documentType = doc?.documentType || doc?.type || 'Document';
+                        const fileUrl = getEmployeeDocumentDownloadUrl(doc);
+
+                        return (
+                          <div key={`${documentType}-${documentName}-${index}`} className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">{documentType}</p>
+                              <p className="text-xs text-gray-500">{documentName}</p>
+                            </div>
+                            {fileUrl ? (
+                              <a
+                                href={fileUrl}
+                                download={documentName}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                View
+                              </a>
+                            ) : (
+                              <span className="text-sm text-gray-400">No file</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No onboarding documents available for this employee.</p>
+                  )}
+                </div>
+
                 <div className="flex justify-end pt-6 mt-6 border-t border-gray-200">
                   <button
-                    onClick={() => setShowViewModal(false)}
+                    onClick={() => {
+                      setShowViewModal(false);
+                      setEmployeeDocuments([]);
+                    }}
                     className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors"
                   >
                     Close
@@ -388,7 +482,7 @@ const Employee = () => {
       {/* Edit Modal */}
       {showEditModal && selectedEmployee && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 transition-opacity"
             onClick={() => {
               setShowEditModal(false);

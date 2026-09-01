@@ -68,16 +68,14 @@ const menu = [
                 title: "Assign Task",
                 icon: ClipboardCheck,
                 path: "/tasks",
-                roles: ["SUPER_ADMIN", "MANAGER"],
-                badge: 5
+                roles: ["SUPER_ADMIN", "MANAGER"]
             },
             {
                 name: "Task Board",
                 title: "Task Board",
                 icon: ClipboardCheck,
                 path: "/task-board",
-                roles: ["SUPER_ADMIN", "MANAGER"],
-                badge: 8
+                roles: ["SUPER_ADMIN", "MANAGER"]
             }
         ]
     },

@@ -60,7 +60,11 @@
             if (search.trim()) params.search = search.trim();
             if (statusFilter) params.leadStatusId = statusFilter;
             leadService.getLeads(params)
-                .then((res) => setLeads(normalizeList(res)))
+                .then((res) => {
+                    if (Array.isArray(res?.data) || Array.isArray(res)) {
+                        setLeads(normalizeList(res));
+                    }
+                })
                 .catch((err) => setError(err.message || "Failed to load leads."))
                 .finally(() => setLoading(false));
         }, [search, statusFilter]);

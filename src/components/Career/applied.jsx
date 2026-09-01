@@ -152,11 +152,6 @@ const Applied = () => {
           if (found) return found;
         }
 
-        if (normalizedKey === 'url' || normalizedKey === 'link' || normalizedKey === 'path') {
-          const found = walk(lowerValue);
-          if (found) return found;
-        }
-
         if (typeof lowerValue === 'object') {
           const found = walk(lowerValue);
           if (found) return found;
@@ -166,10 +161,23 @@ const Applied = () => {
       return null;
     };
 
+    const directResumeValues = [
+      record?.resumeUrl,
+      record?.resume,
+      record?.resumeStoredName,
+      record?.personal?.resumeUrl,
+      record?.personal?.resume,
+    ];
+
+    for (const value of directResumeValues) {
+      const found = walk(value);
+      if (found) return found;
+    }
+
     return walk(record);
   };
 
-  const openResume = (record) => {
+  const openResume = async (record) => {
     const resumeUrl = resolveResumeUrl(record);
 
     if (!resumeUrl) {
@@ -177,8 +185,27 @@ const Applied = () => {
       return;
     }
 
-    setResumeUrlToView(resumeUrl);
-    setShowResumeModal(true);
+    try {
+      const response = await fetch(resumeUrl, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch resume (${response.status})`);
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setResumeUrlToView(objectUrl);
+      setShowResumeModal(true);
+    } catch (error) {
+      console.error('Resume preview error:', error);
+      setResumeUrlToView(resumeUrl);
+      setShowResumeModal(true);
+    }
   };
 
   const formatDate = (date) => {
@@ -285,14 +312,14 @@ const Applied = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S.No</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate Name </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied Position </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio Link </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied Date </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions </th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">S.No</th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate Name</th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Applied Position</th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio Link</th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Applied Date</th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-center align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
 
@@ -343,16 +370,22 @@ const Applied = () => {
                         </td>
 
                         <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            <button onClick={() => viewApplication(candidateId)} className="px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-100 text-blue-700  hover:bg-blue-200" >
-                              <Eye size={'16'} />
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => viewApplication(candidateId)}
+                              className="flex h-8 w-8 items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 hover:text-sky-800"
+                              title="View application"
+                              aria-label="View application"
+                            >
+                              <Eye size={15} />
                             </button>
                             <button
                               onClick={() => openResume(app)}
-                              className="px-2 py-1 rounded text-xs font-medium transition-colors bg-violet-100 text-violet-700 hover:bg-violet-200"
+                              className="flex h-8 w-8 items-center justify-center rounded-md border border-violet-200 bg-violet-50 text-violet-700 transition-colors hover:bg-violet-100 hover:text-violet-800"
                               title="View Resume"
+                              aria-label="View resume"
                             >
-                              <FileUser size={'16'} />
+                              <FileUser size={15} />
                             </button>
                             <button
                               onClick={() => updateStatus(candidateId, 'Shortlisted')}
@@ -362,48 +395,18 @@ const Applied = () => {
                                 normalizeStatus(app.status) === 'rejected' ||
                                 normalizeStatus(app.status) === 'selected'
                               }
-                              className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                              title="Shortlist"
+                              aria-label="Shortlist"
+                              className={`flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${
                                 normalizeStatus(app.status) === 'shortlisted'
-                                  ? 'bg-green-100 text-green-700 cursor-not-allowed'
+                                  ? 'border-emerald-200 bg-emerald-100 text-emerald-600 cursor-not-allowed'
                                   : normalizeStatus(app.status) === 'rejected' ||
                                     normalizeStatus(app.status) === 'selected'
-                                  ? 'bg-gray-200 text-gray-700 cursor-not-allowed'
-                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800'
                               }`}
                             >
-                              {normalizeStatus(app.status) === 'shortlisted' ? (
-                                'Already Shortlisted'
-                              ) : (
-                                <>
-                                  <Split size={14} />
-                                  Shortlist
-                                </>
-                              )}
-                            </button>
-
-                            <button
-                              onClick={() => updateStatus(candidateId, 'Selected')}
-                              disabled={
-                                updating ||
-                                normalizeStatus(app.status) === 'selected' ||
-                                normalizeStatus(app.status) === 'rejected'
-                              }
-                              className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
-                                normalizeStatus(app.status) === 'selected'
-                                  ? 'bg-emerald-100 text-emerald-700 cursor-not-allowed'
-                                  : normalizeStatus(app.status) === 'rejected'
-                                  ? 'bg-gray-200 text-gray-700 cursor-not-allowed'
-                                  : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                              }`}
-                            >
-                              {normalizeStatus(app.status) === 'selected' ? (
-                                'Selected'
-                              ) : (
-                                <>
-                                  <FileUser size={14} />
-                                  Select
-                                </>
-                              )}
+                              <Split size={15} />
                             </button>
 
                             <button
@@ -414,21 +417,16 @@ const Applied = () => {
                                 normalizeStatus(app.status) === 'selected'
                               }
                               title="Reject"
-                              className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                              aria-label="Reject"
+                              className={`flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${
                                 normalizeStatus(app.status) === 'rejected'
-                                  ? 'bg-red-100 text-red-700 cursor-not-allowed'
+                                  ? 'border-rose-200 bg-rose-100 text-rose-600 cursor-not-allowed'
                                   : normalizeStatus(app.status) === 'selected'
-                                  ? 'bg-gray-200 text-gray-700 cursor-not-allowed'
-                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800'
                               }`}
                             >
-                              {normalizeStatus(app.status) === 'rejected' ? (
-                                'Already Rejected'
-                              ) : (
-                                <>
-                                  <RepeatOff size={14} />
-                                </>
-                              )}
+                              <RepeatOff size={15} />
                             </button>
                           </div>
                         </td>
@@ -597,7 +595,15 @@ const Applied = () => {
                   >
                     Open in New Tab
                   </a>
-                  <button onClick={() => setShowResumeModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <button
+                    onClick={() => {
+                      if (resumeUrlToView?.startsWith('blob:')) {
+                        URL.revokeObjectURL(resumeUrlToView);
+                      }
+                      setShowResumeModal(false);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
                     <X size={20} />
                   </button>
                 </div>

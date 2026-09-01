@@ -7,6 +7,18 @@ import { request } from '../../services/apiClient';
 
 const MAX_RESUME_SIZE = 10 * 1024 * 1024;
 
+const getMinimumBirthDate = () => {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 18);
+  return date.toISOString().slice(0, 10);
+};
+
+const isAcademicStarted = (education) => [
+  education.degree,
+  education.university,
+  education.graduationYear,
+].some((value) => String(value || '').trim());
+
 const ciform = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -127,9 +139,14 @@ const ciform = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    const nextValue = name === 'phoneNumber'
+      ? value.replace(/\D/g, '').slice(0, 10)
+      : name === 'pinCode'
+        ? value.replace(/\D/g, '').slice(0, 6)
+      : value;
     setpersonalFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === 'checkbox' ? checked : nextValue,
     }));
   };
 
@@ -222,14 +239,43 @@ const handleSubmit = async (e) => {
     return;
   }
 
-  const invalidAcademic = educationformData.find((education) => {
-    if (!education.degree.trim()) return false;
+  if (!/^\d{10}$/.test(personalformData.phoneNumber)) {
+    toast.error("Phone number must contain exactly 10 digits.");
+    return;
+  }
 
-    return !/^\d{4}$/.test(String(education.graduationYear).trim());
+  if (personalformData.DOB && personalformData.DOB > getMinimumBirthDate()) {
+    toast.error("Applicant must be at least 18 years old.");
+    return;
+  }
+
+  const invalidAcademic = educationformData.find((education) => {
+    const started = isAcademicStarted(education);
+    if (!started) return false;
+
+    return !education.degree.trim()
+      || !education.university.trim()
+      || !/^\d{4}$/.test(String(education.graduationYear).trim());
   });
 
   if (invalidAcademic) {
-    toast.error("Enter a four-digit graduation year for every degree/course.");
+    toast.error("Degree, university, and a four-digit graduation year are required for each academic entry.");
+    return;
+  }
+
+  const invalidExperience = workformData.find((work) => {
+    const started = [work.employer, work.location, work.jobTitle, work.startDate, work.endDate]
+      .some((value) => String(value || '').trim());
+    if (!started) return false;
+
+    return !work.employer.trim()
+      || !work.location.trim()
+      || !work.jobTitle.trim()
+      || !work.startDate;
+  });
+
+  if (invalidExperience) {
+    toast.error("Employer, location, job title, and start date are required for each experience entry.");
     return;
   }
 
@@ -264,7 +310,7 @@ const handleSubmit = async (e) => {
     const submissionPayload = {
       personal: personalPayload,
       academics: educationformData
-        .filter((education) => education.degree)
+        .filter((education) => education.degree && education.university && education.graduationYear)
         .map((education) => ({
           degree: education.degree,
           university: education.university,
@@ -273,7 +319,7 @@ const handleSubmit = async (e) => {
           city: education.city,
         })),
       experiences: workformData
-        .filter((work) => work.employer)
+        .filter((work) => work.employer && work.jobTitle && work.startDate)
         .map((work) => ({
           companyName: work.employer,
           location: work.location,
@@ -284,7 +330,7 @@ const handleSubmit = async (e) => {
           reasonForLeaving: null,
         })),
       skills: skillformData
-        .filter((skill) => skill.skill)
+        .filter((skill) => skill.skill && skill.level)
         .map((skill) => ({
           skillName: skill.skill,
           skillLevel: skill.level,
@@ -292,10 +338,10 @@ const handleSubmit = async (e) => {
           provider: skill.institute,
         })),
       softwares: toolformData
-        .filter((tool) => tool.name)
+        .filter((tool) => tool.name && tool.proficiency)
         .map((tool) => ({ tools: tool.name, levels: tool.proficiency })),
       languages: langformData
-        .filter((lang) => lang.language)
+        .filter((lang) => lang.language && lang.speak && lang.read && lang.write)
         .map((lang) => ({
           language: lang.language,
           Speak: lang.speak.toLowerCase(),
@@ -303,7 +349,7 @@ const handleSubmit = async (e) => {
           Write: lang.write.toLowerCase(),
         })),
       references: refformData
-        .filter((ref) => ref.name)
+        .filter((ref) => ref.name && ref.email && ref.phone)
         .map((ref) => ({
           referenceName: ref.name,
           referenceEmail: ref.email,
@@ -386,6 +432,10 @@ const handleSubmit = async (e) => {
         onChange={handleChange}
         required={required}
         placeholder={placeholder}
+        inputMode={name === 'pinCode' ? 'numeric' : undefined}
+        maxLength={name === 'pinCode' ? 6 : undefined}
+        pattern={name === 'pinCode' ? '[0-9]{6}' : undefined}
+        max={name === 'DOB' ? getMinimumBirthDate() : undefined}
         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
       />
     </div>
@@ -441,13 +491,30 @@ const handleSubmit = async (e) => {
               </div>
               {renderField('FULL NAME', 'fullName', 'text', true, 'e.g., Lee Min-ho')}
               {renderField('EMAIL', 'email', 'email', true, 'candidate@example.com')}
-              {renderField('PHONE NUMBER', 'phoneNumber', 'tel', true, '+44 1234 567890')}
+              {renderField('PHONE NUMBER', 'phoneNumber', 'tel', true, '10 digit phone number')}
               {renderField('DATE OF BIRTH', 'DOB', 'date', false, 'dd-mm-yyyy')}
-              {renderField('CITY', 'city', 'text', false, 'e.g., London')}
               {renderField('ADDRESS','address', 'text',true, 'e.g.,Coimbatore')}
+              {renderField('CITY', 'city', 'text', false, 'e.g., London')}
               {renderField('STATE','state','text',true, 'e.g.,TamilNadu')}
-              {renderField('PIN CODE', 'pinCode', 'text', false, 'Postal code')}
-              {renderField('MARITAL STATUS','maritalStatus','text',true,'Single')}
+              {renderField('PIN CODE', 'pinCode', 'tel', false, '6 digit postal code')}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  MARITAL STATUS <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="maritalStatus"
+                  value={personalformData.maritalStatus}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Select Marital Status</option>
+                  <option value="Single">Single</option>
+                  <option value="Married">Married</option>
+                  <option value="Divorced">Divorced</option>
+                  <option value="Widowed">Widowed</option>
+                </select>
+              </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">GENDER</label>
@@ -476,7 +543,6 @@ const handleSubmit = async (e) => {
                 />
                 
               </div>
-              
             </div>
           )}
 
@@ -495,33 +561,35 @@ const handleSubmit = async (e) => {
                     </button>
                   )}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Degree / Course</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Degree / Course <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       value={edu.degree}
+                      required={isAcademicStarted(edu)}
                       onChange={(e) => handleArrayChange('education', index, 'degree', e.target.value)}
                       placeholder="e.g., BSc Computer"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">University / Institute</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">University / Institute <span className="text-red-500">*</span></label>
                     <input
-                      type="text"
                       value={edu.university}
+                      required={isAcademicStarted(edu)}
                       onChange={(e) => handleArrayChange('education', index, 'university', e.target.value)}
                       placeholder="University name"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Year of Graduate</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Year of Graduate <span className="text-red-500">*</span></label>
                     <input
                       type="number"
                       min="1900"
                       max="2100"
                       step="1"
                       value={edu.graduationYear}
+                      required={isAcademicStarted(edu)}
                       onChange={(e) => handleArrayChange('education', index, 'graduationYear', e.target.value)}
                       placeholder="2022"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"

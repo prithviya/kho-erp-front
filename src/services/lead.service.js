@@ -6,7 +6,9 @@ const leadService = {
     },
     getLeads(params = {}) {
         const query = new URLSearchParams(params).toString();
-        return request(`/lead${query ? `?${query}` : ""}`);
+        return request(`/lead${query ? `?${query}` : ""}`, {
+            cache: "no-store",
+        });
     },
     getLeadById(id) {
         return request(`/lead/${id}`);

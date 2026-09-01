@@ -21,7 +21,7 @@ export default function AppLayout() {
                     toggleSidebar={isCifForm ? undefined : () => setMobileSidebar(true)}
                     hideSidebarToggle={isCifForm}
                 />
-                <main className="flex-1">
+                <main className="min-h-0 flex-1 overflow-y-auto">
                     <Outlet />
                 </main>
                 <Chatbot/>
