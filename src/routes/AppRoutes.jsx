@@ -39,6 +39,14 @@ export default function AppRoutes() {
                 }
             />
             <Route
+                path="/cif-form"
+                element={
+                    <PublicRoute allowAuthenticated>
+                        <Cif />
+                    </PublicRoute>
+                }
+            />
+            <Route
                 element={
                     <PrivateRoute>
                         <MainLayout />
@@ -53,17 +61,17 @@ export default function AppRoutes() {
                 <Route path="/tasks" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><AssignTask /></RoleRoute>} />
                 <Route path="/task-board" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><TaskBoard /></RoleRoute>} />
                 <Route path="/user-management" element={<RoleRoute roles={["SUPER_ADMIN"]}><UserManagement /></RoleRoute>} />
-                <Route path="/master" element={<RoleRoute roles={["SUPER_ADMIN"]}><Master/></RoleRoute>} />
+                <Route path="/master" element={<RoleRoute roles={["SUPER_ADMIN"]}><Master /></RoleRoute>} />
                 <Route path="/ventor-management" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><VentorManagement /></RoleRoute>} />
                 <Route path="/ventor-assigned" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><VentorAssigned /></RoleRoute>} />
-                <Route path="/applied" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Applied/></RoleRoute>} />
+                <Route path="/applied" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Applied /></RoleRoute>} />
                 <Route path="/job" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><JobOpening /></RoleRoute>} />
                 <Route path="/recruitment-process" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><RecruitmentProcess /></RoleRoute>} />
                 <Route path="/onboarding" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Onboarding /></RoleRoute>} />
                 <Route path="/employee" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Employee /></RoleRoute>} />
                 <Route path="/payroll" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Salary /></RoleRoute>} />
                 <Route path="/leave" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER", "CRM_EXECUTIVE"]}><Leave /></RoleRoute>} />
-                <Route path="/cif-form" element={<RoleRoute roles={["SUPER_ADMIN"]}><Cif /></RoleRoute>} />
+
                 <Route path="*" element={<Navigate to={fallbackPath} replace />} />
             </Route>
         </Routes>

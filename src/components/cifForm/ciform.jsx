@@ -42,7 +42,7 @@ const ciform = () => {
   try {
     setLoadingJobs(true);
 
-    const response = await jobOpeningServices.getOpenings();
+    const response = await jobOpeningServices.getPublicOpenings();
     const jobs = response?.data || response?.result || response || [];
 
     // ✅ FILTER: Only show active openings
@@ -74,7 +74,7 @@ const ciform = () => {
 
     const fetchOpening = async () => {
       try {
-        const response = await jobOpeningServices.getOpeningById(jobId);
+        const response = await jobOpeningServices.getPublicOpeningById(jobId);
         const opening = response?.data;
 
         if (isCurrent && opening?.jobid) {

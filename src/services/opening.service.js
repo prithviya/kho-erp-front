@@ -11,6 +11,10 @@ const jobOpeningServices = {
         }
     },
 
+    async getPublicOpenings() {
+        return await request("/openings/public");
+    },
+
     // Create new opening
     async createOpening(data) {
         try {
@@ -70,6 +74,10 @@ const jobOpeningServices = {
             console.error('Get Opening Error:', error);
             throw error;
         }
+    },
+
+    async getPublicOpeningById(id) {
+        return await request(`/openings/public/${id}`);
     },
 
     // Get active openings only

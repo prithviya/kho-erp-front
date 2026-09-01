@@ -6,7 +6,8 @@ import { useLocation } from "react-router-dom";
 import { getPageTitle } from "../../utils/pageTitle";
 
 export default function AppHeader({
-    toggleSidebar
+    toggleSidebar,
+    hideSidebarToggle = false
 }) {
     const session = getSession();
     const [open, setOpen] = useState(false);
@@ -16,12 +17,14 @@ export default function AppHeader({
     return (
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-30 p-2">
             <div className="flex items-center gap-4">
-                <button
-                    className="lg:hidden"
-                    onClick={toggleSidebar}
-                >
-                    <Menu size={22} />
-                </button>
+                {!hideSidebarToggle && (
+                    <button
+                        className="lg:hidden"
+                        onClick={toggleSidebar}
+                    >
+                        <Menu size={22} />
+                    </button>
+                )}
                 <h1 className="text-2xl font-semibold text-slate-800">
                     {title}
                 </h1>

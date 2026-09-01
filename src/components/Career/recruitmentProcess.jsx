@@ -8,6 +8,10 @@ const RecruitmentPipeline = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedCandidateId, setSelectedCandidateId] = useState(null);
 
+  const resolveCandidateId = (candidate) => (
+    candidate?.id ?? candidate?.cifid ?? candidate?.candidateId
+  );
+
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -59,8 +63,10 @@ const RecruitmentPipeline = () => {
   }, []);
 
   const handleViewDetails = (candidate) => {
+    const candidateId = resolveCandidateId(candidate);
+
     setSelectedCandidateDetails({
-      id: candidate.cifid,
+      id: candidateId,
       name: candidate.fullName || '',
       email: candidate.email || '',
       phone: candidate.phoneNumber || '',
@@ -83,7 +89,7 @@ const RecruitmentPipeline = () => {
       history:
         candidate.history || [],
     });
-    setSelectedCandidateId(candidate.cifid);
+    setSelectedCandidateId(candidateId);
     setShowDetailsModal(true);
   };
   const handleStatusChange = (e) => {
@@ -95,6 +101,10 @@ const RecruitmentPipeline = () => {
   const handleSaveRecruitment = async () => {
     try {
       setSaving(true);
+
+      if (!selectedCandidateDetails?.id) {
+        throw new Error('A candidate must be selected before saving recruitment details.');
+      }
 
       const response = await request('/recruitments', {
         method: 'POST',
