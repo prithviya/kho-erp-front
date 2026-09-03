@@ -5,8 +5,7 @@ import LeadOverview from "../components/Lead/LeadOverview";
 import Report from "../components/Lead/Report";
 import UserManagement from "../components/UserManagement/UserRole";
 import Master from "../components/UserManagement/Master";
-import VentorManagement from "../components/Ventor/ventorOverview";
-import VentorAssigned from "../components/Ventor/ventorAssigned";
+import Vendor from "../components/Vendor/VendorOverview"
 import ProjectOnboarding from "../components/project/onboardingPrjt";
 import ProjectDetail from "../components/project/projectDetail";
 import TaskBoard from "../components/project/mytask";
@@ -62,8 +61,7 @@ export default function AppRoutes() {
                 <Route path="/task-board" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><TaskBoard /></RoleRoute>} />
                 <Route path="/user-management" element={<RoleRoute roles={["SUPER_ADMIN"]}><UserManagement /></RoleRoute>} />
                 <Route path="/master" element={<RoleRoute roles={["SUPER_ADMIN"]}><Master /></RoleRoute>} />
-                <Route path="/ventor-management" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><VentorManagement /></RoleRoute>} />
-                <Route path="/ventor-assigned" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><VentorAssigned /></RoleRoute>} />
+                <Route path="/vendor-overview" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER"]}><Vendor /></RoleRoute>} />
                 <Route path="/applied" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Applied /></RoleRoute>} />
                 <Route path="/job" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><JobOpening /></RoleRoute>} />
                 <Route path="/recruitment-process" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><RecruitmentProcess /></RoleRoute>} />

@@ -160,16 +160,16 @@ const menu = [
                 name: "Ventor Management",
                 title: "Ventor Management",
                 icon: RotateCwSquare,
-                path: "/ventor-management",
+                path: "/vendor-overview",
                 roles: ["SUPER_ADMIN", "MANAGER"]
             },
-            {
-                name: "Ventor Assigned",
-                title: "Ventor Assigned",
-                icon: RotateCwSquare,   
-                path: "/ventor-assigned",
-                roles: ["SUPER_ADMIN", "MANAGER"]
-            },
+            // {
+            //     name: "Ventor Assigned",
+            //     title: "Ventor Assigned",
+            //     icon: RotateCwSquare,   
+            //     path: "/ventor-assigned",
+            //     roles: ["SUPER_ADMIN", "MANAGER"]
+            // },
             {
                 name: "CIF Form",
                 title: "CIF Form",
