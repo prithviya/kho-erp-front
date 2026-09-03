@@ -7,6 +7,7 @@ import vendorService from "../../services/vendor.service";
 import CreateVendor from "./CreateVendor";
 import EditVendor from "./EditVendor";
 import ViewVendor from "./ViewVendor";
+import { getCategoryName, getServiceName, getServicePrice, getVendorServices } from "./vendorServices";
 
 export default function VendorOverview() {
     const [vendors, setVendors] = useState([]);
@@ -145,6 +146,7 @@ export default function VendorOverview() {
                                 <th className="px-4 py-3 text-left">Vendor & Company</th>
                                 <th className="px-4 py-3 text-left">Contact Info</th>
                                 <th className="px-4 py-3 text-left">GST Status</th>
+                                <th className="px-4 py-3 text-left">Services</th>
                                 <th className="px-4 py-3 text-left">Status</th>
                                 <th className="px-4 py-3 text-center">Action</th>
                             
@@ -153,17 +155,17 @@ export default function VendorOverview() {
                         <tbody className="divide-y divide-gray-100 bg-white">
                             {loading && (
                                 <tr>
-                                    <td colSpan={7} className="py-10 text-center text-sm text-gray-400">Loading vendors…</td>
+                                    <td colSpan={8} className="py-10 text-center text-sm text-gray-400">Loading vendors…</td>
                                 </tr>
                             )}
                             {!loading && error && (
                                 <tr>
-                                    <td colSpan={7} className="py-10 text-center text-sm text-red-500">{error}</td>
+                                    <td colSpan={8} className="py-10 text-center text-sm text-red-500">{error}</td>
                                 </tr>
                             )}
                             {!loading && !error && filteredVendors.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="py-10 text-center text-sm text-gray-400">No vendors found.</td>
+                                    <td colSpan={8} className="py-10 text-center text-sm text-gray-400">No vendors found.</td>
                                 </tr>
                             )}
                             {!loading && !error && filteredVendors.map((vendor, idx) => (
@@ -176,6 +178,7 @@ export default function VendorOverview() {
                                             <Building2 size={12} /> {vendor.vendor_company_name || "—"}
                                         </p>
                                     </td>
+                                    
                                     <td className="px-4 py-3">
                                         <div className="space-y-0.5 text-xs text-gray-600">
                                             <p className="flex items-center gap-1.5"><Mail size={12} className="text-gray-400" /> {vendor.vendor_email}</p>
@@ -195,6 +198,11 @@ export default function VendorOverview() {
                                                 <XCircle size={12} /> Unregistered
                                             </span>
                                         )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="max-w-xs space-y-1 text-xs text-gray-600">
+                                            {getVendorServices(vendor).length ? getVendorServices(vendor).map((service, serviceIndex) => <p key={service.id || serviceIndex}><span className="font-medium text-gray-800">{getServiceName(service)}</span> <span className="text-gray-400">({getCategoryName(service)})</span> <span className="font-semibold text-blue-600">{getServicePrice(service)}</span></p>) : <span className="text-gray-400">—</span>}
+                                        </div>
                                     </td>
                                     <td className="px-4 py-3">
                                         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${

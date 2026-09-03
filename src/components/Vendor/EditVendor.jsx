@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { X, User, Mail, Phone, Building2, MapPin, FileCheck, Loader2 } from "lucide-react";
+import { X, User, Mail, Phone, Building2, MapPin, FileCheck, Loader2, Plus, Trash2 } from "lucide-react";
 import vendorService from "../../services/vendor.service";
+import leadService from "../../services/lead.service";
+import { getVendorServices } from "./vendorServices";
 import { toast } from "react-toastify";
 
 function validate(form) {
@@ -15,6 +17,14 @@ function validate(form) {
     if (form.gst_registered === "yes" && !/^[A-Za-z0-9]{15}$/.test(form.gst_number)) {
         errors.gst_number = "GST number must be exactly 15 alphanumeric characters.";
     }
+    const selectedServices = new Set();
+    form.services.forEach((service, index) => {
+        if (!service.categoryId) errors[`service_category_${index}`] = "Select a category.";
+        if (!service.serviceId) errors[`service_${index}`] = "Select a service.";
+        if (service.price === "" || Number(service.price) < 0) errors[`price_${index}`] = "Enter a valid price.";
+        if (service.serviceId && selectedServices.has(String(service.serviceId))) errors[`service_${index}`] = "This service is already selected.";
+        if (service.serviceId) selectedServices.add(String(service.serviceId));
+    });
     return errors;
 }
 
@@ -28,12 +38,20 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
         gst_registered: "no",
         gst_number: "",
         status: "active",
+        services: [],
     });
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [categories, setCategories] = useState([]);
+    const [loadingCategories, setLoadingCategories] = useState(false);
 
     useEffect(() => {
         if (vendor && open) {
+            setLoadingCategories(true);
+            leadService.getCategoriesWithServices()
+                .then((response) => setCategories(response?.data || []))
+                .catch((err) => toast.error(err.message || "Failed to load services."))
+                .finally(() => setLoadingCategories(false));
             setForm({
                 vendor_name: vendor.vendor_name || "",
                 vendor_email: vendor.vendor_email || "",
@@ -43,6 +61,11 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                 gst_registered: vendor.gst_registered || "no",
                 gst_number: vendor.gst_number || "",
                 status: vendor.status || "active",
+                services: getVendorServices(vendor).map((service) => ({
+                    categoryId: String(service.service_category_id ?? service.categoryId ?? service.category?.id ?? ""),
+                    serviceId: String(service.service_id ?? service.serviceId ?? service.service?.id ?? service.id ?? ""),
+                    price: String(service.price ?? service.service_price ?? service.sub_service_price ?? ""),
+                })),
             });
             setErrors({});
         }
@@ -71,7 +94,14 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
 
         setSubmitting(true);
         try {
-            await vendorService.update(vendor.vendorId, form);
+            await vendorService.update(vendor.vendorId, {
+                ...form,
+                services: form.services.map((service) => ({
+                    service_category_id: Number(service.categoryId),
+                    service_id: Number(service.serviceId),
+                    price: Number(service.price),
+                })),
+            });
             toast.success("Vendor updated successfully!");
             onUpdated?.();
 
@@ -93,6 +123,13 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
             errors[field] ? "border-red-400 bg-red-50/30" : "border-gray-200"
         }`;
 
+    const updateService = (index, field, value) => setForm((prev) => ({
+        ...prev,
+        services: prev.services.map((service, serviceIndex) => serviceIndex === index
+            ? { ...service, [field]: value, ...(field === "categoryId" ? { serviceId: "" } : {}) }
+            : service),
+    }));
+
     return (
         <>
             <div onClick={() => !submitting && onClose()} className="fixed inset-0 bg-black/40 z-40 transition-opacity" />
@@ -113,6 +150,27 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                 {/* Form Body */}
                 <div className="flex-1 overflow-y-auto">
                     <form id="edit-vendor-form" onSubmit={handleSubmit} className="space-y-4 p-6">
+                        <div>
+                            <div className="mb-1.5 flex items-center justify-between">
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Services</label>
+                                <button type="button" onClick={() => setForm((prev) => ({ ...prev, services: [...prev.services, { categoryId: "", serviceId: "", price: "" }] }))} className="flex items-center gap-1 text-xs font-semibold text-blue-600"><Plus size={14} /> Add Service</button>
+                            </div>
+                            {form.services.map((service, index) => {
+                                const category = categories.find((item) => String(item.id) === String(service.categoryId));
+                                const availableServices = category?.services || category?.Services || [];
+                                return <div key={index} className="mb-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                                        <select value={service.categoryId} disabled={submitting || loadingCategories} onChange={(e) => updateService(index, "categoryId", e.target.value)} className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm"><option value="">Category</option>{categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+                                        <select value={service.serviceId} disabled={submitting || !service.categoryId} onChange={(e) => updateService(index, "serviceId", e.target.value)} className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm"><option value="">Sub service</option>{availableServices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+                                        <button type="button" title="Remove service" onClick={() => setForm((prev) => ({ ...prev, services: prev.services.filter((_, serviceIndex) => serviceIndex !== index) }))} className="p-2 text-gray-400 hover:text-red-500"><Trash2 size={16} /></button>
+                                    </div>
+                                    <input type="number" min="0" step="0.01" value={service.price} disabled={submitting || !service.serviceId} onChange={(e) => updateService(index, "price", e.target.value)} placeholder="Sub service price" className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" />
+                                    {(errors[`service_category_${index}`] || errors[`service_${index}`] || errors[`price_${index}`]) && <p className="mt-1 text-xs text-red-500">{errors[`service_category_${index}`] || errors[`service_${index}`] || errors[`price_${index}`]}</p>}
+                                </div>;
+                            })}
+                            {!form.services.length && <p className="text-xs text-gray-400">No services assigned.</p>}
+                        </div>
+
                         <div>
                             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                 Vendor Name <span className="text-red-500">*</span>
