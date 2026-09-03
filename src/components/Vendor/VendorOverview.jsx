@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
     Search, Plus, Eye, Pencil, Trash2,
-    Building2, Phone, Mail, FileCheck, CheckCircle2, XCircle
+    Building2, Phone, Mail, FileCheck, CheckCircle2, XCircle, Power
 } from "lucide-react";
 import vendorService from "../../services/vendor.service";
 import CreateVendor from "./CreateVendor";
@@ -20,6 +20,7 @@ export default function VendorOverview() {
     const [editOpen, setEditOpen] = useState(false);
     const [viewOpen, setViewOpen] = useState(false);
     const [selectedVendor, setSelectedVendor] = useState(null);
+    const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
     const fetchVendors = useCallback(async () => {
         setLoading(true);
@@ -46,6 +47,21 @@ export default function VendorOverview() {
             fetchVendors();
         } catch (err) {
             alert(err.response?.data?.message || "Failed to delete vendor.");
+        }
+    };
+
+    const handleStatusToggle = async (vendor) => {
+        setUpdatingStatusId(vendor.vendorId);
+        try {
+            await vendorService.update(vendor.vendorId, {
+                ...vendor,
+                status: vendor.status === "active" ? "inactive" : "active",
+            });
+            await fetchVendors();
+        } catch (err) {
+            alert(err.response?.data?.message || err.message || "Failed to update vendor status.");
+        } finally {
+            setUpdatingStatusId(null);
         }
     };
 
@@ -130,28 +146,30 @@ export default function VendorOverview() {
                                 <th className="px-4 py-3 text-left">Contact Info</th>
                                 <th className="px-4 py-3 text-left">GST Status</th>
                                 <th className="px-4 py-3 text-left">Status</th>
-                                <th className="px-4 py-3 text-center">Actions</th>
+                                <th className="px-4 py-3 text-center">Action</th>
+                            
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 bg-white">
                             {loading && (
                                 <tr>
-                                    <td colSpan={6} className="py-10 text-center text-sm text-gray-400">Loading vendors…</td>
+                                    <td colSpan={7} className="py-10 text-center text-sm text-gray-400">Loading vendors…</td>
                                 </tr>
                             )}
                             {!loading && error && (
                                 <tr>
-                                    <td colSpan={6} className="py-10 text-center text-sm text-red-500">{error}</td>
+                                    <td colSpan={7} className="py-10 text-center text-sm text-red-500">{error}</td>
                                 </tr>
                             )}
                             {!loading && !error && filteredVendors.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="py-10 text-center text-sm text-gray-400">No vendors found.</td>
+                                    <td colSpan={7} className="py-10 text-center text-sm text-gray-400">No vendors found.</td>
                                 </tr>
                             )}
                             {!loading && !error && filteredVendors.map((vendor, idx) => (
                                 <tr key={vendor.vendorId} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-4 py-3 text-center text-gray-500">{idx + 1}</td>
+                                   
                                     <td className="px-4 py-3">
                                         <p className="font-semibold text-gray-900">{vendor.vendor_name}</p>
                                         <p className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
@@ -190,24 +208,38 @@ export default function VendorOverview() {
                                             <button
                                                 title="View"
                                                 onClick={() => { setSelectedVendor(vendor); setViewOpen(true); }}
-                                                className="rounded-md p-1.5 text-blue-500 hover:bg-blue-50 transition"
+                                                className="rounded-md p-1.5 bg-blue-100 text-blue-500 hover:bg-blue-50 transition"
                                             >
                                                 <Eye size={16} />
                                             </button>
                                             <button
                                                 title="Edit"
                                                 onClick={() => { setSelectedVendor(vendor); setEditOpen(true); }}
-                                                className="rounded-md p-1.5 text-green-500 hover:bg-green-50 transition"
+                                                className="rounded-md p-1.5 bg-green-100 text-green-500 hover:bg-green-50 transition"
                                             >
                                                 <Pencil size={16} />
                                             </button>
                                             <button
                                                 title="Delete"
                                                 onClick={() => handleDelete(vendor.vendorId)}
-                                                className="rounded-md p-1.5 text-red-500 hover:bg-red-50 transition"
+                                                className="rounded-md p-1.5 bg-red-100 text-red-500 hover:bg-red-50 transition"
                                             >
                                                 <Trash2 size={16} />
                                             </button>
+                                            <button
+                                            type="button"
+                                            title={`Set vendor ${vendor.status === "active" ? "inactive" : "active"}`}
+                                            aria-label={`Set vendor ${vendor.status === "active" ? "inactive" : "active"}`}
+                                            onClick={() => handleStatusToggle(vendor)}
+                                            disabled={updatingStatusId === vendor.vendorId}
+                                            className={`rounded-md p-1.5 transition disabled:cursor-wait bg-gray-100 disabled:opacity-50 ${
+                                                vendor.status === "active"
+                                                    ? "text-emerald-600 hover:bg-emerald-50"
+                                                    : "text-gray-500 hover:bg-gray-50"
+                                            }`}
+                                        >
+                                            <Power size={16} />
+                                        </button>
                                         </div>
                                     </td>
                                 </tr>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, User, Mail, Phone, Building2, MapPin, FileCheck, Loader2 } from "lucide-react";
+import { toast } from "react-toastify";
 import vendorService from "../../services/vendor.service";
 
 const INITIAL_FORM = {
@@ -16,11 +17,14 @@ const INITIAL_FORM = {
 function validate(form) {
     const errors = {};
     if (!form.vendor_name.trim()) errors.vendor_name = "Vendor name is required.";
-    if (!form.vendor_email.trim()) errors.vendor_email = "Email is required.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.vendor_email)) errors.vendor_email = "Invalid email format.";
-    if (!form.vendor_contact.trim()) errors.vendor_contact = "Contact number is required.";
-    if (form.gst_registered === "yes" && !form.gst_number.trim()) {
-        errors.gst_number = "GST number is required when GST registered is selected.";
+    if (form.vendor_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.vendor_email)) {
+        errors.vendor_email = "Invalid email format.";
+    }
+    if (!/^\d{10}$/.test(form.vendor_contact)) {
+        errors.vendor_contact = "Phone number must be exactly 10 digits.";
+    }
+    if (form.gst_registered === "yes" && !/^[A-Za-z0-9]{15}$/.test(form.gst_number)) {
+        errors.gst_number = "GST number must be exactly 15 alphanumeric characters.";
     }
     return errors;
 }
@@ -28,26 +32,28 @@ function validate(form) {
 export default function CreateVendor({ open, onClose, onCreated }) {
     const [form, setForm] = useState(INITIAL_FORM);
     const [errors, setErrors] = useState({});
-    const [serverError, setServerError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         if (!open) {
             setForm(INITIAL_FORM);
             setErrors({});
-            setServerError(null);
         }
     }, [open]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+        const normalizedValue = name === "vendor_contact"
+            ? value.replace(/\D/g, "").slice(0, 10)
+            : name === "gst_number"
+                ? value.replace(/[^A-Za-z0-9]/g, "").slice(0, 15)
+                : value;
+        setForm((prev) => ({ ...prev, [name]: normalizedValue }));
         setErrors((prev) => ({ ...prev, [name]: undefined }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setServerError(null);
         const validationErrors = validate(form);
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
@@ -57,10 +63,16 @@ export default function CreateVendor({ open, onClose, onCreated }) {
         setSubmitting(true);
         try {
             await vendorService.create(form);
+            toast.success("Vendor created successfully!");
             onCreated?.();
+
+            // Small delay for toast visibility, followed by reload
+            setTimeout(() => {
+                window.location.reload();
+            }, 1200);
         } catch (err) {
-            setServerError(err.response?.data?.message || err.message || "Failed to create vendor.");
-        } finally {
+            const errorMsg = err.response?.data?.message || err.message || "Failed to create vendor.";
+            toast.error(errorMsg);
             setSubmitting(false);
         }
     };
@@ -74,7 +86,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
         <>
             {/* Backdrop */}
             <div
-                onClick={onClose}
+                onClick={() => !submitting && onClose()}
                 className={`fixed inset-0 bg-black/40 z-40 transition-opacity duration-300 ${
                     open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
                 }`}
@@ -89,19 +101,18 @@ export default function CreateVendor({ open, onClose, onCreated }) {
             >
                 <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
                     <h2 className="text-lg font-semibold text-gray-800">Add New Vendor</h2>
-                    <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition">
+                    <button 
+                        type="button" 
+                        disabled={submitting} 
+                        onClick={onClose} 
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition disabled:opacity-40"
+                    >
                         <X size={20} />
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
                     <form id="create-vendor-form" onSubmit={handleSubmit} className="space-y-4 p-6">
-                        {serverError && (
-                            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-                                {serverError}
-                            </div>
-                        )}
-
                         <div>
                             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                 Vendor Name <span className="text-red-500">*</span>
@@ -113,6 +124,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                                 <input
                                     type="text"
                                     name="vendor_name"
+                                    disabled={submitting}
                                     value={form.vendor_name}
                                     onChange={handleChange}
                                     placeholder="e.g. Ramesh Kumar"
@@ -133,6 +145,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                                 <input
                                     type="text"
                                     name="vendor_company_name"
+                                    disabled={submitting}
                                     value={form.vendor_company_name}
                                     onChange={handleChange}
                                     placeholder="e.g. Acme Supplies Pvt Ltd"
@@ -152,6 +165,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                                 <input
                                     type="email"
                                     name="vendor_email"
+                                    disabled={submitting}
                                     value={form.vendor_email}
                                     onChange={handleChange}
                                     placeholder="vendor@company.com"
@@ -172,8 +186,11 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                                 <input
                                     type="text"
                                     name="vendor_contact"
+                                    disabled={submitting}
                                     value={form.vendor_contact}
                                     onChange={handleChange}
+                                    inputMode="numeric"
+                                    maxLength={10}
                                     placeholder="10-digit phone number"
                                     className={inputCls("vendor_contact")}
                                 />
@@ -181,35 +198,20 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                             {errors.vendor_contact && <p className="mt-1 text-xs text-red-500">{errors.vendor_contact}</p>}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    GST Registered?
-                                </label>
-                                <select
-                                    name="gst_registered"
-                                    value={form.gst_registered}
-                                    onChange={handleChange}
-                                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                >
-                                    <option value="no">No</option>
-                                    <option value="yes">Yes</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    Status
-                                </label>
-                                <select
-                                    name="status"
-                                    value={form.status}
-                                    onChange={handleChange}
-                                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                >
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
-                            </div>
+                        <div>
+                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                GST Registered?
+                            </label>
+                            <select
+                                name="gst_registered"
+                                disabled={submitting}
+                                value={form.gst_registered}
+                                onChange={handleChange}
+                                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            >
+                                <option value="no">No</option>
+                                <option value="yes">Yes</option>
+                            </select>
                         </div>
 
                         {form.gst_registered === "yes" && (
@@ -224,9 +226,11 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                                     <input
                                         type="text"
                                         name="gst_number"
+                                        disabled={submitting}
                                         maxLength={15}
                                         value={form.gst_number}
                                         onChange={handleChange}
+                                        autoCapitalize="characters"
                                         placeholder="22AAAAA0000A1Z5"
                                         className={inputCls("gst_number")}
                                     />
@@ -246,6 +250,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                                 <textarea
                                     rows={3}
                                     name="vendor_address"
+                                    disabled={submitting}
                                     value={form.vendor_address}
                                     onChange={handleChange}
                                     placeholder="Street, City, Pincode"
