@@ -65,11 +65,11 @@ export default function ViewVendor({ open, onClose, vendor }) {
                     </div>
 
                     <div className="rounded-xl border border-gray-200 p-4">
-                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Services & Pricing</h4>
+                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Category / Sub service & Pricing</h4>
                         {getVendorServices(vendor).length ? (
                             <div className="overflow-x-auto">
                                 <table className="min-w-full text-sm">
-                                    <thead className="border-b text-left text-xs text-gray-400"><tr><th className="pb-2 pr-3">Category</th><th className="pb-2 pr-3">Service</th><th className="pb-2 text-right">Price</th></tr></thead>
+                                    <thead className="border-b text-left text-xs text-gray-400"><tr><th className="pb-2 pr-3">Category</th><th className="pb-2 pr-3">Sub service</th><th className="pb-2 text-right">Price</th></tr></thead>
                                     <tbody className="divide-y divide-gray-100">{getVendorServices(vendor).map((service, index) => <tr key={service.id || index}><td className="py-2 pr-3 text-gray-500">{getCategoryName(service)}</td><td className="py-2 pr-3 font-medium text-gray-800">{getServiceName(service)}</td><td className="py-2 text-right font-medium text-gray-800">{getServicePrice(service)}</td></tr>)}</tbody>
                                 </table>
                             </div>

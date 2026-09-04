@@ -3,10 +3,9 @@ import {
   UserRound,
   Trophy,
   Activity,
-  ArrowUpRight,
+
   BriefcaseBusiness,
-  CalendarClock,
-  Mail,
+  
   RefreshCw
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -152,10 +151,7 @@ export default function Dashboard() {
                 {item.icon}
               </span>
             </div>
-            <div className="mt-3 flex items-center gap-1 text-xs font-medium text-slate-500">
-              <ArrowUpRight size={13} />
-              Updated from live activity feed
-            </div>
+            
           </div>
         ))}
       </div>
@@ -304,30 +300,6 @@ export default function Dashboard() {
               <div className="rounded-xl border border-slate-200 p-4 text-center text-sm text-slate-500">No openings found.</div>
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="relative mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">User Channel</p>
-          <p className="mt-1 flex items-center gap-2 text-sm font-medium text-slate-800">
-            <Mail size={14} className="text-slate-500" />
-            {dashboard.activeUsers.length} active users online now
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lead Pipeline</p>
-          <p className="mt-1 flex items-center gap-2 text-sm font-medium text-slate-800">
-            <ArrowUpRight size={14} className="text-slate-500" />
-            {dashboard.stats.convertedDeals} conversions from {dashboard.stats.totalLeads} leads
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Openings Window</p>
-          <p className="mt-1 flex items-center gap-2 text-sm font-medium text-slate-800">
-            <CalendarClock size={14} className="text-slate-500" />
-            {dashboard.hiring.length} active hiring rows tracked
-          </p>
         </div>
       </div>
     </div>

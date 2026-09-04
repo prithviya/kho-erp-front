@@ -1,5 +1,8 @@
 export function getVendorServices(vendor = {}) {
-    const services = vendor.services || vendor.vendor_services || vendor.vendorServices || [];
+    let services = vendor.services || vendor.vendor_services || vendor.vendorServices || [];
+    if (typeof services === 'string') {
+        try { services = JSON.parse(services); } catch (e) { services = []; }
+    }
     return Array.isArray(services) ? services : [];
 }
 

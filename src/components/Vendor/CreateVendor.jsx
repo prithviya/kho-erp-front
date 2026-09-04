@@ -85,11 +85,17 @@ export default function CreateVendor({ open, onClose, onCreated }) {
         try {
             const payload = {
                 ...form,
-                services: form.services.map((service) => ({
-                    service_category_id: Number(service.categoryId),
-                    service_id: Number(service.serviceId),
-                    price: Number(service.price),
-                })),
+                services: form.services.map((service) => {
+                    const category = categories.find((c) => String(c.id) === String(service.categoryId));
+                    const subService = category?.services?.find((s) => String(s.id) === String(service.serviceId)) || category?.Services?.find((s) => String(s.id) === String(service.serviceId));
+                    return {
+                        service_category_id: Number(service.categoryId),
+                        category_name: category ? category.name : "",
+                        service_id: Number(service.serviceId),
+                        service_name: subService ? subService.name : "",
+                        price: Number(service.price),
+                    };
+                }),
             };
             await vendorService.create(payload);
             toast.success("Vendor created successfully!");
@@ -244,7 +250,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
 
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Services</label>
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Category / Sub service</label>
                                 <button type="button" onClick={addService} disabled={submitting || loadingCategories} className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-50">
                                     <Plus size={14} /> Add Service
                                 </button>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
     Search, Plus, Eye, Pencil, Trash2,
-    Building2, Phone, Mail, FileCheck, CheckCircle2, XCircle, Power
+    Building2, Phone, Mail, CheckCircle2, XCircle, Power
 } from "lucide-react";
 import vendorService from "../../services/vendor.service";
 import CreateVendor from "./CreateVendor";
@@ -146,7 +146,7 @@ export default function VendorOverview() {
                                 <th className="px-4 py-3 text-left">Vendor & Company</th>
                                 <th className="px-4 py-3 text-left">Contact Info</th>
                                 <th className="px-4 py-3 text-left">GST Status</th>
-                                <th className="px-4 py-3 text-left">Services</th>
+                                <th className="px-4 py-3 text-left">Category / Sub service</th>
                                 <th className="px-4 py-3 text-left">Status</th>
                                 <th className="px-4 py-3 text-center">Action</th>
                             

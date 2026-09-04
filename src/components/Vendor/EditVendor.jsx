@@ -96,11 +96,17 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
         try {
             await vendorService.update(vendor.vendorId, {
                 ...form,
-                services: form.services.map((service) => ({
-                    service_category_id: Number(service.categoryId),
-                    service_id: Number(service.serviceId),
-                    price: Number(service.price),
-                })),
+                services: form.services.map((service) => {
+                    const category = categories.find((c) => String(c.id) === String(service.categoryId));
+                    const subService = category?.services?.find((s) => String(s.id) === String(service.serviceId)) || category?.Services?.find((s) => String(s.id) === String(service.serviceId));
+                    return {
+                        service_category_id: Number(service.categoryId),
+                        category_name: category ? category.name : "",
+                        service_id: Number(service.serviceId),
+                        service_name: subService ? subService.name : "",
+                        price: Number(service.price),
+                    };
+                }),
             });
             toast.success("Vendor updated successfully!");
             onUpdated?.();
@@ -152,7 +158,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                     <form id="edit-vendor-form" onSubmit={handleSubmit} className="space-y-4 p-6">
                         <div>
                             <div className="mb-1.5 flex items-center justify-between">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Services</label>
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Category / Sub service</label>
                                 <button type="button" onClick={() => setForm((prev) => ({ ...prev, services: [...prev.services, { categoryId: "", serviceId: "", price: "" }] }))} className="flex items-center gap-1 text-xs font-semibold text-blue-600"><Plus size={14} /> Add Service</button>
                             </div>
                             {form.services.map((service, index) => {
