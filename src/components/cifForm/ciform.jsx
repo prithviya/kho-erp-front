@@ -443,7 +443,7 @@ const handleSubmit = async (e) => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-2">
           <img src={Logo} alt="Company Logo" className="mx-auto" style={{ width: '100px', height: '50px' }} />
@@ -456,10 +456,10 @@ const handleSubmit = async (e) => {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 md:p-8  overflow-y-auto h-[70vh]">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 md:p-8  overflow-y-auto h-[71vh]">
           {/* PERSONAL INFORMATION */}
           {renderSection('PERSONAL INFORMATION',
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   JOB POSITION (DESIGNATION) <span className="text-red-500">*</span>
@@ -550,7 +550,7 @@ const handleSubmit = async (e) => {
           {renderSection('PROFESSIONAL & ACADEMIC',
             <div>
               {educationformData.map((edu, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
+                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
                   {index > 0 && (
                     <button
                       type="button"
@@ -631,7 +631,7 @@ const handleSubmit = async (e) => {
           {renderSection('WORK EXPERIENCE',
             <div>
               {workformData.map((work, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
+                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
                   {index > 0 && (
                     <button
                       type="button"
@@ -706,7 +706,7 @@ const handleSubmit = async (e) => {
             <div>
               <p className="text-sm text-gray-500 mb-4">Skill & Training Achievement(s)</p>
               {skillformData.map((skill, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
+                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
                   {index > 0 && (
                     <button
                       type="button"
@@ -901,7 +901,7 @@ const handleSubmit = async (e) => {
           {renderSection('REFERENCE',
             <div>
               {refformData.map((ref, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
+                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
                   {index > 0 && (
                     <button
                       type="button"

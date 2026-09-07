@@ -327,7 +327,7 @@ const JobOpenings = () => {
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Opening Count *</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Requirement Count *</label>
                                             <input type="number" name="openingCount" value={formData.openingCount} onChange={handleChange} required min="1" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                                         </div>
 
@@ -347,7 +347,7 @@ const JobOpenings = () => {
                                         </div>
 
                                         <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Job Details</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
                                             <textarea name="jobDetails" value={formData.jobDetails} onChange={handleChange} rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                                         </div>
 

@@ -462,53 +462,56 @@ const Applied = () => {
                   <div className="px-6 py-6">
                     <div className="mb-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-3"> Personal Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg">
                         <div>
-                          <p className="text-sm text-gray-500"> Full Name </p>
-                          <p className="font-medium">
-                            {
-                              selectedApplication .personal ?.fullName || selectedApplication.fullName || '-'
-                            }
-                          </p>
+                          <p className="text-sm text-black-500"> Full Name </p>
+                          <p className="text-sm text-gray-500"> { selectedApplication .personal ?.fullName || selectedApplication.fullName || '-' } </p>
                         </div> 
                         <div>
-                          <p className="text-sm text-gray-500"> Email </p>
-                          <p className="font-medium">
-                            {
-                              selectedApplication .personal ?.email || selectedApplication.email || '-'
-                            }
-                          </p>
+                          <p className="text-sm  text-black-500"> Email </p>
+                          <p className="text-sm text-gray-500"> { selectedApplication .personal ?.email || selectedApplication.email || '-' } </p>
                         </div>  
-
                         <div>
-                          <p className="text-sm text-gray-500"> Phone  </p>
-                          <p className="font-medium">
-                            {
-                              selectedApplication  .personal  ?.phoneNumber ||  selectedApplication.phoneNumber ||  '-'
-                            }
-                          </p>
+                          <p className="text-sm text-black-500"> Gender </p>
+                          <p className="text-sm text-gray-500"> { selectedApplication .personal ?.gender || selectedApplication.gender || '-' } </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-black-500"> Phone  </p>
+                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.phoneNumber ||  selectedApplication.phoneNumber ||  '-' } </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-black-500"> DOB  </p>
+                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.dob ||  selectedApplication.dob ||  '-' } </p>
                         </div> 
                         <div>
-                          <p className="text-sm text-gray-500"> Applied Position </p> 
-                          <p className="font-medium"> {getJobTitle( selectedApplication )} </p>
-                          {selectedApplication.jobid && (
-                            <p className="text-xs text-gray-400 mt-1">
-                              Job ID:{' '} { selectedApplication.jobid }
-                            </p>
-                          )}
+                          <p className="text-sm text-black-500"> Marital Status  </p>
+                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.maritalStatus ||  selectedApplication.maritalStatus ||  '-' } </p>
                         </div>
-
                         <div>
-                          <p className="text-sm text-gray-500"> Status </p>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge( selectedApplication.status )}`} >
-                            { selectedApplication.status || 'Pending' }
+                          <p className="text-sm text-black-500"> Address </p>
+                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.currentAddress ||  selectedApplication.currentAddress ||  '-' } </p> 
+                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.currentCity ||  selectedApplication.currentCity ||  '-' } </p>
+                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.currentPincode ||  selectedApplication.currentPincode ||  '-' } </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-black-500">Portfolio Link</p>
+                            <a href={ selectedApplication?.personal?.portfolioLink || selectedApplication?.portfolioLink || "#" } target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500" > 
+                              {selectedApplication?.personal?.portfolioLink || selectedApplication?.portfolioLink || "-"}
+                            </a>
+                        </div>
+                        <div>
+                          <p className="text-sm  text-black-500"> Applied Position </p> 
+                          <p className="text-sm text-gray-500"> {getJobTitle( selectedApplication )} </p>
+                          {selectedApplication.jobid && ( <p className="text-xs text-gray-400 mt-1"> Job ID:{' '} { selectedApplication.jobid } </p> )}
+                        </div>
+                        <div>
+                          <p className="text-sm text-black-500"> Status </p>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge( selectedApplication.status )}`} > { selectedApplication.status || 'Pending' }
                           </span>
                         </div>
-
                         <div>
-                          <p className="text-sm text-gray-500"> Applied Date </p>
-                          <p className="font-medium">
-                            {formatDate( selectedApplication.createdAt || selectedApplication.appliedDate )}
+                          <p className="text-sm text-black-500"> Applied Date </p>
+                          <p className="text-gray-500 text-sm"> {formatDate( selectedApplication.createdAt || selectedApplication.appliedDate )}
                           </p>
                         </div>
                       </div>
@@ -521,7 +524,7 @@ const Applied = () => {
                           {selectedApplication.academics.map(
                             (edu, idx) => (
                               <div key={idx} className="bg-gray-50 p-3 rounded-lg">
-                                <p className="font-medium"> {edu.degree} </p>
+                                <p className="text-black-500 text-sm"> {edu.degree} </p>
                                 <p className="text-sm text-gray-600"> {edu.university} </p>
                                 <p className="text-sm text-gray-500"> Year:{' '} { edu.graduationYear } {' | '} Grade:{' '} {edu.grade} </p>
                               </div>
@@ -536,10 +539,10 @@ const Applied = () => {
                         <h3 className="text-lg font-semibold text-gray-800 mb-3"> Work Experience </h3>
                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           {selectedApplication.experiences.map((exp, idx) => (
-                            <div key={idx} className="bg-gray-50 p-3 rounded-lg" >
-                              <p className="font-medium"> {exp.companyName} </p>
+                            <div key={idx} className="border border-gray-200 rounded-lg p-3" >
+                              <p className="text-black-500 text-sm"> {exp.companyName} </p>
                               <p className="text-sm text-gray-600"> {exp.role} </p>
-                              <p className="text-sm text-gray-500"> {exp.startDate} - {exp.endDate || 'Present'} </p>
+                              <p className="text-sm text-gray-500"> {exp.startDate} | {exp.endDate || 'Present'} </p>
                             </div>
                           ))}
                         </div>
@@ -547,13 +550,33 @@ const Applied = () => {
                     )}
 
                     {selectedApplication.skills && selectedApplication.skills.length > 0 && (
-                      <div className="mb-6">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-3"> Skills </h3>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedApplication.skills.map( (skill, idx) => ( 
-                            <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{skill.skillName} - {' '} {skill.skillLevel}  </span>
-                            )
-                          )}
+                      <div className="mb-6 ">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                          Skills
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {selectedApplication.skills.map((skill, idx) => (
+                            <div
+                              key={idx}
+                              className="border border-gray-200 rounded-lg p-3"
+                            >
+                              <p className="text-sm text-gray-800">
+                                <span className="font-semibold">Skill Name:</span>{" "}
+                                {skill.skillName}
+                              </p>
+
+                              <p className="text-sm text-gray-800">
+                                <span className="font-semibold">Skill Level:</span>{" "}
+                                {skill.skillLevel}
+                              </p>
+
+                              <p className="text-sm text-gray-800">
+                                <span className="font-semibold">Provider:</span>{" "}
+                                {skill.provider}
+                              </p>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

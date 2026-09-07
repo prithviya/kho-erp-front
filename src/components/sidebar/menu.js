@@ -135,7 +135,7 @@ const menu = [
                 title: "Leave",
                 icon: Users,
                 path: "/leave",
-                roles: ["SUPER_ADMIN", "HR", "MANAGER", "CRM_EXECUTIVE"]
+                roles: ["SUPER_ADMIN", "HR", "MANAGER", "CRM_EXECUTIVE", "CEO"]
             }
         ]
     },
