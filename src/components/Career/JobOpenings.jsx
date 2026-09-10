@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { toast } from 'react-toastify';  
-import { PlusSquare, Edit3, X, Link2, Link2Off  } from 'lucide-react';
+import { PlusSquare, Edit3, X, Link2, Link2Off, Eye  } from 'lucide-react';
 import jobOpeningServices from "../../services/opening.service";
 import departmentService from "../../services/department.service";
 
@@ -8,7 +8,13 @@ const JobOpenings = () => {
     const [jobOpenings, setJobOpenings] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [showAddModal, setShowAddModal] = useState(false);
-    
+    const [showViewModal, setShowViewModal] = useState(false);
+    const [selectedJob, setSelectedJob] = useState(null);
+
+    const handleViewJob = (job) => {
+        setSelectedJob(job);
+        setShowViewModal(true);
+    };
     // New states for Editing
     const [isEditing, setIsEditing] = useState(false);
     const [currentJobId, setCurrentJobId] = useState(null);
@@ -291,6 +297,10 @@ const JobOpenings = () => {
                                                     <button onClick={() => editJob(job)} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">
                                                         <Edit3 size={'14px'}/>
                                                     </button>
+                                                    {/* View Button */}
+                                                    <button onClick={() => handleViewJob(job)} title="View Details" className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors" >
+                                                        <Eye size={14} />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -381,6 +391,76 @@ const JobOpenings = () => {
                                         </button>
                                     </div>
                                 </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* VIEW DETAILS MODAL */}
+            {showViewModal && selectedJob && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="fixed inset-0 bg-black/50" onClick={() => setShowViewModal(false)} />
+                    <div className="flex min-h-full items-center justify-center p-4">
+                        <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                            {/* Header */}
+                            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg z-10 flex justify-between items-center">
+                                <div>
+                                    <h2 className="text-xl font-semibold text-gray-800">{selectedJob.jobTitle}</h2>
+                                    <span className="text-xs text-gray-500 font-mono">Code: {selectedJob.code}</span>
+                                </div>
+                                <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Body Details */}
+                            <div className="px-6 py-6 space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <span className="text-xs font-medium text-gray-500 uppercase block">Department</span>
+                                        <span className="text-sm font-semibold text-gray-800">{selectedJob.department?.name || "-"}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs font-medium text-gray-500 uppercase block">Status</span>
+                                        <span className={getStatusBadge(selectedJob.isActive)}>
+                                            {selectedJob.isActive ? "Active" : "Inactive"}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs font-medium text-gray-500 uppercase block">Min. Experience</span>
+                                        <span className="text-sm font-semibold text-gray-800">{selectedJob.minExperience} Years</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs font-medium text-gray-500 uppercase block">Openings Count</span>
+                                        <span className="text-sm font-semibold text-gray-800">{selectedJob.openingCount}</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <span className="text-xs font-medium text-gray-500 uppercase block mb-1">Required Skills</span>
+                                    <div className="p-3 text-sm text-gray-800 whitespace-pre-wrap">
+                                        {selectedJob.requiredSkills || "-"}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <span className="text-xs font-medium text-gray-500 uppercase block mb-1">Job Description</span>
+                                    <div className="p-3 text-sm text-gray-800 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                        {selectedJob.jobDescription || "No description provided."}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="flex justify-end px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowViewModal(false)}
+                                    className="px-5 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium transition-colors"
+                                >
+                                    Close
+                                </button>
                             </div>
                         </div>
                     </div>
