@@ -1,6 +1,6 @@
 import {
   X, Mail, Phone, User, UserCheck, IndianRupee,
-  CalendarDays, Loader2,
+  CalendarDays, Loader2, Clock3, FileText,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import leadService from "../../services/lead.service";
@@ -34,6 +34,46 @@ function avatarColor(name = "") {
 function toDateInputValue(dateStr) {
   if (!dateStr) return "";
   return dateStr.slice(0, 10);
+}
+
+function getTodayDate() {
+  const today = new Date();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${today.getFullYear()}-${month}-${day}`;
+}
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return "Date not available";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "Date not available";
+  return date.toLocaleString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function getHistoryEntries(lead) {
+  const history = lead?.leadHistory ?? lead?.history ?? lead?.statusHistory;
+  if (Array.isArray(history) && history.length > 0) {
+    return history.map((entry, index) => ({
+      id: entry.id ?? index,
+      title: entry.title || entry.action || entry.event || "Lead updated",
+      status: entry.statusName || entry.leadStatus?.name || entry.status,
+      date: entry.createdAt || entry.updatedAt || entry.changedAt || entry.date,
+      followupDate: entry.nextFollowupDate,
+      notes: entry.notes || entry.reason || entry.internalNotes,
+    }));
+  }
+
+  return [{
+    id: "current",
+    title: lead?.createdAt ? "Lead created" : "Current lead details",
+    status: lead?.leadStatus?.name,
+    date: lead?.updatedAt || lead?.createdAt,
+    followupDate: lead?.nextFollowupDate,
+    notes: lead?.notes,
+  }];
 }
 
 function DetailRow({ icon: Icon, children }) {
@@ -82,7 +122,7 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
   useEffect(() => {
     if (!open) return;
     leadService.getLeadStatuses()
-      .then((res) => setStatuses(res?.data || []))
+      .then((res) => setStatuses((res?.data || []).filter((status) => status.isActive !== false)))
       .catch(() => setStatuses([]));
   }, [open]);
 
@@ -121,7 +161,8 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
   const originalFollowup = toDateInputValue(activeLead?.nextFollowupDate);
   const isChanged =
     (statusId && Number(statusId) !== originalStatusId) ||
-    followupDate !== originalFollowup;
+    followupDate !== originalFollowup ||
+    reason.trim().length > 0;
 
   const assignedName = activeLead?.assignedUser
     ? `${activeLead.assignedUser.firstName ?? ""} ${activeLead.assignedUser.lastName ?? ""}`.trim()
@@ -135,9 +176,14 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
       : svc.name,
     color: svc.Category?.color || svc.category?.color || "#6B7280",
   }));
+  const historyEntries = getHistoryEntries(activeLead);
 
   async function handleUpdate() {
     if (!activeLead?.id) return;
+    if (followupDate && followupDate < getTodayDate()) {
+      setError("Follow-up date cannot be in the past.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccess(false);
@@ -298,6 +344,7 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
                 <input
                   type="date"
                   value={followupDate}
+                  min={getTodayDate()}
                   onChange={(e) => { setFollowupDate(e.target.value); setSuccess(false); }}
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
@@ -315,6 +362,35 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
                 placeholder="Why is this being updated?"
                 className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Lead History Tracking
+              </label>
+              <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                {historyEntries.map((entry) => (
+                  <div key={entry.id} className="relative border-l-2 border-blue-200 pl-4">
+                    <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full bg-blue-500" />
+                    <p className="text-sm font-semibold text-gray-700">{entry.title}</p>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
+                      <Clock3 size={12} /> {formatDateTime(entry.date)}
+                    </p>
+                    {entry.status && (
+                      <p className="mt-2 text-xs text-gray-600">Status: <span className="font-medium">{entry.status}</span></p>
+                    )}
+                    {entry.followupDate && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-gray-600">
+                        <CalendarDays size={12} /> Follow-up: {toDateInputValue(entry.followupDate)}
+                      </p>
+                    )}
+                    {entry.notes && (
+                      <p className="mt-1 flex items-start gap-1 text-xs text-gray-600">
+                        <FileText size={12} className="mt-0.5 shrink-0" /> {entry.notes}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

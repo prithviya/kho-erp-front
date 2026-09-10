@@ -3,7 +3,15 @@ import {
     X, Building2, User, Phone, Mail, LogIn, IndianRupee,
     CalendarDays, FileText, Users, StickyNote, UserCheck, Loader2,
 } from "lucide-react";
+import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
+
+function getTodayDate() {
+    const today = new Date();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${today.getFullYear()}-${month}-${day}`;
+}
 
 const INITIAL_FORM = {
     companyName: "",
@@ -15,7 +23,7 @@ const INITIAL_FORM = {
     referralName: "",
     serviceIds: [],
     budget: "",
-    nextFollowupDate: "",
+    nextFollowupDate: getTodayDate(),
     requirement: "",
     assignedTo: "",
     notes: "",
@@ -32,6 +40,10 @@ function validate(form) {
     if (!form.email.trim()) errors.email = "Email is required.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email address.";
     if (!form.leadSourceId) errors.leadSourceId = "Lead source is required.";
+    if (form.serviceIds.length === 0) errors.serviceIds = "At least one service is required.";
+    if (form.nextFollowupDate && form.nextFollowupDate < getTodayDate()) {
+        errors.nextFollowupDate = "Follow-up date cannot be in the past.";
+    }
     if (form.budget !== "" && Number(form.budget) < 0) errors.budget = "Budget must be a positive number.";
     return errors;
 }
@@ -52,7 +64,6 @@ function IconInput({ icon: Icon, children }) {
     );
 }
 
-// Animated shimmer skeleton for the loading state
 function Skeleton({ rows = 5 }) {
     return (
         <div className="space-y-5 p-6 animate-pulse">
@@ -66,23 +77,55 @@ function Skeleton({ rows = 5 }) {
     );
 }
 
-export default function CreateLead({ open, onClose, onCreated }) {
+export default function CreateLead({ open, onClose, onCreated, leadToEdit = null }) {
+    const isEditMode = Boolean(leadToEdit?.id);
+
     const [form, setForm] = useState(INITIAL_FORM);
     const [fieldErrors, setFieldErrors] = useState({});
     const [serverError, setServerError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
-
     const [leadSources, setLeadSources] = useState([]);
     const [leadStatuses, setLeadStatuses] = useState([]);
     const [categories, setCategories] = useState([]);
     const [users, setUsers] = useState([]);
     const [loadingData, setLoadingData] = useState(false);
 
-    // Fetch lookup data when panel opens; use allSettled so one failure doesn't block the rest
+    // Reset or populate form when opening
+    useEffect(() => {
+        if (!open) {
+            setForm(INITIAL_FORM);
+            setFieldErrors({});
+            setServerError(null);
+            return;
+        }
+
+        if (leadToEdit) {
+            setForm({
+                companyName: leadToEdit.companyName || "",
+                contactPerson: leadToEdit.contactPerson || "",
+                phone: leadToEdit.phone || "",
+                email: leadToEdit.email || "",
+                leadSourceId: leadToEdit.leadSourceId ? String(leadToEdit.leadSourceId) : "",
+                leadStatusId: leadToEdit.leadStatusId ? String(leadToEdit.leadStatusId) : "",
+                referralName: leadToEdit.referralName || "",
+                serviceIds: leadToEdit.Services?.map((s) => s.id) || leadToEdit.serviceIds || [],
+                budget: leadToEdit.budget != null ? String(leadToEdit.budget) : "",
+                nextFollowupDate: leadToEdit.nextFollowupDate ? leadToEdit.nextFollowupDate.slice(0, 10) : getTodayDate(),
+                requirement: leadToEdit.requirement || "",
+                assignedTo: leadToEdit.assignedTo ? String(leadToEdit.assignedTo) : "",
+                notes: leadToEdit.notes || "",
+            });
+        } else {
+            setForm(INITIAL_FORM);
+        }
+    }, [open, leadToEdit]);
+
+    // Fetch dropdown reference data and set default "New" status
     useEffect(() => {
         if (!open) return;
         setLoadingData(true);
         setServerError(null);
+
         Promise.allSettled([
             leadService.getLeadSources(),
             leadService.getLeadStatuses(),
@@ -90,23 +133,37 @@ export default function CreateLead({ open, onClose, onCreated }) {
             leadService.getUsers(),
         ]).then(([src, sta, cat, usr]) => {
             if (src.status === "fulfilled") setLeadSources(src.value?.data || []);
-            if (sta.status === "fulfilled") setLeadStatuses(sta.value?.data || []);
             if (cat.status === "fulfilled") setCategories(cat.value?.data || []);
             if (usr.status === "fulfilled") setUsers(usr.value?.data || []);
 
-            const failed = [src, sta, cat, usr].filter((r) => r.status === "rejected");
-            if (failed.length === 4) setServerError("Failed to load form data. Please try again.");
-        }).finally(() => setLoadingData(false));
-    }, [open]);
+            if (sta.status === "fulfilled") {
+                const fetchedStatuses = (sta.value?.data || []).filter((status) => status.isActive !== false);
+                setLeadStatuses(fetchedStatuses);
 
-    // Reset form when panel closes
-    useEffect(() => {
-        if (!open) {
-            setForm(INITIAL_FORM);
-            setFieldErrors({});
-            setServerError(null);
-        }
-    }, [open]);
+                // Auto-select "New" or "New Lead" status when creating a new lead
+                if (!leadToEdit) {
+                    const newStatus = fetchedStatuses.find((s) => {
+                        const name = s.name?.toLowerCase().trim();
+                        return name === "new" || name === "new lead";
+                    });
+
+                    if (newStatus) {
+                        setForm((prev) => ({
+                            ...prev,
+                            leadStatusId: String(newStatus.id),
+                        }));
+                    }
+                }
+            }
+
+            const failed = [src, sta, cat, usr].filter((r) => r.status === "rejected");
+            if (failed.length === 4) {
+                const errMsg = "Failed to load form reference data.";
+                setServerError(errMsg);
+                toast.error(errMsg);
+            }
+        }).finally(() => setLoadingData(false));
+    }, [open, leadToEdit]);
 
     function handleChange(e) {
         const { name, value } = e.target;
@@ -133,13 +190,25 @@ export default function CreateLead({ open, onClose, onCreated }) {
         const errors = validate(form);
         if (Object.keys(errors).length > 0) {
             setFieldErrors(errors);
+            toast.warn("Please fix the highlighted errors.");
             return;
         }
+
+        // Fallback to "New" or "New Lead" if status is missing
+        const defaultNewStatus = leadStatuses.find((s) => {
+            const name = s.name?.toLowerCase().trim();
+            return name === "new" || name === "new lead";
+        });
+
+        const selectedStatus = leadStatuses.find((status) => status.id === Number(form.leadStatusId));
+        const selectedStatusId = selectedStatus?.isActive !== false && form.leadStatusId
+            ? Number(form.leadStatusId)
+            : (defaultNewStatus ? defaultNewStatus.id : undefined);
 
         const payload = {
             ...form,
             leadSourceId: Number(form.leadSourceId),
-            leadStatusId: form.leadStatusId ? Number(form.leadStatusId) : undefined,
+            leadStatusId: selectedStatusId,
             assignedTo: form.assignedTo ? Number(form.assignedTo) : undefined,
             budget: form.budget !== "" ? Number(form.budget) : undefined,
             nextFollowupDate: form.nextFollowupDate || undefined,
@@ -148,16 +217,28 @@ export default function CreateLead({ open, onClose, onCreated }) {
 
         setSubmitting(true);
         try {
-            const result = await leadService.createLead(payload);
-            onCreated?.(result.data);
+            let result;
+            if (isEditMode) {
+                result = await leadService.updateLead(leadToEdit.id, payload);
+                toast.success("Lead updated successfully!");
+            } else {
+                result = await leadService.createLead(payload);
+                toast.success("Lead created successfully!");
+            }
+
+            const savedLead = result?.data?.data || result?.data || result || payload;
+            onCreated?.(savedLead);
             onClose();
         } catch (err) {
             if (err.status === 422 && Array.isArray(err.errors)) {
                 const mapped = {};
                 err.errors.forEach(({ field, message }) => { mapped[field] = message; });
                 setFieldErrors(mapped);
+                toast.error("Validation error. Please verify your fields.");
             } else {
-                setServerError(err.message || "Something went wrong.");
+                const message = err.message || "Failed to process request. Please try again.";
+                setServerError(message);
+                toast.error(message);
             }
         } finally {
             setSubmitting(false);
@@ -174,15 +255,12 @@ export default function CreateLead({ open, onClose, onCreated }) {
             fieldErrors[field] ? "border-red-400 bg-red-50/30" : "border-gray-200"
         }`;
 
-    // Detect "Referral" source to show the referralName field
     const selectedSource = leadSources.find((s) => s.id === Number(form.leadSourceId));
     const isReferral = selectedSource?.name?.toLowerCase().includes("referral");
-
     const selectedCount = form.serviceIds.length;
 
     return (
         <>
-            {/* Backdrop */}
             <div
                 onClick={onClose}
                 className={`fixed inset-0 bg-black/40 z-40 transition-opacity duration-300 ${
@@ -190,16 +268,16 @@ export default function CreateLead({ open, onClose, onCreated }) {
                 }`}
             />
 
-            {/* Slide-in panel */}
             <div
                 className={`fixed right-0 top-0 z-50 flex h-screen w-full max-w-sm flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
                     open ? "translate-x-0" : "translate-x-full"
                 }`}
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Header */}
                 <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
-                    <h2 className="text-lg font-semibold text-gray-800">Create New Lead</h2>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                        {isEditMode ? "Edit Lead" : "Create New Lead"}
+                    </h2>
                     <button
                         type="button"
                         onClick={onClose}
@@ -209,7 +287,6 @@ export default function CreateLead({ open, onClose, onCreated }) {
                     </button>
                 </div>
 
-                {/* Scrollable body */}
                 <div className="flex-1 overflow-y-auto">
                     {loadingData ? (
                         <Skeleton rows={6} />
@@ -221,7 +298,6 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 </div>
                             )}
 
-                            {/* Company Name */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Company Name <span className="text-red-500">*</span>
@@ -239,7 +315,6 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 <FieldError message={fieldErrors.companyName} />
                             </div>
 
-                            {/* Contact Person */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Contact Person <span className="text-red-500">*</span>
@@ -257,7 +332,6 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 <FieldError message={fieldErrors.contactPerson} />
                             </div>
 
-                            {/* Phone */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Phone Number <span className="text-red-500">*</span>
@@ -278,7 +352,6 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 <FieldError message={fieldErrors.phone} />
                             </div>
 
-                            {/* Email */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Email Address <span className="text-red-500">*</span>
@@ -296,7 +369,6 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 <FieldError message={fieldErrors.email} />
                             </div>
 
-                            {/* Lead Source */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Lead Source <span className="text-red-500">*</span>
@@ -317,7 +389,6 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 <FieldError message={fieldErrors.leadSourceId} />
                             </div>
 
-                            {/* Referral Name — shown only when source is Referral */}
                             {isReferral && (
                                 <div>
                                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -336,11 +407,10 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 </div>
                             )}
 
-                            {/* Required Services */}
                             <div>
                                 <div className="mb-2 flex items-center justify-between">
                                     <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Required Services
+                                        Required Services <span className="text-red-500">*</span>
                                     </label>
                                     {selectedCount > 0 && (
                                         <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-600">
@@ -348,7 +418,7 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                         </span>
                                     )}
                                 </div>
-                                <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-3">
+                                <div className={`rounded-xl border bg-gray-50 p-3 space-y-3 ${fieldErrors.serviceIds ? "border-red-400" : "border-gray-200"}`}>
                                     {categories.map((cat) => {
                                         const services = cat.Services ?? cat.services ?? [];
                                         if (!services.length) return null;
@@ -383,9 +453,9 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                         <p className="py-2 text-center text-xs text-gray-400">No services available.</p>
                                     )}
                                 </div>
+                                <FieldError message={fieldErrors.serviceIds} />
                             </div>
 
-                            {/* Estimated Budget */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Estimated Budget (₹)
@@ -404,7 +474,6 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 <FieldError message={fieldErrors.budget} />
                             </div>
 
-                            {/* Next Follow-up Date */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Next Follow-up Date
@@ -415,12 +484,13 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                         name="nextFollowupDate"
                                         value={form.nextFollowupDate}
                                         onChange={handleChange}
+                                        min={getTodayDate()}
                                         className={inputCls("nextFollowupDate")}
                                     />
                                 </IconInput>
+                                <FieldError message={fieldErrors.nextFollowupDate} />
                             </div>
 
-                            {/* Project Name */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Project Name
@@ -440,7 +510,6 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 </div>
                             </div>
 
-                            {/* Assigned CRM Executive */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Assigned CRM Executive
@@ -464,7 +533,6 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 </IconInput>
                             </div>
 
-                            {/* Internal Notes with character counter */}
                             <div>
                                 <div className="mb-1.5 flex items-center justify-between">
                                     <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -491,13 +559,11 @@ export default function CreateLead({ open, onClose, onCreated }) {
                                 <FieldError message={fieldErrors.notes} />
                             </div>
 
-                            {/* Spacer so content isn't hidden behind sticky footer */}
                             <div className="h-2" />
                         </form>
                     )}
                 </div>
 
-                {/* Sticky footer */}
                 {!loadingData && (
                     <div className="shrink-0 border-t bg-white px-6 py-4">
                         <button
@@ -507,7 +573,9 @@ export default function CreateLead({ open, onClose, onCreated }) {
                             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3 text-sm font-semibold uppercase tracking-widest text-white shadow-md shadow-blue-500/30 hover:bg-blue-700 active:scale-[0.98] transition disabled:opacity-60"
                         >
                             {submitting && <Loader2 size={16} className="animate-spin" />}
-                            {submitting ? "Saving…" : "Save Lead"}
+                            {submitting
+                                ? (isEditMode ? "Updating…" : "Saving…")
+                                : (isEditMode ? "Update Lead" : "Save Lead")}
                         </button>
                     </div>
                 )}

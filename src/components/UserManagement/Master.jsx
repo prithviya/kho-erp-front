@@ -189,10 +189,10 @@ function Master() {
       setError("");
 
       const [categoriesResult, leadStatusesResult, leadSourcesResult, departmentsResult] = await Promise.allSettled([
-        leadService.getCategoriesWithServices(),
-        leadService.getLeadStatuses(),
-        leadService.getLeadSources(),
-        departmentService.getDepartments(),
+        leadService.getCategoriesWithServices({ all: true }),
+        leadService.getLeadStatuses({ all: true }),
+        leadService.getLeadSources({ all: true }),
+        departmentService.getDepartments({ all: true }),
       ]);
 
       setFetchIssues({

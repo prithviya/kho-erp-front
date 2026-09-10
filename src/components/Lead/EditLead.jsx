@@ -3,6 +3,7 @@ import {
     CalendarDays, FileText, Users, StickyNote, UserCheck, Loader2
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
 
 const NOTES_MAX = 1000;
@@ -22,6 +23,13 @@ const EMPTY_FORM = {
     assignedTo: "",
     notes: "",
 };
+
+function getTodayDate() {
+    const today = new Date();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${today.getFullYear()}-${month}-${day}`;
+}
 
 function extractServiceIds(lead = {}) {
     const fromIds = Array.isArray(lead.serviceIds) ? lead.serviceIds : [];
@@ -46,6 +54,10 @@ function validate(form) {
     if (!form.email.trim()) errors.email = "Email is required.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email address.";
     if (!form.leadSourceId) errors.leadSourceId = "Lead source is required.";
+    if (form.serviceIds.length === 0) errors.serviceIds = "At least one service is required.";
+    if (form.nextFollowupDate && form.nextFollowupDate < getTodayDate()) {
+        errors.nextFollowupDate = "Follow-up date cannot be in the past.";
+    }
     if (form.budget !== "" && Number(form.budget) < 0) errors.budget = "Budget must be a positive number.";
     return errors;
 }
@@ -85,6 +97,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
     const leadId = leadIdProp ?? leadProp?.id ?? null;
 
     const [form, setForm] = useState(EMPTY_FORM);
+    const [originalLeadStatusId, setOriginalLeadStatusId] = useState("");
     const [fieldErrors, setFieldErrors] = useState({});
     const [serverError, setServerError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
@@ -108,7 +121,9 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
             leadService.getUsers(),
         ]).then(([src, sta, cat, usr]) => {
             if (src.status === "fulfilled") setLeadSources(src.value?.data || []);
-            if (sta.status === "fulfilled") setLeadStatuses(sta.value?.data || []);
+            if (sta.status === "fulfilled") {
+                setLeadStatuses((sta.value?.data || []).filter((status) => status.isActive !== false));
+            }
             if (cat.status === "fulfilled") setCategories(cat.value?.data || []);
             if (usr.status === "fulfilled") setUsers(usr.value?.data || []);
         }).finally(() => setLoadingData(false));
@@ -124,13 +139,15 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
             .then((response) => {
                 const l = response?.data;
                 if (l) {
+                    const loadedStatusId = l.leadStatusId ?? l.leadStatus?.id ?? "";
+                    setOriginalLeadStatusId(loadedStatusId);
                     setForm({
                         companyName: l.companyName || "",
                         contactPerson: l.contactPerson || "",
                         phone: l.phone || "",
                         email: l.email || "",
                         leadSourceId: l.leadSourceId || "",
-                        leadStatusId: l.leadStatusId || "",
+                        leadStatusId: loadedStatusId,
                         referralName: l.referralName || "",
                         serviceIds: extractServiceIds(l),
                         budget: l.budget ?? "",
@@ -153,6 +170,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
     useEffect(() => {
         if (!open) {
             setForm(EMPTY_FORM);
+            setOriginalLeadStatusId("");
             setFieldErrors({});
             setServerError(null);
         }
@@ -197,6 +215,10 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
         setSubmitting(true);
         try {
             const result = await leadService.updateLead(leadId, payload);
+            const savedStatusId = payload.leadStatusId ?? "";
+            if (String(savedStatusId) !== String(originalLeadStatusId ?? "")) {
+                toast.success("Lead status updated successfully!");
+            }
             onUpdated?.(result.data);
             onClose();
         } catch (err) {
@@ -223,6 +245,11 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
     const selectedSource = leadSources.find((s) => s.id === Number(form.leadSourceId));
     const isReferral = selectedSource?.name?.toLowerCase().includes("referral");
     const selectedCount = form.serviceIds.length;
+    const orderedLeadStatuses = [...leadStatuses].sort((a, b) => {
+        const aIsOnHold = a.name?.toLowerCase() === "on hold";
+        const bIsOnHold = b.name?.toLowerCase() === "on hold";
+        return Number(aIsOnHold) - Number(bIsOnHold);
+    });
 
     // Progress calculation based on lead status
     const progress = {
@@ -405,7 +432,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                                         className={selectCls("leadStatusId")}
                                     >
                                         <option value="">Select Status</option>
-                                        {leadStatuses.map((s) => (
+                                        {orderedLeadStatuses.map((s) => (
                                             <option key={s.id} value={s.id}>{s.name}</option>
                                         ))}
                                     </select>
@@ -435,7 +462,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                             <div>
                                 <div className="mb-2 flex items-center justify-between">
                                     <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Required Services
+                                        Required Services <span className="text-red-500">*</span>
                                     </label>
                                     {selectedCount > 0 && (
                                         <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-600">
@@ -443,7 +470,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                                         </span>
                                     )}
                                 </div>
-                                <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-3">
+                                <div className={`rounded-xl border bg-gray-50 p-3 space-y-3 ${fieldErrors.serviceIds ? "border-red-400" : "border-gray-200"}`}>
                                     {categories.map((cat) => {
                                         const services = cat.Services ?? cat.services ?? [];
                                         if (!services.length) return null;
@@ -478,6 +505,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                                         <p className="py-2 text-center text-xs text-gray-400">No services available.</p>
                                     )}
                                 </div>
+                                <FieldError message={fieldErrors.serviceIds} />
                             </div>
 
                             {/* Estimated Budget */}
@@ -510,9 +538,11 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                                         name="nextFollowupDate"
                                         value={form.nextFollowupDate}
                                         onChange={handleChange}
+                                        min={getTodayDate()}
                                         className={inputCls("nextFollowupDate")}
                                     />
                                 </IconInput>
+                                <FieldError message={fieldErrors.nextFollowupDate} />
                             </div>
 
                             {/* Project Name / Requirement */}

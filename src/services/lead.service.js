@@ -57,9 +57,32 @@ const leadService = {
     },
 
     // Lookup data for the create/edit form
-    getLeadSources() { return request("/lead-sources"); },
-    getLeadStatuses() { return request("/lead-statuses"); },
-    getCategoriesWithServices() { return request("/service-categories/with-services"); },
+    async getLeadSources(options = {}) { 
+        const res = await request("/lead-sources"); 
+        if (!options.all && res?.data) {
+            res.data = res.data.filter(x => x.isActive !== false);
+        }
+        return res;
+    },
+    async getLeadStatuses(options = {}) { 
+        const res = await request("/lead-statuses"); 
+        if (!options.all && res?.data) {
+            res.data = res.data.filter(x => x.isActive !== false);
+        }
+        return res;
+    },
+    async getCategoriesWithServices(options = {}) { 
+        const res = await request("/service-categories/with-services"); 
+        if (!options.all && res?.data) {
+            res.data = res.data.filter(c => c.isActive !== false).map(c => {
+                if (c.services) {
+                    c.services = c.services.filter(s => s.isActive !== false);
+                }
+                return c;
+            });
+        }
+        return res;
+    },
     getUsers() { return request("/users"); },
 };
 

@@ -1,12 +1,13 @@
 import { request } from "./apiClient";
 
 const departmentService = {
-    getDepartments(params = {}) {
+    async getDepartments(params = {}) {
         const query = new URLSearchParams(params).toString();
-
-        return request(
-            `/departments${query ? `?${query}` : ""}`
-        );
+        const res = await request(`/departments${query ? `?${query}` : ""}`);
+        if (!params.all && res?.data) {
+            res.data = res.data.filter(x => x.isActive !== false);
+        }
+        return res;
     },
 
     getById(id) {

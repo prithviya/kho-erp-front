@@ -72,7 +72,7 @@
         // Fetch lead statuses once for the filter dropdown
         useEffect(() => {
             leadService.getLeadStatuses()
-                .then((res) => setStatuses(normalizeList(res)))
+                .then((res) => setStatuses(normalizeList(res).filter((status) => status.isActive !== false)))
                 .catch(() => {});
         }, []);
 
@@ -262,7 +262,17 @@
                 </div>
 
                 {/* Panels */}
-                <CreateLead open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => { setCreateOpen(false); fetchLeads(); }}/>
+                <CreateLead open={createOpen}  onClose={() => setCreateOpen(false)}  onCreated={(newLead) => { setCreateOpen(false);
+                        // 1. Immediately prepend the new lead to your table state (instant UI update)
+                        if (newLead && typeof newLead === "object") {
+                            setLeads((prevLeads) => [newLead, ...prevLeads]);
+                        }
+                        // 2. Clear filters so the new lead is guaranteed to be visible, then re-fetch
+                        setSearch("");
+                        setStatusFilter("");
+                        fetchLeads();
+                    }}
+                />
                 <EditLead open={editOpen} onClose={() => setEditOpen(false)} lead={selectedLead} onUpdated={() => { setEditOpen(false); fetchLeads(); }}/>
                 <ViewLead open={viewOpen} onClose={() => setViewOpen(false)} lead={selectedLead}/>
             </div>

@@ -692,7 +692,6 @@ const RecruitmentPipeline = () => {
                                   </p>
                                 </div>
                               </div>
-
                               <div className="text-right ml-4">
                                 <span className="block text-xs text-gray-400">
                                   {item.interviewMode || 'Offline'}
@@ -701,61 +700,28 @@ const RecruitmentPipeline = () => {
                                   {item.date || '-'} {item.time || ''}
                                 </span>
                               </div>
-
                             </div>
-
                           </div>
-
                         )
-
                       )
-
                     ) : (
-
                       <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-500">
                         No interview history available.
                       </div>
-
                     )}
-
                   </div>
-
                 </div>
-
-
-                {/* ==================================================
-                    MODAL FOOTER
-                ================================================== */}
-
                 <div className="flex flex-col sm:flex-row gap-3 justify-end pt-6 mt-6 border-t border-gray-200">
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowDetailsModal(false)
-                    }
-                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors duration-200"
-                  >
+                  <button type="button" onClick={() => setShowDetailsModal(false) }  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors duration-200">
                     Cancel
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={handleSaveRecruitment}
-                    disabled={saving}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  >
+                  <button type="button" onClick={handleSaveRecruitment} disabled={saving} className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" >
                     {saving ? 'Saving...' : 'Save Recruitment Details'}
                   </button>
-
                 </div>
-
               </div>
-
             </div>
-
           </div>
-
         </div>
       )}
     </div>

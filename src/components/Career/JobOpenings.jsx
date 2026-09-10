@@ -253,20 +253,32 @@ const JobOpenings = () => {
                                             <td className="px-4 py-3 text-sm text-gray-700"> {job.minExperience} Years </td>
                                             <td className="px-4 py-3 text-sm text-gray-700 text-center"> {job.openingCount} </td>
                                             <td className="px-4 py-3"> <span className={getStatusBadge(job.isActive)}> {job.isActive ? "Active" : "Inactive"} </span> </td>
-                                            
-                                            {/* APPLY LINK COLUMN - KEPT AS ORIGINAL */}
-                                            <td className="px-4 py-3 text-sm text-blue-600"> 
-                                                {job.jobOpeningUrl || job.jobid ? (
-                                                    (() => {
-                                                        const url = job.jobOpeningUrl || `${window.location.origin}/cif-form?jobid=${job.jobid}`;
-                                                        const displayUrl = url.length > 20 ? `${url.slice(0, 20)}...` : url;
-                                                        return ( 
-                                                            <button type="button" onClick={() => copyJobOpeningUrl(url)} title={url} className="max-w-55 truncate text-left hover:underline">
-                                                                {displayUrl}
-                                                            </button>
-                                                        );
-                                                    })()
-                                                ) : (<span className="text-gray-400">-</span>)}
+                                
+                                            {/* APPLY LINK COLUMN */}
+                                            <td className={`px-4 py-3 text-sm ${job.isActive ? "text-blue-600" : "text-gray-400"}`}>
+                                            {job.jobOpeningUrl || job.jobid ? (
+                                                (() => {
+                                                const url = job.jobOpeningUrl || `${window.location.origin}/cif-form?jobid=${job.jobid}`;
+                                                const displayUrl = url.length > 20 ? `${url.slice(0, 20)}...` : url;
+                                                return (
+                                                    <button
+                                                    type="button"
+                                                    disabled={!job.isActive}
+                                                    onClick={() => job.isActive && copyJobOpeningUrl(url)}
+                                                    title={job.isActive ? url : "Link disabled for inactive opening"}
+                                                    className={`max-w-55 truncate text-left ${
+                                                        job.isActive
+                                                        ? "hover:underline cursor-pointer"
+                                                        : "cursor-not-allowed opacity-60 line-through"
+                                                    }`}
+                                                    >
+                                                    {displayUrl}
+                                                    </button>
+                                                );
+                                                })()
+                                            ) : (
+                                                <span className="text-gray-400">-</span>
+                                            )}
                                             </td>
 
                                             <td className="whitespace-nowrap px-4 py-3">
@@ -314,20 +326,22 @@ const JobOpenings = () => {
                                 <form onSubmit={handleSubmit}>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Job Title *</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Job Title <span className="text-red-500">*</span></label>
                                             <input type="text" name="jobTitle" value={formData.jobTitle} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="e.g., Senior Developer" />
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Department *</label>
-                                            <select name="departmentId" value={formData.departmentId} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                                                <option value="">{departmentLoading ? "Loading..." : "Select Department"}</option>
-                                                {departments.map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
+                                            <label className="block text-sm font-medium text-gray-700 mb-1"> Department <span className="text-red-500">*</span> </label>
+                                            <select name="departmentId" value={formData.departmentId} onChange={handleChange} required disabled={isEditing} className={`w-full px-3 py-2 border border-gray-300 rounded-md ${ isEditing ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white" }`}>
+                                                <option value=""> {departmentLoading ? "Loading..." : "Select Department"} </option>
+                                                {departments.map((dept) => (
+                                                    <option key={dept.id} value={dept.id}> {dept.name}</option>
+                                                ))}
                                             </select>
-                                        </div>
+                                            </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Requirement Count *</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Requirement Count <span className="text-red-500">*</span></label>
                                             <input type="number" name="openingCount" value={formData.openingCount} onChange={handleChange} required min="1" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                                         </div>
 
@@ -337,12 +351,12 @@ const JobOpenings = () => {
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Min. Experience *</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Min. Experience <span className="text-red-500">*</span></label>
                                             <input type="number" name="minExp" value={formData.minExp} onChange={handleChange} required min="0" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Required Skills *</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Required Skills <span className="text-red-500">*</span></label>
                                             <input type="text" name="requiredSkills" value={formData.requiredSkills} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                                         </div>
 

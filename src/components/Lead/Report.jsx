@@ -48,7 +48,9 @@ function Report() {
     const fetchStatuses = async () => {
       try {
         const response = await leadService.getLeadStatuses();
-        const list = normalizeList(response);
+        const list = normalizeList(response).filter(
+          (status) => status.isActive !== false
+        );
         setStatuses(list);
       } catch (err) {
         console.error("STATUS FETCH ERROR:", err);

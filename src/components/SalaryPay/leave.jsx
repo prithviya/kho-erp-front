@@ -342,7 +342,7 @@ export default function LeaveManagement() {
 
                 <form onSubmit={handleApply} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Leave category</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Leave category <span className="text-red-500">*</span></label>
                     <select
                       value={form.categoryId}
                       onChange={(e) => setForm((prev) => ({ ...prev, categoryId: e.target.value }))}
@@ -358,7 +358,7 @@ export default function LeaveManagement() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">From date</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">From date<span className="text-red-500">*</span></label>
                       <input
                         type="date"
                         value={form.fromDate}
@@ -368,7 +368,7 @@ export default function LeaveManagement() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">To date</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">To date<span className="text-red-500">*</span></label>
                       <input
                         type="date"
                         value={form.toDate}
@@ -380,7 +380,7 @@ export default function LeaveManagement() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration type</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration type<span className="text-red-500">*</span></label>
                     <select
                       value={form.durationType}
                       onChange={(e) => setForm((prev) => ({ ...prev, durationType: e.target.value }))}
@@ -395,7 +395,7 @@ export default function LeaveManagement() {
 
                   {form.durationType === "HALF_DAY" && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Session</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Session<span className="text-red-500">*</span></label>
                       <select
                         value={form.session}
                         onChange={(e) => setForm((prev) => ({ ...prev, session: e.target.value }))}
@@ -410,7 +410,7 @@ export default function LeaveManagement() {
 
                   {form.durationType === "QUARTER_DAY" && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Quarter slot</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Quarter slot<span className="text-red-500">*</span></label>
                       <select
                         value={form.quarterSlot}
                         onChange={(e) => setForm((prev) => ({ ...prev, quarterSlot: e.target.value }))}
@@ -428,7 +428,7 @@ export default function LeaveManagement() {
                   {form.durationType === "HOURS" && (
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Start time</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Start time<span className="text-red-500">*</span></label>
                         <input
                           type="time"
                           value={form.startTime}
@@ -437,7 +437,7 @@ export default function LeaveManagement() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">End time</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">End time<span className="text-red-500">*</span></label>
                         <input
                           type="time"
                           value={form.endTime}
@@ -449,7 +449,7 @@ export default function LeaveManagement() {
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reason<span className="text-red-500">*</span></label>
                     <textarea
                       rows={3}
                       value={form.reason}

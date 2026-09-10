@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { request } from '../../services/apiClient';
-import { RefreshCcw, X, Eye, Split, RepeatOff, FileUser } from 'lucide-react'
+import { RefreshCcw, X, Eye, Check, FileUser } from 'lucide-react'
 
 const Applied = () => {
   const [applications, setApplications] = useState([]);
@@ -272,7 +272,7 @@ const Applied = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <p className="text-sm text-gray-500"> Total Applications </p>
             <p className="text-2xl font-bold text-gray-900"> {applications.length}</p>
@@ -406,7 +406,7 @@ const Applied = () => {
                                   : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800'
                               }`}
                             >
-                              <Split size={15} />
+                              <Check size={15} />
                             </button>
 
                             <button
@@ -426,7 +426,7 @@ const Applied = () => {
                                   : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800'
                               }`}
                             >
-                              <RepeatOff size={15} />
+                              <X size={15} />
                             </button>
                           </div>
                         </td>
