@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import {
-    X, Building2, User, Phone, Mail, LogIn, IndianRupee,
+    X, Building2, User, Mail, LogIn, IndianRupee,
     CalendarDays, FileText, Users, StickyNote, UserCheck, Loader2,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
+import PhoneInput, { parsePhoneNumber } from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 
 function getTodayDate() {
     const today = new Date();
@@ -15,7 +17,9 @@ function getTodayDate() {
 
 const INITIAL_FORM = {
     companyName: "",
+    salutation: "",
     contactPerson: "",
+    phoneCountryCode: "",
     phone: "",
     email: "",
     leadSourceId: "",
@@ -31,12 +35,42 @@ const INITIAL_FORM = {
 
 const NOTES_MAX = 1000;
 
+function isReferralSource(sourceName) {
+    return /referr?al/.test(String(sourceName ?? "").trim().toLowerCase());
+}
+
+function getPhoneCountryCode(value) {
+    try {
+        const parsed = parsePhoneNumber(value || "");
+        return parsed?.countryCallingCode ? `+${parsed.countryCallingCode}` : "";
+    } catch {
+        return "";
+    }
+}
+
+function getPhoneInputValue(phone, countryCode) {
+    if (!phone) return "";
+    return String(phone).startsWith("+") ? phone : `${countryCode || ""}${phone}`;
+}
+
 function validate(form) {
     const errors = {};
     if (!form.companyName.trim()) errors.companyName = "Company name is required.";
+    if (!form.salutation) errors.salutation = "Please select a salutation.";
     if (!form.contactPerson.trim()) errors.contactPerson = "Contact person is required.";
-    if (!form.phone.trim()) errors.phone = "Phone number is required.";
-    else if (!/^\d{10}$/.test(form.phone)) errors.phone = "Phone number must contain exactly 10 digits.";
+    if (!form.phoneCountryCode) errors.phoneCountryCode = "Country code is required.";
+    if (!form.phone.trim()) {
+        errors.phone = "Phone number is required.";
+    } else {
+        try {
+            const nationalNumber = parsePhoneNumber(form.phone)?.nationalNumber || "";
+            if (!/^\d{10}$/.test(nationalNumber)) {
+                errors.phone = "Phone number must contain exactly 10 digits.";
+            }
+        } catch {
+            errors.phone = "Phone number must contain exactly 10 digits.";
+        }
+    }
     if (!form.email.trim()) errors.email = "Email is required.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email address.";
     if (!form.leadSourceId) errors.leadSourceId = "Lead source is required.";
@@ -102,8 +136,10 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
         if (leadToEdit) {
             setForm({
                 companyName: leadToEdit.companyName || "",
+                salutation: leadToEdit.salutation || "",
                 contactPerson: leadToEdit.contactPerson || "",
-                phone: leadToEdit.phone || "",
+                phoneCountryCode: leadToEdit.phoneCountryCode || "",
+                phone: getPhoneInputValue(leadToEdit.phone, leadToEdit.phoneCountryCode),
                 email: leadToEdit.email || "",
                 leadSourceId: leadToEdit.leadSourceId ? String(leadToEdit.leadSourceId) : "",
                 leadStatusId: leadToEdit.leadStatusId ? String(leadToEdit.leadStatusId) : "",
@@ -256,7 +292,7 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
         }`;
 
     const selectedSource = leadSources.find((s) => s.id === Number(form.leadSourceId));
-    const isReferral = selectedSource?.name?.toLowerCase().includes("referral");
+    const isReferral = isReferralSource(selectedSource?.name);
     const selectedCount = form.serviceIds.length;
 
     return (
@@ -319,16 +355,30 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Contact Person <span className="text-red-500">*</span>
                                 </label>
-                                <IconInput icon={User}>
-                                    <input
-                                        type="text"
-                                        name="contactPerson"
-                                        value={form.contactPerson}
+                                <div className="flex gap-2">
+                                    <select
+                                        name="salutation"
+                                        value={form.salutation}
                                         onChange={handleChange}
-                                        placeholder="Full Name"
-                                        className={inputCls("contactPerson")}
-                                    />
-                                </IconInput>
+                                        className={`w-28 rounded-lg border bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${fieldErrors.salutation ? "border-red-400 bg-red-50/30" : "border-gray-200"}`}
+                                    >
+                                        <option value="">Title</option>
+                                        <option value="Mr.">Mr.</option>
+                                        <option value="Mrs.">Mrs.</option>
+                                        <option value="Miss">Miss</option>
+                                    </select>
+                                    <IconInput icon={User}>
+                                        <input
+                                            type="text"
+                                            name="contactPerson"
+                                            value={form.contactPerson}
+                                            onChange={handleChange}
+                                            placeholder="Name"
+                                            className={inputCls("contactPerson")}
+                                        />
+                                    </IconInput>
+                                </div>
+                                <FieldError message={fieldErrors.salutation} />
                                 <FieldError message={fieldErrors.contactPerson} />
                             </div>
 
@@ -336,19 +386,29 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Phone Number <span className="text-red-500">*</span>
                                 </label>
-                                <IconInput icon={Phone}>
-                                    <input
-                                        type="tel"
-                                        name="phone"
+                                <div className="flex gap-2">
+                                    <PhoneInput
+                                        international
+                                        defaultCountry="IN"
                                         value={form.phone}
-                                        inputMode="numeric"
-                                        maxLength={10}
-                                        pattern="[0-9]{10}"
-                                        onChange={handleChange}
-                                        placeholder="+91 ..."
-                                        className={inputCls("phone")}
+                                        onChange={(value) => {
+                                            const phone = value || "";
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                phone,
+                                                phoneCountryCode: getPhoneCountryCode(phone),
+                                            }));
+                                            setFieldErrors((prev) => ({
+                                                ...prev,
+                                                phone: undefined,
+                                                phoneCountryCode: undefined,
+                                            }));
+                                        }}
+                                        placeholder="Enter phone number"
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm"
                                     />
-                                </IconInput>
+                                </div>
+                                <FieldError message={fieldErrors.phoneCountryCode} />
                                 <FieldError message={fieldErrors.phone} />
                             </div>
 

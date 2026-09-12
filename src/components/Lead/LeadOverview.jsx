@@ -197,10 +197,10 @@
                                                 <p className="font-semibold text-gray-900">{lead.companyName}</p>
                                                 <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
                                                     <span className="flex items-center gap-1">
-                                                        <Users size={11} /> {lead.contactPerson}
+                                                        <Users size={11} /> {[lead.salutation, lead.contactPerson].filter(Boolean).join(" ")}
                                                     </span>
                                                     <span className="flex items-center gap-1">
-                                                        <Phone size={11} /> {lead.phone}
+                                                        <Phone size={11} /> {[lead.phoneCountryCode, lead.phone].filter(Boolean).join(" ")}
                                                     </span>
                                                 </div>
                                             </td>

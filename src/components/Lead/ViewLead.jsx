@@ -53,15 +53,21 @@ function formatDateTime(dateStr) {
   });
 }
 
-function getHistoryEntries(lead) {
+function getHistoryEntries(lead, statuses) {
   const history = lead?.leadHistory ?? lead?.history ?? lead?.statusHistory;
+  const getStatusName = (statusId) => statuses.find((status) => status.id === Number(statusId))?.name;
   if (Array.isArray(history) && history.length > 0) {
     return history.map((entry, index) => ({
       id: entry.id ?? index,
-      title: entry.title || entry.action || entry.event || "Lead updated",
-      status: entry.statusName || entry.leadStatus?.name || entry.status,
+      title: entry.title || entry.action || entry.event
+        || (entry.notes === "Lead Created"
+          ? "Lead Created"
+          : entry.newStatusId && Number(entry.oldStatusId) !== Number(entry.newStatusId)
+            ? "Lead status changed"
+            : "Lead updated"),
+      status: entry.statusName || entry.leadStatus?.name || entry.status || getStatusName(entry.newStatusId),
       date: entry.createdAt || entry.updatedAt || entry.changedAt || entry.date,
-      followupDate: entry.nextFollowupDate,
+      followupDate: entry.newFollowupDate || entry.nextFollowupDate,
       notes: entry.notes || entry.reason || entry.internalNotes,
     }));
   }
@@ -176,7 +182,7 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
       : svc.name,
     color: svc.Category?.color || svc.category?.color || "#6B7280",
   }));
-  const historyEntries = getHistoryEntries(activeLead);
+  const historyEntries = getHistoryEntries(activeLead, statuses);
 
   async function handleUpdate() {
     if (!activeLead?.id) return;
@@ -190,7 +196,9 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
     try {
       const payload = {
         companyName: activeLead.companyName,
+        salutation: activeLead.salutation,
         contactPerson: activeLead.contactPerson,
+        phoneCountryCode: activeLead.phoneCountryCode,
         phone: activeLead.phone,
         email: activeLead.email,
         requirement: activeLead.requirement,
@@ -200,6 +208,7 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
         assignedTo: activeLead.assignedTo,
         referralName: activeLead.referralName,
         notes: reason.trim() ? `${activeLead.notes ? activeLead.notes + "\n" : ""}${reason.trim()}` : activeLead.notes,
+        changeReason: reason.trim(),
         nextFollowupDate: followupDate || undefined,
         serviceIds: extractServiceIds(activeLead),
       };
@@ -245,14 +254,14 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
             </span>
             <div>
               <p className="text-lg font-bold text-gray-900">{activeLead?.companyName || "—"}</p>
-              <p className="text-sm text-gray-400">{activeLead?.contactPerson}</p>
+              <p className="text-sm text-gray-400">{[activeLead?.salutation, activeLead?.contactPerson].filter(Boolean).join(" ") || "—"}</p>
             </div>
           </div>
 
           {/* Detail rows */}
           <div className="border-t border-gray-100">
             <DetailRow icon={Mail}>{activeLead?.email || "—"}</DetailRow>
-            <DetailRow icon={Phone}>{activeLead?.phone || "—"}</DetailRow>
+            <DetailRow icon={Phone}>{[activeLead?.phoneCountryCode, activeLead?.phone].filter(Boolean).join(" ") || "—"}</DetailRow>
             <DetailRow icon={User}>Source: {activeLead?.leadSource?.name || "—"}</DetailRow>
             {assignedName && (
               <DetailRow icon={UserCheck}>{assignedName}</DetailRow>

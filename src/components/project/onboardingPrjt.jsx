@@ -192,18 +192,86 @@ export default function ProjectOnboarding() {
                   onClick={() => handleServiceDetailChange(id, "technology", tech)}
                   className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${details.technology === tech ? "border-blue-600 bg-blue-100 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
                 >
-                  {tech}
+                  {tech === "Custom" ? "Custom Website" : tech}
                 </button>
               ))}
             </div>
           </div>
-          <input
-            type="text"
-            value={details.notes || ""}
-            onChange={(e) => handleServiceDetailChange(id, "notes", e.target.value)}
-            placeholder="Additional website notes"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
+
+          {details.technology === "WordPress" && (
+            <>
+              <p className="text-sm font-medium text-gray-700">WordPress Development</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {["Theme Development", "Minor Customization", "Full Customization"].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleServiceDetailChange(id, "wpType", type)}
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${details.wpType === type ? "border-blue-600 bg-blue-100 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={details.wpType === "Theme Development" ? details.themeName || "" : details.customDetails || ""}
+                onChange={(e) => handleServiceDetailChange(id, details.wpType === "Theme Development" ? "themeName" : "customDetails", e.target.value)}
+                placeholder={details.wpType === "Theme Development" ? "Theme name" : "Customization details"}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </>
+          )}
+
+          {details.technology === "Shopify" && (
+            <>
+              <p className="text-sm font-medium text-gray-700">Shopify Development</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {["Theme Development", "Minor Customization", "Full Customization"].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleServiceDetailChange(id, "shopifyType", type)}
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${details.shopifyType === type ? "border-blue-600 bg-blue-100 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={details.shopifyType === "Theme Development" ? details.shopifyThemeName || "" : details.shopifyCustomDetails || ""}
+                onChange={(e) => handleServiceDetailChange(id, details.shopifyType === "Theme Development" ? "shopifyThemeName" : "shopifyCustomDetails", e.target.value)}
+                placeholder={details.shopifyType === "Theme Development" ? "Theme name" : "Customization details"}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </>
+          )}
+
+          {details.technology === "Custom" && (
+            <>
+              <p className="text-sm font-medium text-gray-700">Custom Website Development</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {["UI/UX Design + Development", "Existing Website Customization", "Fully Custom Website Development"].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleServiceDetailChange(id, "customType", type)}
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${details.customType === type ? "border-blue-600 bg-blue-100 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={details.techStack || ""}
+                onChange={(e) => handleServiceDetailChange(id, "techStack", e.target.value)}
+                placeholder="Tech stack or requirements"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </>
+          )}
         </div>
       );
     }
@@ -233,15 +301,27 @@ export default function ProjectOnboarding() {
       const subs = details.subServices || [];
       return (
         <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
-          {["Reels", "Poster"].map((item) => (
-            <label key={item} className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={subs.includes(item)}
-                onChange={() => handleListToggle(id, "subServices", item)}
-              />
-              {item}
-            </label>
+          {[{ key: "Reels", label: "Reels", countKey: "reelsCount" }, { key: "Poster", label: "Posters", countKey: "posterCount" }].map((item) => (
+            <div key={item.key} className="rounded-lg border border-gray-200 bg-white p-2">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={subs.includes(item.key)}
+                  onChange={() => handleListToggle(id, "subServices", item.key)}
+                />
+                {item.label}
+              </label>
+              {subs.includes(item.key) && (
+                <input
+                  type="number"
+                  min="0"
+                  value={details[item.countKey] || ""}
+                  onChange={(e) => handleServiceDetailChange(id, item.countKey, e.target.value)}
+                  placeholder={`Number of ${item.label.toLowerCase()}`}
+                  className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              )}
+            </div>
           ))}
         </div>
       );
@@ -415,7 +495,7 @@ export default function ProjectOnboarding() {
             <div className="mt-4 border-t border-gray-200 pt-4">
               <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
                 <span>Progress</span>
-                <span>{selectedServicesCount}/15</span>
+                <span>{selectedServicesCount}</span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
                 <div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.min((selectedServicesCount / 15) * 100, 100)}%` }} />
@@ -456,13 +536,13 @@ export default function ProjectOnboarding() {
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Project Manager <span className="text-red-500">*</span></label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Reporting Head <span className="text-red-500">*</span></label>
                   <UserSelect
                     selected={selectedManagers}
                     setSelected={(members) => setFormData((prev) => ({ ...prev, projectManagerIds: members.map((m) => m.id) }))}
                     show={showManagerDropdown}
                     setShow={setShowManagerDropdown}
-                    placeholder="Select Project Manager"
+                    placeholder="Select Reporting Head"
                     tone="blue"
                     options={managerOptions}
                   />
