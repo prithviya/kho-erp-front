@@ -4,6 +4,79 @@ import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { Rocket, Eye, X } from 'lucide-react';
 
+const getInterviewParts = (dateTime, time) => {
+  if (!dateTime) return null;
+
+  let dateString = time ? `${dateTime} ${time}` : dateTime;
+
+  // Standardize backend date strings to ensure correct timezone parsing
+  if (typeof dateString === 'string') {
+    // Replace spaces with 'T' (e.g., "2026-09-02 07:30:00" -> "2026-09-02T07:30:00")
+    dateString = dateString.replace(' ', 'T');
+
+    // If it has a time ('T') but lacks a timezone indicator ('Z' or '+/-HH:MM'), assume UTC and append 'Z'
+    if (dateString.includes('T') && !dateString.endsWith('Z') && !/([+-]\d{2}:?\d{2})$/.test(dateString)) {
+      dateString += 'Z';
+    }
+  }
+
+  const parsedDate = new Date(dateString);
+  if (Number.isNaN(parsedDate.getTime())) return null;
+
+  const hours24 = parsedDate.getHours();
+  const period = hours24 >= 12 ? 'PM' : 'AM';
+  const hours12 = hours24 % 12 || 12;
+
+  return {
+    date: `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}-${String(parsedDate.getDate()).padStart(2, '0')}`,
+    time: `${String(hours12).padStart(2, '0')}:${String(parsedDate.getMinutes()).padStart(2, '0')}`,
+    period,
+  };
+};
+
+const getInterviewDateTime = (candidate) => (
+  candidate?.interviewDateTime
+  ?? candidate?.interviewDate
+  ?? candidate?.recruitment?.interviewDateTime
+  ?? candidate?.recruitment?.interviewDate
+);
+
+const getInterviewMode = (candidate) => (
+  candidate?.interviewMode ?? candidate?.recruitment?.interviewMode ?? ''
+);
+
+const getInterviewModeFromHistory = (item) => (
+  item?.interviewMode ?? item?.mode ?? item?.interviewType ?? '-'
+);
+
+const getHistoryModifiedDateTime = (item) => (
+  item?.updatedAt
+  ?? item?.modifiedAt
+  ?? item?.changedAt
+  ?? item?.createdAt
+  ?? item?.timestamp
+  ?? item?.actionDate
+  ?? item?.dateTime
+  ?? item?.date
+);
+
+// Safe time parser for accurate sorting (Newest first)
+const getSortableTime = (dateString) => {
+  if (!dateString) return 0;
+  let str = dateString;
+  if (typeof str === 'string') {
+    str = str.replace(' ', 'T');
+    if (str.includes('T') && !str.endsWith('Z') && !/([+-]\d{2}:?\d{2})$/.test(str)) {
+      str += 'Z';
+    }
+  }
+  const time = new Date(str).getTime();
+  return Number.isNaN(time) ? 0 : time;
+};
+
+const hourOptions = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0'));
+const minuteOptions = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'));
+
 const RecruitmentPipeline = () => {
   const navigate = useNavigate();
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -45,7 +118,16 @@ const RecruitmentPipeline = () => {
     if (period === 'AM' && hours === 12) hours = 0;
 
     const formattedHours = String(hours).padStart(2, '0');
-    return `${date}T${formattedHours}:${minutes}`;
+    
+    // Create a local Date object and convert to a UTC ISO string
+    const localDate = new Date(`${date}T${formattedHours}:${minutes}:00`);
+    
+    // Fallback if the date is invalid for any reason
+    if (Number.isNaN(localDate.getTime())) {
+      return `${date}T${formattedHours}:${minutes}:00Z`;
+    }
+
+    return localDate.toISOString();
   };
 
   const fetchShortlistedCandidates = async () => {
@@ -81,16 +163,11 @@ const RecruitmentPipeline = () => {
     let time12 = '';
     let period = 'AM';
 
-    if (candidate.interviewDate) {
-      const d = new Date(candidate.interviewDate);
-      if (!isNaN(d.getTime())) {
-        dateOnly = d.toISOString().split('T')[0];
-        let hours = d.getHours();
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        period = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12 || 12;
-        time12 = `${String(hours).padStart(2, '0')}:${minutes}`;
-      }
+    const interviewParts = getInterviewParts(getInterviewDateTime(candidate));
+    if (interviewParts) {
+      dateOnly = interviewParts.date;
+      time12 = interviewParts.time;
+      period = interviewParts.period;
     }
 
     setSelectedCandidateDetails({
@@ -102,13 +179,13 @@ const RecruitmentPipeline = () => {
       interviewDateOnly: dateOnly,
       interviewTime12: time12,
       interviewPeriod: period,
-      interviewMode: candidate.interviewMode || '',
-      status: candidate.appliedStatus || 'Shortlist',
-      statusNote: candidate.statusNote || '',
-      hrFeedback: candidate.hrFeedback || '',
-      technicalFeedback: candidate.technicalFeedback || '',
-      mdFeedback: candidate.mdFeedback || '',
-      history: candidate.history || [],
+      interviewMode: getInterviewMode(candidate),
+      status: candidate.appliedStatus || candidate.recruitment?.recruitmentStatus || 'Shortlist',
+      statusNote: candidate.statusNote || candidate.recruitment?.statusChangeNote || '',
+      hrFeedback: candidate.hrFeedback || candidate.recruitment?.hrScreeningFeedback || '',
+      technicalFeedback: candidate.technicalFeedback || candidate.recruitment?.technicalInterviewFeedback || '',
+      mdFeedback: candidate.mdFeedback || candidate.recruitment?.mdFeedback || '',
+      history: candidate.history || candidate.recruitment?.history || [],
     });
     setSelectedCandidateId(candidateId);
     setShowDetailsModal(true);
@@ -122,6 +199,14 @@ const RecruitmentPipeline = () => {
     setSelectedCandidateDetails({ ...selectedCandidateDetails, [field]: e.target.value });
   };
 
+  const handleInterviewTimeChange = (part, value) => {
+    const [currentHour = '01', currentMinute = '00'] = selectedCandidateDetails.interviewTime12.split(':');
+    const nextTime = part === 'hour'
+      ? `${value}:${currentMinute}`
+      : `${currentHour}:${value}`;
+    setSelectedCandidateDetails({ ...selectedCandidateDetails, interviewTime12: nextTime });
+  };
+
   const handleSaveRecruitment = async () => {
     // 1. Candidate ID Check
     if (!selectedCandidateDetails?.id) {
@@ -132,6 +217,11 @@ const RecruitmentPipeline = () => {
     // 2. Mandatory Validation: Interview Date & Time
     if (!selectedCandidateDetails.interviewDateOnly || !selectedCandidateDetails.interviewTime12) {
       toast.error('Interview Date and Time are mandatory!');
+      return;
+    }
+
+    if (!/^(0[1-9]|1[0-2]):[0-5]\d$/.test(selectedCandidateDetails.interviewTime12)) {
+      toast.error('Enter interview time in 12-hour format (hh:mm).');
       return;
     }
 
@@ -256,10 +346,14 @@ const RecruitmentPipeline = () => {
                         <p className="text-sm text-gray-700">{candidate.opening?.jobTitle || '-'}</p>
                       </td>
                       <td className="px-4 py-3">
-                        {candidate.interviewDate ? (
+                        {getInterviewParts(getInterviewDateTime(candidate)) ? (
                           <>
-                            <p className="text-sm text-gray-700">{candidate.interviewDate}</p>
-                            <p className="text-xs text-gray-500">{candidate.interviewMode || '-'}</p>
+                            <p className="text-sm text-gray-700">
+                              {getInterviewParts(getInterviewDateTime(candidate)).date}{' '}
+                              {getInterviewParts(getInterviewDateTime(candidate)).time}{' '}
+                              {getInterviewParts(getInterviewDateTime(candidate)).period}
+                            </p>
+                            <p className="text-xs text-gray-500">{getInterviewMode(candidate) || '-'}</p>
                           </>
                         ) : (
                           <p className="text-sm text-gray-400">Not scheduled</p>
@@ -337,12 +431,24 @@ const RecruitmentPipeline = () => {
                           onChange={(e) => handleInputChange(e, 'interviewDateOnly')}
                           className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <input
-                          type="time"
-                          value={selectedCandidateDetails.interviewTime12}
-                          onChange={(e) => handleInputChange(e, 'interviewTime12')}
-                          className="w-1/4 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                        <select
+                          value={selectedCandidateDetails.interviewTime12.split(':')[0] || ''}
+                          onChange={(e) => handleInterviewTimeChange('hour', e.target.value)}
+                          className="w-1/6 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          aria-label="Interview hour"
+                        >
+                          <option value="">HH</option>
+                          {hourOptions.map((hour) => <option key={hour} value={hour}>{hour}</option>)}
+                        </select>
+                        <select
+                          value={selectedCandidateDetails.interviewTime12.split(':')[1] || ''}
+                          onChange={(e) => handleInterviewTimeChange('minute', e.target.value)}
+                          className="w-1/6 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          aria-label="Interview minute"
+                        >
+                          <option value="">MM</option>
+                          {minuteOptions.map((minute) => <option key={minute} value={minute}>{minute}</option>)}
+                        </select>
                         <select
                           value={selectedCandidateDetails.interviewPeriod}
                           onChange={(e) => handleInputChange(e, 'interviewPeriod')}
@@ -447,42 +553,85 @@ const RecruitmentPipeline = () => {
                 {/* 4. INTERVIEW HISTORY */}
                 <div className="pb-6">
                   <h4 className="text-md font-semibold text-gray-800 mb-4">4. Interview History</h4>
-                  <div className="space-y-3">
+                  <div className="space-y-4 max-h-[30vh] overflow-y-auto">
                     {selectedCandidateDetails.history && selectedCandidateDetails.history.length > 0 ? (
-                      selectedCandidateDetails.history.map((item, index) => (
-                        <div key={index} className="bg-gray-50 rounded-lg p-3">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-800 mb-2">
-                                {item.user || '-'} - {item.action || '-'}
-                              </p>
-                              <div className="space-y-1">
+                      [...selectedCandidateDetails.history]
+                        .sort((firstItem, secondItem) => {
+                          // Sort mathematically descending: largest (newest) number to the top
+                          const firstDate = getSortableTime(getHistoryModifiedDateTime(firstItem));
+                          const secondDate = getSortableTime(getHistoryModifiedDateTime(secondItem));
+                          return secondDate - firstDate;
+                        })
+                        .map((item, index) => {
+                        // Parse the interview date specifically saved for this history record
+                        const historyInterviewParts = getInterviewParts(item.interviewDateTime || item.interviewDate);
+                        
+                        // Parse the last modified/edit date for this record
+                        const modifiedParts = getInterviewParts(getHistoryModifiedDateTime(item));
+                        
+                        return (
+                          <div key={index} className="bg-white border border-gray-200 shadow-sm rounded-lg p-4 transition-all hover:shadow-md">
+                            {/* Header: Interview Info & Modified Date */}
+                            <div className="flex justify-between items-start border-b border-gray-100 pb-3 mb-3">
+                              <div>
+                                <h5 className="text-sm font-bold text-gray-700 mb-1">Interview Schedule</h5>
                                 <p className="text-sm text-gray-600">
-                                  <span className="font-semibold">Step 1 (HR Feedback):</span> {item.hrFeedback || '-'}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  <span className="font-semibold">Step 2 (Technical Feedback):</span> {item.technicalFeedback || '-'}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  <span className="font-semibold">Step 3 (MD Feedback):</span> {item.mdFeedback || '-'}
-                                </p>
-                                <p className="text-sm text-gray-600 mt-2">
-                                  <span className="font-semibold">Status Change Note:</span> {item.statusNote || '-'}
+                                  {historyInterviewParts ? (
+                                    <span className="font-medium text-blue-600">
+                                      {historyInterviewParts.date} {historyInterviewParts.time} {historyInterviewParts.period}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400">Not scheduled</span>
+                                  )}
+                                  <span className="mx-2 text-gray-300">|</span>
+                                  <span className="text-sm text-gray-600">Mode: <span className="font-medium">{getInterviewModeFromHistory(item)}</span></span>
                                 </p>
                               </div>
+                              <div className="text-right">
+                                <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Last Modified</span>
+                                {modifiedParts ? (
+                                  <span className="block text-xs font-medium text-gray-600">
+                                    {modifiedParts.date} {modifiedParts.time} {modifiedParts.period}
+                                  </span>
+                                ) : (
+                                  <span className="block text-xs text-gray-400">-</span>
+                                )}
+                                <span className="block text-xs text-gray-400 mt-1">{item.user || 'System User'} {item.action ? `(${item.action})` : ''}</span>
+                              </div>
                             </div>
-                            <div className="text-right ml-4">
-                              <span className="block text-xs text-gray-400">{item.interviewMode || 'Offline'}</span>
-                              <span className="block text-xs text-gray-400 mt-1">
-                                {item.date || '-'} {item.time || ''}
-                              </span>
+
+                            {/* Body: Feedbacks */}
+                            <div className="space-y-2 mb-3">
+                              <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
+                                <span className="font-semibold text-gray-700 block mb-1">Step 1 (HR Feedback):</span> 
+                                {item.hrFeedback || item.hrScreeningFeedback || '-'}
+                              </p>
+                              <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
+                                <span className="font-semibold text-gray-700 block mb-1">Step 2 (Technical Feedback):</span> 
+                                {item.technicalFeedback || item.technicalInterviewFeedback || '-'}
+                              </p>
+                              <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
+                                <span className="font-semibold text-gray-700 block mb-1">Step 3 (MD Feedback):</span> 
+                                {item.mdFeedback || '-'}
+                              </p>
+                            </div>
+
+                            {/* Footer: Final Decision */}
+                            <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
+                              <span className="text-sm font-semibold text-gray-700">Final Decision:</span>
+                              {getStatusBadge(item.status || item.recruitmentStatus || 'Pending')}
+                              {(item.statusNote || item.statusChangeNote) && (
+                                <span className="text-sm text-gray-500 italic ml-2">
+                                  - {item.statusNote || item.statusChangeNote}
+                                </span>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      ))
+                        );
+                        })
                     ) : (
-                      <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-500">
-                        No interview history available.
+                      <div className="bg-gray-50 rounded-lg p-6 text-sm text-gray-500 text-center border border-dashed border-gray-300">
+                        No interview history available yet.
                       </div>
                     )}
                   </div>

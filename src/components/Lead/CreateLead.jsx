@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
-import PhoneInput, { parsePhoneNumber } from "react-phone-number-input";
+import PhoneInput, { parsePhoneNumber, isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
 function getTodayDate() {
@@ -53,24 +53,24 @@ function getPhoneInputValue(phone, countryCode) {
     return String(phone).startsWith("+") ? phone : `${countryCode || ""}${phone}`;
 }
 
+function sanitizePastedPhone(value) {
+    return String(value ?? "").replace(/[^\d+]/g, "").replace(/\+(?=\+)/g, "").trim();
+}
+
 function validate(form) {
     const errors = {};
     if (!form.companyName.trim()) errors.companyName = "Company name is required.";
     if (!form.salutation) errors.salutation = "Please select a salutation.";
     if (!form.contactPerson.trim()) errors.contactPerson = "Contact person is required.";
     if (!form.phoneCountryCode) errors.phoneCountryCode = "Country code is required.";
-    if (!form.phone.trim()) {
+    
+    // Updated international phone validation
+    if (!form.phone || !String(form.phone).trim()) {
         errors.phone = "Phone number is required.";
-    } else {
-        try {
-            const nationalNumber = parsePhoneNumber(form.phone)?.nationalNumber || "";
-            if (!/^\d{10}$/.test(nationalNumber)) {
-                errors.phone = "Phone number must contain exactly 10 digits.";
-            }
-        } catch {
-            errors.phone = "Phone number must contain exactly 10 digits.";
-        }
+    } else if (!isValidPhoneNumber(String(form.phone))) {
+        errors.phone = "Please enter a valid phone number for the selected country.";
     }
+
     if (!form.email.trim()) errors.email = "Email is required.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email address.";
     if (!form.leadSourceId) errors.leadSourceId = "Lead source is required.";
@@ -203,10 +203,7 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
 
     function handleChange(e) {
         const { name, value } = e.target;
-        const nextValue = name === "phone"
-            ? value.replace(/\D/g, "").slice(0, 10)
-            : value;
-        setForm((prev) => ({ ...prev, [name]: nextValue }));
+        setForm((prev) => ({ ...prev, [name]: value }));
         setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
     }
 
@@ -362,10 +359,10 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                         onChange={handleChange}
                                         className={`w-28 rounded-lg border bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${fieldErrors.salutation ? "border-red-400 bg-red-50/30" : "border-gray-200"}`}
                                     >
-                                        <option value="">Title</option>
+                                        <option value="" disabled>Select</option>
                                         <option value="Mr.">Mr.</option>
                                         <option value="Mrs.">Mrs.</option>
-                                        <option value="Miss">Miss</option>
+                                        <option value="Miss">Ms.</option>
                                     </select>
                                     <IconInput icon={User}>
                                         <input
@@ -390,7 +387,24 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                     <PhoneInput
                                         international
                                         defaultCountry="IN"
+                                        countryCallingCodeEditable={false}
                                         value={form.phone}
+                                        onPaste={(event) => {
+                                            const pastedText = sanitizePastedPhone(event.clipboardData?.getData("text") || "");
+                                            if (!pastedText) return;
+                                            event.preventDefault();
+                                            const nextValue = pastedText.startsWith("+") ? pastedText : pastedText;
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                phone: nextValue,
+                                                phoneCountryCode: getPhoneCountryCode(nextValue),
+                                            }));
+                                            setFieldErrors((prev) => ({
+                                                ...prev,
+                                                phone: undefined,
+                                                phoneCountryCode: undefined,
+                                            }));
+                                        }}
                                         onChange={(value) => {
                                             const phone = value || "";
                                             setForm((prev) => ({
@@ -404,8 +418,8 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                                 phoneCountryCode: undefined,
                                             }));
                                         }}
-                                        placeholder="Enter phone number"
-                                        className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm"
+                                        placeholder="Please enter your phone number"
+                                        className="phone-input-wrap"
                                     />
                                 </div>
                                 <FieldError message={fieldErrors.phoneCountryCode} />

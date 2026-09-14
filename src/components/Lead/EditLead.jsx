@@ -5,7 +5,7 @@ import {
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
-import PhoneInput, { parsePhoneNumber } from "react-phone-number-input";
+import PhoneInput, { parsePhoneNumber, isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
 const NOTES_MAX = 1000;
@@ -26,6 +26,10 @@ function getPhoneCountryCode(value) {
 function getPhoneInputValue(phone, countryCode) {
     if (!phone) return "";
     return String(phone).startsWith("+") ? phone : `${countryCode || ""}${phone}`;
+}
+
+function sanitizePastedPhone(value) {
+    return String(value ?? "").replace(/[^\d+]/g, "").replace(/\+(?=\+)/g, "").trim();
 }
 
 const EMPTY_FORM = {
@@ -73,18 +77,14 @@ function validate(form) {
     if (!form.salutation) errors.salutation = "Please select a salutation.";
     if (!form.contactPerson.trim()) errors.contactPerson = "Contact person is required.";
     if (!form.phoneCountryCode) errors.phoneCountryCode = "Country code is required.";
-    if (!form.phone.trim()) {
+    
+    // Updated international phone validation
+    if (!form.phone || !String(form.phone).trim()) {
         errors.phone = "Phone number is required.";
-    } else {
-        try {
-            const nationalNumber = parsePhoneNumber(form.phone)?.nationalNumber || "";
-            if (!/^\d{10}$/.test(nationalNumber)) {
-                errors.phone = "Phone number must contain exactly 10 digits.";
-            }
-        } catch {
-            errors.phone = "Phone number must contain exactly 10 digits.";
-        }
+    } else if (!isValidPhoneNumber(String(form.phone))) {
+        errors.phone = "Please enter a valid phone number for the selected country.";
     }
+
     if (!form.email.trim()) errors.email = "Email is required.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email address.";
     if (!form.leadSourceId) errors.leadSourceId = "Lead source is required.";
@@ -125,8 +125,6 @@ function Skeleton({ rows = 5 }) {
     );
 }
 
-// Accepts either `leadId` (a number/string id) or a full `lead` object.
-// This way it works no matter which prop the parent passes.
 export default function EditLead({ open, onClose, leadId: leadIdProp, lead: leadProp, onUpdated }) {
     const leadId = leadIdProp ?? leadProp?.id ?? null;
 
@@ -420,7 +418,24 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                                 <PhoneInput
                                     international
                                     defaultCountry="IN"
+                                    countryCallingCodeEditable={false}
                                     value={form.phone}
+                                    onPaste={(event) => {
+                                        const pastedText = sanitizePastedPhone(event.clipboardData?.getData("text") || "");
+                                        if (!pastedText) return;
+                                        event.preventDefault();
+                                        const nextValue = pastedText.startsWith("+") ? pastedText : pastedText;
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            phone: nextValue,
+                                            phoneCountryCode: getPhoneCountryCode(nextValue),
+                                        }));
+                                        setFieldErrors((prev) => ({
+                                            ...prev,
+                                            phone: undefined,
+                                            phoneCountryCode: undefined,
+                                        }));
+                                    }}
                                     onChange={(value) => {
                                         const phone = value || "";
                                         setForm((prev) => ({
@@ -434,8 +449,8 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                                             phoneCountryCode: undefined,
                                         }));
                                     }}
-                                    placeholder="Enter phone number"
-                                    className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm"
+                                    placeholder="Please enter your phone number"
+                                    className="phone-input-wrap"
                                 />
                                 <FieldError message={fieldErrors.phoneCountryCode} />
                                 <FieldError message={fieldErrors.phone} />

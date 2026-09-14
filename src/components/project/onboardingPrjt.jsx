@@ -5,7 +5,7 @@ import leadService from "../../services/lead.service";
 import userManagementService from "../../services/userManagement.service";
 import projectOnboardService from "../../services/projectOnboard.service";
 
-const DETAIL_ENABLED_NAMES = new Set(["website", "seo", "smm", "ads", "web app"]);
+const DETAIL_ENABLED_NAMES = new Set(["website", "seo", "smm", "sem", "web app"]);
 
 const INITIAL_FORM = {
   projectName: "",
@@ -300,8 +300,8 @@ export default function ProjectOnboarding() {
     if (key === "smm") {
       const subs = details.subServices || [];
       return (
-        <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
-          {[{ key: "Reels", label: "Reels", countKey: "reelsCount" }, { key: "Poster", label: "Posters", countKey: "posterCount" }].map((item) => (
+        <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 grid grid-cols-5 gap-3">
+          {[{ key: "Poster", label: "Posters", countKey: "posterCount" }, { key: "Video", label: "Video", countKey: "videoCount" },{ key: "VideoProduction", label: "Video Production", countKey: "videoproductionCount" }, { key: "Stories", label: "Stories", countKey: "Stories Count" }, { key: "Banners  ", label: "Banners", countKey: "BannersCount" },].map((item) => (
             <div key={item.key} className="rounded-lg border border-gray-200 bg-white p-2">
               <label className="flex items-center gap-2 text-sm text-gray-700">
                 <input
@@ -327,7 +327,7 @@ export default function ProjectOnboarding() {
       );
     }
 
-    if (key === "ads") {
+    if (key === "sem") {
       const platforms = details.platforms || [];
       return (
         <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3">

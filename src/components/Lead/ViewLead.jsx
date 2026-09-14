@@ -3,6 +3,7 @@ import {
   CalendarDays, Loader2, Clock3, FileText,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
 
 const STATUS_PROGRESS = {
@@ -30,7 +31,6 @@ function avatarColor(name = "") {
   return AVATAR_COLORS[letter.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
-// yyyy-mm-dd for the native <input type="date">
 function toDateInputValue(dateStr) {
   if (!dateStr) return "";
   return dateStr.slice(0, 10);
@@ -124,7 +124,6 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  // Load status options when panel opens
   useEffect(() => {
     if (!open) return;
     leadService.getLeadStatuses()
@@ -132,7 +131,6 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
       .catch(() => setStatuses([]));
   }, [open]);
 
-  // Load full lead details so field values match detailed API response.
   useEffect(() => {
     if (!open || !lead?.id) return;
     setLoadingLead(true);
@@ -142,7 +140,6 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
       .finally(() => setLoadingLead(false));
   }, [open, lead?.id]);
 
-  // Reset fields whenever a (new) lead is opened
   useEffect(() => {
     const activeLead = leadDetails ?? lead;
     setStatusId(activeLead?.leadStatusId ?? activeLead?.leadStatus?.id ?? "");
@@ -174,7 +171,6 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
     ? `${activeLead.assignedUser.firstName ?? ""} ${activeLead.assignedUser.lastName ?? ""}`.trim()
     : activeLead?.referralName || "";
 
-  // Group required services into colored pills, e.g. "Design: Logo"
   const servicePills = (activeLead?.Services ?? activeLead?.services ?? []).map((svc) => ({
     id: svc.id,
     label: svc.Category?.name || svc.category?.name
@@ -187,12 +183,17 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
   async function handleUpdate() {
     if (!activeLead?.id) return;
     if (followupDate && followupDate < getTodayDate()) {
-      setError("Follow-up date cannot be in the past.");
+      const msg = "Follow-up date cannot be in the past.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
     setSaving(true);
     setError(null);
     setSuccess(false);
+
+    const hasStatusChanged = statusId && Number(statusId) !== originalStatusId;
+
     try {
       const payload = {
         companyName: activeLead.companyName,
@@ -212,30 +213,40 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
         nextFollowupDate: followupDate || undefined,
         serviceIds: extractServiceIds(activeLead),
       };
+
       const result = await leadService.updateLead(activeLead.id, payload);
       setLeadDetails(result?.data || activeLead);
       setSuccess(true);
       setReason("");
       onUpdated?.(result?.data);
+
+      const toastMessage = hasStatusChanged
+        ? `Lead status updated to "${currentStatusName}"`
+        : "Lead updated successfully.";
+
+      toast.success(toastMessage, {
+        autoClose: 800,
+        onClose: () => {
+          window.location.reload();
+        },
+      });
     } catch (err) {
-      setError(err.message || "Failed to update lead.");
-    } finally {
+      const errorMsg = err.message || "Failed to update lead.";
+      setError(errorMsg);
+      toast.error(errorMsg);
       setSaving(false);
     }
   }
 
   return (
     <>
-      {/* Overlay */}
       <div
         className="fixed inset-0 z-40 bg-black/50"
         onClick={onClose}
       />
-      {/* Offcanvas */}
       <div
         className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-md flex-col bg-white shadow-2xl"
       >
-        {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
           <h2 className="text-xl font-bold text-gray-900">Lead Details</h2>
           <button
@@ -247,7 +258,6 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {/* Avatar + name block */}
           <div className="flex items-center gap-4 px-6 py-5">
             <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl font-bold text-white ${avatarColor(activeLead?.companyName)}`}>
               {activeLead?.companyName?.trim()[0]?.toUpperCase() ?? "?"}
@@ -258,7 +268,6 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
             </div>
           </div>
 
-          {/* Detail rows */}
           <div className="border-t border-gray-100">
             <DetailRow icon={Mail}>{activeLead?.email || "—"}</DetailRow>
             <DetailRow icon={Phone}>{[activeLead?.phoneCountryCode, activeLead?.phone].filter(Boolean).join(" ") || "—"}</DetailRow>
@@ -280,7 +289,6 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
             <div className="px-6 pb-3 text-xs text-gray-400">Refreshing lead details...</div>
           )}
 
-          {/* Required Services */}
           {servicePills.length > 0 && (
             <div className="px-6 py-5">
               <SectionLabel>Required Services</SectionLabel>
@@ -298,7 +306,6 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
             </div>
           )}
 
-          {/* Status Pipeline */}
           <div className="px-6 py-5">
             <SectionLabel>Status Pipeline</SectionLabel>
             <div className="h-2 rounded-full bg-gray-200">
@@ -312,7 +319,6 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
             </span>
           </div>
 
-          {/* Update section */}
           <div className="space-y-4 border-t border-gray-100 px-6 py-5">
             {error && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -404,7 +410,6 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
           </div>
         </div>
 
-        {/* Sticky footer */}
         <div className="shrink-0 border-t bg-white px-6 py-4">
           <button
             type="button"
