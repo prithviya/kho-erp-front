@@ -556,7 +556,7 @@ const RecruitmentPipeline = () => {
                   <div className="space-y-4 max-h-[30vh] overflow-y-auto">
                     {selectedCandidateDetails.history && selectedCandidateDetails.history.length > 0 ? (
                       [...selectedCandidateDetails.history]
-                        .sort((firstItem, secondItem) => {
+                        .sort((secondItem, firstItem) => {
                           // Sort mathematically descending: largest (newest) number to the top
                           const firstDate = getSortableTime(getHistoryModifiedDateTime(firstItem));
                           const secondDate = getSortableTime(getHistoryModifiedDateTime(secondItem));
@@ -614,17 +614,6 @@ const RecruitmentPipeline = () => {
                                 <span className="font-semibold text-gray-700 block mb-1">Step 3 (MD Feedback):</span> 
                                 {item.mdFeedback || '-'}
                               </p>
-                            </div>
-
-                            {/* Footer: Final Decision */}
-                            <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
-                              <span className="text-sm font-semibold text-gray-700">Final Decision:</span>
-                              {getStatusBadge(item.status || item.recruitmentStatus || 'Pending')}
-                              {(item.statusNote || item.statusChangeNote) && (
-                                <span className="text-sm text-gray-500 italic ml-2">
-                                  - {item.statusNote || item.statusChangeNote}
-                                </span>
-                              )}
                             </div>
                           </div>
                         );

@@ -750,12 +750,12 @@ const handleSubmit = async (e) => {
                     />
                   </div>
                   <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Institute</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1"> Certification</label>
                     <input
                       type="text"
                       value={skill.institute}
                       onChange={(e) => handleArrayChange('skills', index, 'institute', e.target.value)}
-                      placeholder="Institution name"
+                      placeholder="Certificate Provider"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>

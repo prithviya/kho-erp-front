@@ -4,6 +4,7 @@ const ROLE_CODES = {
     SUPER_ADMIN: "SUPER_ADMIN",
     CRM_EXECUTIVE: "CRM_EXECUTIVE",
     MANAGER: "MANAGER",
+    CEO: "CEO",
     HR: "HR",
 };
 
@@ -17,6 +18,7 @@ const ROLE_ALIASES = {
     [ROLE_CODES.SUPER_ADMIN]: ["superadmin"],
     [ROLE_CODES.CRM_EXECUTIVE]: ["crmexecutive"],
     [ROLE_CODES.MANAGER]: ["manager"],
+    [ROLE_CODES.CEO]: ["ceo"],
     [ROLE_CODES.HR]: ["hr"],
 };
 
@@ -85,7 +87,7 @@ export const getDefaultHomePath = (user = null) => {
         return "/lead-overview";
     }
 
-    if (roles.includes(ROLE_CODES.MANAGER)) {
+    if (roles.includes(ROLE_CODES.MANAGER) || roles.includes(ROLE_CODES.CEO)) {
         return "/onboard-prjt";
     }
 

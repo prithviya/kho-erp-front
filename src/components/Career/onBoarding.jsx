@@ -108,7 +108,7 @@ const EmployeeOnboarding = () => {
     superAdmin: 'Super_admin',
     currentAddress: { line1: '', city: '', state: '', pincode: '' },
     permanentAddress: { line1: '', city: '', state: '', pincode: '' },
-    experience: [{ company: '', designation: '', startDate: '', endDate: '', totalExp: '', reason: '' }],
+    experience: [],
     education: [{ qualification: '', institution: '', board: '', year: '', percentage: '' }],
     icebreaker: {
       favoriteCake: '',
@@ -253,16 +253,16 @@ const EmployeeOnboarding = () => {
       : false;
     if (!validEducation) errors.push('education');
 
-    const validExperience = Array.isArray(formData.experience)
-      ? formData.experience.some(
-          (exp) =>
-            hasText(exp?.company) &&
-            hasText(exp?.designation) &&
-            hasText(exp?.startDate) &&
-            hasText(exp?.totalExp)
-        )
-      : false;
-    if (!validExperience) errors.push('experience');
+    // const validExperience = Array.isArray(formData.experience)
+    //   ? formData.experience.some(
+    //       (exp) =>
+    //         hasText(exp?.company) &&
+    //         hasText(exp?.designation) &&
+    //         hasText(exp?.startDate) &&
+    //         hasText(exp?.totalExp)
+    //     )
+    //   : false;
+    // if (!validExperience) errors.push('experience');
 
     const icebreakerFields = [
       'weekendActivity',
@@ -1425,7 +1425,7 @@ const EmployeeOnboarding = () => {
               <option value="Referral">Referral</option>
               <option value="LinkedIn">LinkedIn</option>
               <option value="Naukri">Naukri</option>
-              <option value="Company Website">Company Website</option>
+              <option value="Website">Website</option>
               <option value="Walk-in">Walk-in</option>
             </select>
           </div>
@@ -1448,7 +1448,7 @@ const EmployeeOnboarding = () => {
                   <option value="Content">Content</option>
                   <option value="Operations">Operations</option>
                   <option value="Media">Media</option>
-                  <option value="Designer">Designer</option>
+                  <option value="Designer">Design</option>
                   <option value="Development">Development</option>
                 </>
               )}
@@ -1662,11 +1662,11 @@ const EmployeeOnboarding = () => {
       {/* Experience Details */}
       <div className="border-t border-gray-200 pt-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Experience Details</h3>
-        {hasFieldError('experience') && (
+        {/* {hasFieldError('experience') && (
           <p className="mb-3 text-sm text-red-600">
             Add at least one complete experience entry (company, designation, start date, total experience).
           </p>
-        )}
+        )} */}
         {formData.experience.map((exp, index) => (
           <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
             {index > 0 && !isViewMode && (
@@ -1680,7 +1680,7 @@ const EmployeeOnboarding = () => {
             )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company Name <RequiredAsterisk />
+                Company Name 
               </label>
               <input
                 type="text"
@@ -1693,7 +1693,7 @@ const EmployeeOnboarding = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Designation <RequiredAsterisk />
+                Designation
               </label>
               <input
                 type="text"
@@ -1706,7 +1706,7 @@ const EmployeeOnboarding = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Date <RequiredAsterisk />
+                Start Date 
               </label>
               <input
                 type="date"
@@ -1728,7 +1728,7 @@ const EmployeeOnboarding = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Total Experience <RequiredAsterisk />
+                Total Experience 
               </label>
               <input
                 type="text"
