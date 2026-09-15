@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { request } from '../../services/apiClient';
-import { RefreshCcw, X, Eye, Check, FileUser } from 'lucide-react'
+import { RefreshCcw, X, Eye, Check, FileUser, Trash2 } from 'lucide-react'
+import { canDeleteRecords } from '../../utils/auth';
 
 const Applied = () => {
   const [applications, setApplications] = useState([]);
@@ -10,6 +11,27 @@ const Applied = () => {
   const [showModal, setShowModal] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const canDelete = canDeleteRecords();
+
+  const deleteApplication = async (cifid, name) => {
+    if (!canDelete || deletingId) return;
+    if (!window.confirm(`Delete application${name ? ` of "${name}"` : ''}? This action cannot be undone.`)) return;
+    try {
+      setDeletingId(cifid);
+      const response = await request(`/cif-submissions/${cifid}`, { method: 'DELETE' });
+      if (response?.success) {
+        toast.success('Application deleted successfully');
+        await fetchApplications();
+      } else {
+        toast.error(response?.message || 'Failed to delete application');
+      }
+    } catch (error) {
+      toast.error(error?.message || 'Failed to delete application');
+    } finally {
+      setDeletingId(null);
+    }
+  };
   const [resumeUrlToView, setResumeUrlToView] = useState('');
 
   const [filterStatus, setFilterStatus] = useState('all');
@@ -428,6 +450,17 @@ const Applied = () => {
                             >
                               <X size={15} />
                             </button>
+                            {canDelete && (
+                              <button
+                                onClick={() => deleteApplication(candidateId, app.personal?.fullName || app.fullName)}
+                                disabled={deletingId === candidateId}
+                                title="Delete"
+                                aria-label="Delete application"
+                                className="flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-700 transition-colors hover:bg-red-100 hover:text-red-800 disabled:opacity-50"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

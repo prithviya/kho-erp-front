@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import AddRole from "./AddRole";
-import { Pencil, UserPlus } from "lucide-react";
+import { Pencil, Trash2, UserPlus } from "lucide-react";
 import userManagementService from "../../services/userManagement.service";
 import { toast } from "react-toastify";
+import { getCurrentUser, canDeleteRecords } from "../../utils/auth";
+import { getSession, setSession } from "../../utils/session";
 
 function usernameFromEmail(email = "") {
     const local = String(email).split("@")[0] || "user";
@@ -19,6 +21,10 @@ function UserRole() {
     const [formError, setFormError] = useState("");
     const [tableError, setTableError] = useState("");
     const [editingUser, setEditingUser] = useState(null);
+    const [deletingId, setDeletingId] = useState(null);
+
+    const [canDelete, setCanDelete] = useState(() => canDeleteRecords());
+    const currentUserId = getCurrentUser()?.id;
 
     const loadData = async (searchText = "") => {
         try {
@@ -89,11 +95,21 @@ function UserRole() {
                 isActive: form.isActive,
                 phone: "",
                 roleIds: form.roleIds,
+                canDelete: form.canDelete !== false,
                 ...(form.password?.trim() ? { password: form.password.trim() } : {})
             };
 
             if (userToEdit?.id) {
-                await userManagementService.updateUser(userToEdit.id, payload);
+                const updated = await userManagementService.updateUser(userToEdit.id, payload);
+                // Editing own account: reflect the new delete access immediately
+                // without forcing a re-login.
+                if (userToEdit.id === currentUserId) {
+                    const session = getSession();
+                    if (session?.user) {
+                        setSession({ ...session, user: { ...session.user, ...(updated?.data || {}), canDelete: payload.canDelete } });
+                        setCanDelete(canDeleteRecords());
+                    }
+                }
                 toast.success("User updated successfully.");
             } else {
                 if (!payload.password) {
@@ -111,6 +127,23 @@ function UserRole() {
             setFormError(err.message || "Failed to save user.");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleDeleteUser = async (user) => {
+        if (!canDelete || deletingId) return;
+        const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email;
+        if (!window.confirm(`Delete user "${fullName}"? This action cannot be undone.`)) return;
+
+        try {
+            setDeletingId(user.id);
+            await userManagementService.deleteUser(user.id);
+            toast.success("User deleted successfully.");
+            await loadData(search.trim());
+        } catch (err) {
+            toast.error(err.message || "Failed to delete user.");
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -206,6 +239,19 @@ function UserRole() {
                                                         Edit
                                                     </span>
                                                 </button>
+                                                {canDelete && user.id !== currentUserId && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteUser(user)}
+                                                        disabled={deletingId === user.id}
+                                                        className="group relative rounded-md p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                        <span className="pointer-events-none absolute -top-7 right-0 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                                                            Delete
+                                                        </span>
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

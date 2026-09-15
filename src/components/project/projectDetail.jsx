@@ -2,27 +2,82 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
+import employeeService from "../../services/employee.service";
 import userManagementService from "../../services/userManagement.service";
 import projectOnboardService from "../../services/projectOnboard.service";
+import { canDeleteRecords } from "../../utils/auth";
 
-const DETAIL_ENABLED_NAMES = new Set(["website", "seo", "smm", "ads", "web app"]);
+const DETAIL_ENABLED_NAMES = new Set(["website", "seo", "smm", "sem", "web app"]);
+
+// Services under the "Design" category store a design count.
+const isDesignService = (service) => String(service?.categoryName || "").trim().toLowerCase() === "design";
+const hasServiceDetails = (service) =>
+  DETAIL_ENABLED_NAMES.has(String(service?.name || "").toLowerCase()) || isDesignService(service);
+
+// Human-readable labels for the keys written by the onboarding form
+// (includes legacy keys so older records still display).
+const DETAIL_LABELS = {
+  technology: "Technology",
+  wpType: "WordPress Type",
+  themeName: "Theme",
+  customDetails: "Customization",
+  shopifyType: "Shopify Type",
+  shopifyThemeName: "Theme",
+  shopifyCustomDetails: "Customization",
+  customType: "Custom Type",
+  techStack: "Tech Stack",
+  features: "Features",
+  notes: "Notes",
+  keywordCount: "Keywords",
+  blogCount: "Blogs",
+  subServices: "Sub Services",
+  posterCount: "Posters",
+  videoCount: "Videos",
+  videoproductionCount: "Video Production",
+  storiesCount: "Stories",
+  "Stories Count": "Stories",
+  bannersCount: "Banners",
+  BannersCount: "Banners",
+  platforms: "Platforms",
+  designCount: "Designs"
+};
+
+const getServiceDetails = (serviceDetails, serviceId) =>
+  serviceDetails?.[serviceId] || serviceDetails?.[String(serviceId)] || {};
+
+const ServiceDetailSummary = ({ details }) => {
+  const entries = Object.entries(details || {}).filter(([, value]) => {
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== null && value !== undefined && String(value).trim() !== "";
+  });
+
+  if (!entries.length) {
+    return <p className="text-sm text-gray-500">No details added.</p>;
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+      {entries.map(([key, value]) => (
+        <div key={key} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          <span className="font-medium">{DETAIL_LABELS[key] || key}:</span>{" "}
+          {Array.isArray(value) ? value.join(", ") : String(value)}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const EMPTY_EDIT_FORM = {
-  projectName: "",
-  companyName: "",
-  projectManagerIds: [],
-  spocIds: [],
-  serviceIds: []
+  spocIds: []
 };
 
 const EMPTY_ASSIGN_FORM = {
   assignedToIds: [],
-  reportingHeadId: "",
-  status: "In Progress"
+  reportingHeadId: ""
 };
 
 function formatUserName(user) {
-  return `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "-";
+  return `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.fullName || user?.email || "-";
 }
 
 function formatDate(dateValue) {
@@ -116,7 +171,10 @@ const ProjectManagement = () => {
   const [activeTab, setActiveTab] = useState("projects");
 
   const [projects, setProjects] = useState([]);
+  const [deletingId, setDeletingId] = useState(null);
+  const canDelete = canDeleteRecords();
   const [users, setUsers] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [categories, setCategories] = useState([]);
 
   const [showViewModal, setShowViewModal] = useState(false);
@@ -125,7 +183,6 @@ const ProjectManagement = () => {
 
   const [selectedProject, setSelectedProject] = useState(null);
   const [editForm, setEditForm] = useState(EMPTY_EDIT_FORM);
-  const [serviceDetails, setServiceDetails] = useState({});
   const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM);
 
   const userMap = useMemo(() => {
@@ -133,6 +190,12 @@ const ProjectManagement = () => {
     users.forEach((u) => map.set(Number(u.id), u));
     return map;
   }, [users]);
+
+  const employeeMap = useMemo(() => {
+    const map = new Map();
+    employees.forEach((employee) => map.set(Number(employee.id), employee));
+    return map;
+  }, [employees]);
 
   const serviceMap = useMemo(() => {
     const map = new Map();
@@ -148,12 +211,28 @@ const ProjectManagement = () => {
     return map;
   }, [categories]);
 
+  const handleDeleteProject = async (project) => {
+    if (!canDelete || deletingId) return;
+    if (!window.confirm(`Delete project "${project.projectName || `#${project.id}`}"? This action cannot be undone.`)) return;
+    try {
+      setDeletingId(project.id);
+      await projectOnboardService.remove(project.id);
+      toast.success("Project deleted successfully.");
+      await fetchData();
+    } catch (error) {
+      toast.error(error?.message || "Failed to delete project.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [projectRes, userRes, categoryRes] = await Promise.allSettled([
+      const [projectRes, userRes, employeeRes, categoryRes] = await Promise.allSettled([
         projectOnboardService.list(),
         userManagementService.getUsers(),
+        employeeService.list(),
         leadService.getCategoriesWithServices()
       ]);
 
@@ -168,6 +247,13 @@ const ProjectManagement = () => {
         setUsers(userRes.value?.data || []);
       } else {
         setUsers([]);
+      }
+
+      if (employeeRes.status === "fulfilled") {
+        setEmployees(employeeRes.value?.data || []);
+      } else {
+        setEmployees([]);
+        toast.error(employeeRes.reason?.message || "Failed to load employees.");
       }
 
       if (categoryRes.status === "fulfilled") {
@@ -200,6 +286,12 @@ const ProjectManagement = () => {
       .filter(Boolean)
       .map((u) => formatUserName(u));
 
+  const getEmployeeNames = (ids = []) =>
+    (Array.isArray(ids) ? ids : [])
+      .map((id) => employeeMap.get(Number(id)))
+      .filter(Boolean)
+      .map((employee) => formatUserName(employee));
+
   const getServiceNames = (ids = []) =>
     (Array.isArray(ids) ? ids : [])
       .map((id) => serviceMap.get(Number(id))?.name)
@@ -213,13 +305,8 @@ const ProjectManagement = () => {
   const openEditModal = (project) => {
     setSelectedProject(project);
     setEditForm({
-      projectName: project.projectName || "",
-      companyName: project.companyName || "",
-      projectManagerIds: Array.isArray(project.projectManagerIds) ? project.projectManagerIds.map(Number) : [],
-      spocIds: Array.isArray(project.spocIds) ? project.spocIds.map(Number) : [],
-      serviceIds: Array.isArray(project.serviceIds) ? project.serviceIds.map(Number) : []
+      spocIds: Array.isArray(project.spocIds) ? project.spocIds.map(Number) : []
     });
-    setServiceDetails(project.serviceDetails || {});
     setShowEditModal(true);
   };
 
@@ -231,8 +318,7 @@ const ProjectManagement = () => {
     setSelectedProject(project);
     setAssignForm({
       assignedToIds: Array.isArray(project.assignedToIds) ? project.assignedToIds.map(Number) : [],
-      reportingHeadId: project.reportingHeadId ? Number(project.reportingHeadId) : fallbackReportingHeadId,
-      status: project.status || "In Progress"
+      reportingHeadId: project.reportingHeadId ? Number(project.reportingHeadId) : fallbackReportingHeadId
     });
     setShowAssignModal(true);
   };
@@ -243,60 +329,25 @@ const ProjectManagement = () => {
     setShowAssignModal(false);
     setSelectedProject(null);
     setEditForm(EMPTY_EDIT_FORM);
-    setServiceDetails({});
     setAssignForm(EMPTY_ASSIGN_FORM);
-  };
-
-  const updateEditField = (e) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const toggleService = (serviceId) => {
-    const id = Number(serviceId);
-    setEditForm((prev) => {
-      const current = prev.serviceIds || [];
-      if (current.includes(id)) {
-        setServiceDetails((prevDetails) => {
-          const copy = { ...prevDetails };
-          delete copy[id];
-          return copy;
-        });
-        return { ...prev, serviceIds: current.filter((item) => item !== id) };
-      }
-      return { ...prev, serviceIds: [...current, id] };
-    });
-  };
-
-  const updateServiceDetail = (serviceId, field, value) => {
-    setServiceDetails((prev) => ({
-      ...prev,
-      [serviceId]: {
-        ...prev[serviceId],
-        [field]: value
-      }
-    }));
   };
 
   const saveProjectUpdate = async (e) => {
     e.preventDefault();
     if (!selectedProject) return;
 
-    if (!editForm.projectName.trim()) return toast.error("Project name is required.");
-    if (!editForm.companyName.trim()) return toast.error("Company name is required.");
-    if (!editForm.projectManagerIds.length) return toast.error("Select at least one project manager.");
     if (!editForm.spocIds.length) return toast.error("Select at least one SPOC.");
-    if (!editForm.serviceIds.length) return toast.error("Select at least one service.");
 
     try {
       setSaving(true);
+      // Only SPOC is editable; the rest is sent back unchanged.
       await projectOnboardService.update(selectedProject.id, {
-        projectName: editForm.projectName.trim(),
-        companyName: editForm.companyName.trim(),
-        projectManagerIds: editForm.projectManagerIds,
+        projectName: selectedProject.projectName,
+        companyName: selectedProject.companyName,
+        projectManagerIds: Array.isArray(selectedProject.projectManagerIds) ? selectedProject.projectManagerIds : [],
         spocIds: editForm.spocIds,
-        serviceIds: editForm.serviceIds,
-        serviceDetails
+        serviceIds: Array.isArray(selectedProject.serviceIds) ? selectedProject.serviceIds : [],
+        serviceDetails: selectedProject.serviceDetails || {}
       });
 
       toast.success("Project updated successfully.");
@@ -318,8 +369,7 @@ const ProjectManagement = () => {
       setSaving(true);
       await projectOnboardService.assign(selectedProject.id, {
         assignedToIds: assignForm.assignedToIds,
-        reportingHeadId: assignForm.reportingHeadId ? Number(assignForm.reportingHeadId) : null,
-        status: assignForm.status || "In Progress"
+        reportingHeadId: assignForm.reportingHeadId ? Number(assignForm.reportingHeadId) : null
       });
 
       toast.success("Project assigned successfully.");
@@ -407,6 +457,16 @@ const ProjectManagement = () => {
               >
                 Assign
               </button>
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteProject(project)}
+                  disabled={deletingId === project.id}
+                  className="rounded-md bg-red-100 px-2 py-1 text-xs text-red-700 transition-colors hover:bg-red-200 disabled:opacity-50"
+                >
+                  Delete
+                </button>
+              )}
             </div>
           </td>
         </tr>
@@ -423,7 +483,7 @@ const ProjectManagement = () => {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Project</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Company</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Project Manager</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Reporting Head</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Services</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Created</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Action</th>
@@ -467,7 +527,7 @@ const ProjectManagement = () => {
                     <p className="text-gray-900">{selectedProject.companyName}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Project Manager</label>
+                    <label className="text-sm font-medium text-gray-500">Reporting Head</label>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {getUserNames(selectedProject.projectManagerIds).map((name) => (
                         <span key={name} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">{name}</span>
@@ -486,15 +546,11 @@ const ProjectManagement = () => {
                     <label className="text-sm font-medium text-gray-500">Created</label>
                     <p className="text-gray-900">{formatDate(selectedProject.createdAt)}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Status</label>
-                    <p className="text-gray-900">{selectedProject.status || "Pending"}</p>
-                  </div>
                   <div className="md:col-span-2">
                     <label className="text-sm font-medium text-gray-500">Assigned To</label>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {getUserNames(selectedProject.assignedToIds).length ? (
-                        getUserNames(selectedProject.assignedToIds).map((name) => (
+                      {getEmployeeNames(selectedProject.assignedToIds).length ? (
+                        getEmployeeNames(selectedProject.assignedToIds).map((name) => (
                           <span key={name} className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">{name}</span>
                         ))
                       ) : (
@@ -517,30 +573,15 @@ const ProjectManagement = () => {
                     const service = serviceMap.get(Number(serviceId));
                     if (!service) return null;
 
-                    const serviceName = String(service.name || "");
-                    const serviceKey = serviceName.toLowerCase();
-                    const details = selectedProject.serviceDetails?.[serviceId] || selectedProject.serviceDetails?.[String(serviceId)] || {};
-
-                    if (!DETAIL_ENABLED_NAMES.has(serviceKey)) return null;
+                    if (!hasServiceDetails(service)) return null;
 
                     return (
                       <div key={`detail-${serviceId}`} className="overflow-hidden rounded-lg border-2 border-gray-200">
                         <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
-                          <h4 className="text-sm font-semibold text-gray-800">{serviceName}</h4>
+                          <h4 className="text-sm font-semibold text-gray-800">{String(service.name || "")}</h4>
                         </div>
                         <div className="p-3">
-                          {Object.keys(details).length ? (
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                              {Object.entries(details).map(([key, value]) => (
-                                <div key={key} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                                  <span className="font-medium">{key}:</span>{" "}
-                                  {Array.isArray(value) ? value.join(", ") : String(value)}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-gray-500">No details added.</p>
-                          )}
+                          <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId)} />
                         </div>
                       </div>
                     );
@@ -565,40 +606,38 @@ const ProjectManagement = () => {
               <div className="px-6 py-6">
                 <form onSubmit={saveProjectUpdate}>
                   <div className="space-y-4">
+                    <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                      Only the SPOC can be changed here. Project name, company, reporting head, and services are locked after onboarding.
+                    </p>
+
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Project Name</label>
-                        <input
-                          type="text"
-                          name="projectName"
-                          value={editForm.projectName}
-                          onChange={updateEditField}
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2"
-                          required
-                        />
+                        <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                          {selectedProject.projectName || "-"}
+                        </div>
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Company Name</label>
-                        <input
-                          type="text"
-                          name="companyName"
-                          value={editForm.companyName}
-                          onChange={updateEditField}
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2"
-                          required
-                        />
+                        <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                          {selectedProject.companyName || "-"}
+                        </div>
                       </div>
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Project Manager</label>
-                      <MultiUserSelect
-                        users={users}
-                        selectedIds={editForm.projectManagerIds}
-                        onChange={(ids) => setEditForm((prev) => ({ ...prev, projectManagerIds: ids }))}
-                        placeholder="Select Project Manager"
-                        tone="blue"
-                      />
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Reporting Head</label>
+                      <div className="flex min-h-10.5 flex-wrap items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        {getUserNames(selectedProject.projectManagerIds).length ? (
+                          getUserNames(selectedProject.projectManagerIds).map((name) => (
+                            <span key={`edit-pm-${name}`} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                              {name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
+                      </div>
                     </div>
 
                     <div>
@@ -614,154 +653,34 @@ const ProjectManagement = () => {
 
                     <div>
                       <label className="mb-2 block text-sm font-medium text-gray-700">Services</label>
-                      {categories.map((category) => {
-                        const services = category.services || category.Services || [];
-                        if (!services.length) return null;
-                        return (
-                          <div key={category.id} className="mb-4">
-                            <h4 className="mb-2 text-xs font-medium text-gray-500">{category.name}</h4>
-                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-                              {services.map((service) => {
-                                const selected = editForm.serviceIds.includes(Number(service.id));
-                                return (
-                                  <label
-                                    key={service.id}
-                                    className={`flex cursor-pointer items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm ${
-                                      selected ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
-                                    }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={selected}
-                                      onChange={() => toggleService(service.id)}
-                                    />
-                                    <span className="font-medium text-gray-700">{service.name}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
+                      <div className="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        {getServiceNames(selectedProject.serviceIds).length ? (
+                          getServiceNames(selectedProject.serviceIds).map((serviceName) => (
+                            <span key={`edit-svc-${serviceName}`} className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
+                              {serviceName}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-gray-400">No services</span>
+                        )}
+                      </div>
                     </div>
 
-                    {editForm.serviceIds.some((serviceId) => {
-                      const service = serviceMap.get(Number(serviceId));
-                      return DETAIL_ENABLED_NAMES.has(String(service?.name || "").toLowerCase());
-                    }) && (
+                    {(selectedProject.serviceIds || []).some((serviceId) => hasServiceDetails(serviceMap.get(Number(serviceId)))) && (
                       <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">Service Details</label>
                         <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
-                          {editForm.serviceIds.map((serviceId) => {
+                          {(selectedProject.serviceIds || []).map((serviceId) => {
                             const service = serviceMap.get(Number(serviceId));
-                            if (!service) return null;
-
-                            const name = String(service.name || "");
-                            const key = name.toLowerCase();
-                            if (!DETAIL_ENABLED_NAMES.has(key)) return null;
-
-                            const details = serviceDetails[serviceId] || serviceDetails[String(serviceId)] || {};
+                            if (!service || !hasServiceDetails(service)) return null;
 
                             return (
                               <div key={`edit-${serviceId}`} className="overflow-hidden rounded-lg border-2 border-gray-200">
                                 <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
-                                  <h4 className="text-sm font-semibold text-gray-800">{name}</h4>
+                                  <h4 className="text-sm font-semibold text-gray-800">{String(service.name || "")}</h4>
                                 </div>
-                                <div className="space-y-2 p-3">
-                                  {key === "website" && (
-                                    <>
-                                      <input
-                                        type="text"
-                                        value={details.technology || ""}
-                                        onChange={(e) => updateServiceDetail(serviceId, "technology", e.target.value)}
-                                        placeholder="Technology"
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                      />
-                                      <input
-                                        type="text"
-                                        value={details.notes || ""}
-                                        onChange={(e) => updateServiceDetail(serviceId, "notes", e.target.value)}
-                                        placeholder="Notes"
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                      />
-                                    </>
-                                  )}
-
-                                  {key === "seo" && (
-                                    <div className="grid grid-cols-2 gap-2">
-                                      <input
-                                        type="number"
-                                        value={details.keywordCount || ""}
-                                        onChange={(e) => updateServiceDetail(serviceId, "keywordCount", e.target.value)}
-                                        placeholder="Keyword Count"
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                      />
-                                      <input
-                                        type="number"
-                                        value={details.blogCount || ""}
-                                        onChange={(e) => updateServiceDetail(serviceId, "blogCount", e.target.value)}
-                                        placeholder="Blog Count"
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                      />
-                                    </div>
-                                  )}
-
-                                  {key === "smm" && (
-                                    <input
-                                      type="text"
-                                      value={(details.subServices || []).join(",")}
-                                      onChange={(e) =>
-                                        updateServiceDetail(
-                                          serviceId,
-                                          "subServices",
-                                          e.target.value
-                                            .split(",")
-                                            .map((item) => item.trim())
-                                            .filter(Boolean)
-                                        )
-                                      }
-                                      placeholder="Sub services (comma separated)"
-                                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                    />
-                                  )}
-
-                                  {key === "ads" && (
-                                    <input
-                                      type="text"
-                                      value={(details.platforms || []).join(",")}
-                                      onChange={(e) =>
-                                        updateServiceDetail(
-                                          serviceId,
-                                          "platforms",
-                                          e.target.value
-                                            .split(",")
-                                            .map((item) => item.trim())
-                                            .filter(Boolean)
-                                        )
-                                      }
-                                      placeholder="Platforms (comma separated)"
-                                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                    />
-                                  )}
-
-                                  {key === "web app" && (
-                                    <>
-                                      <input
-                                        type="text"
-                                        value={details.techStack || ""}
-                                        onChange={(e) => updateServiceDetail(serviceId, "techStack", e.target.value)}
-                                        placeholder="Tech Stack"
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                      />
-                                      <textarea
-                                        rows={2}
-                                        value={details.features || ""}
-                                        onChange={(e) => updateServiceDetail(serviceId, "features", e.target.value)}
-                                        placeholder="Features"
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                      />
-                                    </>
-                                  )}
+                                <div className="p-3">
+                                  <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId)} />
                                 </div>
                               </div>
                             );
@@ -784,7 +703,7 @@ const ProjectManagement = () => {
                       disabled={saving}
                       className="rounded-lg bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-900 disabled:opacity-60"
                     >
-                      {saving ? "Updating..." : "Update Project"}
+                      {saving ? "Updating..." : "Update SPOC"}
                     </button>
                   </div>
                 </form>
@@ -836,25 +755,12 @@ const ProjectManagement = () => {
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Assign To</label>
                       <MultiUserSelect
-                        users={users}
+                        users={employees}
                         selectedIds={assignForm.assignedToIds}
                         onChange={(ids) => setAssignForm((prev) => ({ ...prev, assignedToIds: ids }))}
-                        placeholder="Select Team Members"
+                        placeholder="Select Employees"
                         tone="green"
                       />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
-                      <select
-                        value={assignForm.status}
-                        onChange={(e) => setAssignForm((prev) => ({ ...prev, status: e.target.value }))}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Completed">Completed</option>
-                      </select>
                     </div>
                   </div>
 

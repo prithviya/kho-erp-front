@@ -72,10 +72,10 @@ const menu = [
             },
             {
                 name: "Task Board",
-                title: "Task Board",
+                title: "My Tasks",
                 icon: ClipboardCheck,
                 path: "/task-board",
-                roles: ["SUPER_ADMIN", "MANAGER"]
+                roles: ["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]
             }
         ]
     },

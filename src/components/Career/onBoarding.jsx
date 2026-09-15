@@ -4,7 +4,8 @@ import { request } from '../../services/apiClient';
 import departmentService from '../../services/department.service';
 import userManagementService from '../../services/userManagement.service';
 import { toast } from 'react-toastify';
-import {Eye, Edit, Rocket} from 'lucide-react';
+import {Eye, Edit, Rocket, Trash2} from 'lucide-react';
+import { canDeleteRecords } from '../../utils/auth';
 
 const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
@@ -15,6 +16,8 @@ const EmployeeOnboarding = () => {
   const [isViewMode, setIsViewMode] = useState(false);
   
   const [awaitingEmployees, setAwaitingEmployees] = useState([]);
+  const [deletingId, setDeletingId] = useState(null);
+  const canDelete = canDeleteRecords();
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasExistingRecord, setHasExistingRecord] = useState(false);
@@ -433,6 +436,25 @@ const EmployeeOnboarding = () => {
     } catch (error) {
       console.error('Error fetching reporting head options:', error);
       setReportingHeadOptions([]);
+    }
+  };
+
+  const handleDeleteEmployee = async (employee) => {
+    if (!canDelete || deletingId || !employee?.id) return;
+    if (!window.confirm(`Delete "${employee.name}" from onboarding? This removes their application and cannot be undone.`)) return;
+    try {
+      setDeletingId(employee.id);
+      const response = await request(`/cif-submissions/${employee.id}`, { method: 'DELETE' });
+      if (response?.success) {
+        toast.success('Candidate deleted successfully');
+        await fetchAwaitingEmployees();
+      } else {
+        toast.error(response?.message || 'Failed to delete candidate');
+      }
+    } catch (error) {
+      toast.error(error?.message || 'Failed to delete candidate');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -2470,6 +2492,16 @@ const EmployeeOnboarding = () => {
                           >
                             <Rocket size={16} />
                           </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDeleteEmployee(employee)}
+                              disabled={deletingId === employee.id}
+                              title="Delete"
+                              className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -8,6 +8,7 @@ import CreateVendor from "./CreateVendor";
 import EditVendor from "./EditVendor";
 import ViewVendor from "./ViewVendor";
 import { getCategoryName, getServiceName, getServicePrice, getVendorServices } from "./vendorServices";
+import { canDeleteRecords } from "../../utils/auth";
 
 export default function VendorOverview() {
     const [vendors, setVendors] = useState([]);
@@ -22,6 +23,7 @@ export default function VendorOverview() {
     const [viewOpen, setViewOpen] = useState(false);
     const [selectedVendor, setSelectedVendor] = useState(null);
     const [updatingStatusId, setUpdatingStatusId] = useState(null);
+    const canDelete = canDeleteRecords();
 
     const fetchVendors = useCallback(async () => {
         setLoading(true);
@@ -42,6 +44,7 @@ export default function VendorOverview() {
     }, [fetchVendors]);
 
     const handleDelete = async (id) => {
+        if (!canDelete) return;
         if (!window.confirm("Are you sure you want to delete this vendor?")) return;
         try {
             await vendorService.delete(id);
@@ -227,13 +230,15 @@ export default function VendorOverview() {
                                             >
                                                 <Pencil size={16} />
                                             </button>
-                                            <button
-                                                title="Delete"
-                                                onClick={() => handleDelete(vendor.vendorId)}
-                                                className="rounded-md p-1.5 bg-red-100 text-red-500 hover:bg-red-50 transition"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            {canDelete && (
+                                                <button
+                                                    title="Delete"
+                                                    onClick={() => handleDelete(vendor.vendorId)}
+                                                    className="rounded-md p-1.5 bg-red-100 text-red-500 hover:bg-red-50 transition"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                             <button
                                             type="button"
                                             title={`Set vendor ${vendor.status === "active" ? "inactive" : "active"}`}

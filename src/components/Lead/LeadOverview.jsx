@@ -2,13 +2,14 @@
     import { useNavigate } from "react-router-dom";
     import {
         Users, Phone,
-        Eye, Pencil, Rocket, Search, CalendarDays,
+        Eye, Pencil, Rocket, Search, CalendarDays, Trash2,
     } from "lucide-react";
+    import { toast } from "react-toastify";
     import CreateLead from "./CreateLead";
     import EditLead from "./EditLead";
     import ViewLead from "./ViewLead";
     import leadService from "../../services/lead.service";
-    import { hasRole } from "../../utils/auth";
+    import { hasRole, canDeleteRecords } from "../../utils/auth";
 
     // Source badge colours keyed by source name (case-insensitive match)
     const SOURCE_COLORS = {
@@ -46,6 +47,8 @@
         const navigate = useNavigate();
 
         const canCreateLead = hasRole("SUPER_ADMIN");
+        const canDelete = canDeleteRecords();
+        const [deletingId, setDeletingId] = useState(null);
 
         const normalizeList = (payload) => {
             if (Array.isArray(payload)) return payload;
@@ -79,6 +82,33 @@
         useEffect(() => {
             fetchLeads();
         }, [fetchLeads]);
+
+        const ALREADY_ONBOARDED_MSG = "This lead is already onboarded with a project. If needed, create a new lead.";
+
+        const isLeadOnboarded = (lead) => Array.isArray(lead?.projects) && lead.projects.length > 0;
+
+        const handleMoveToProject = (lead) => {
+            if (isLeadOnboarded(lead)) {
+                toast.warning(ALREADY_ONBOARDED_MSG);
+                return;
+            }
+            navigate("/onboard-prjt", { state: { leadId: lead.id, userId: lead.assignedTo || null } });
+        };
+
+        const handleDelete = async (lead) => {
+            if (!canDelete || deletingId) return;
+            if (!window.confirm(`Delete lead "${lead.companyName || lead.contactName || `#${lead.id}`}"? This action cannot be undone.`)) return;
+            try {
+                setDeletingId(lead.id);
+                await leadService.deleteLead(lead.id);
+                toast.success("Lead deleted successfully.");
+                fetchLeads();
+            } catch (err) {
+                toast.error(err.message || "Failed to delete lead.");
+            } finally {
+                setDeletingId(null);
+            }
+        };
 
         // Derived stats
         const totalLeads = leads.length;
@@ -247,8 +277,17 @@
                                                         <Pencil size={16} />
                                                     </button>
                                                     {isConverted && (
-                                                        <button title="Move to Project" onClick={() => navigate("/onboard-prjt", { state: { leadId: lead.id, userId: lead.assignedTo || null } })} className="rounded-md p-1.5 text-purple-500 hover:bg-purple-50 transition" >
+                                                        <button
+                                                            title={isLeadOnboarded(lead) ? "Already onboarded" : "Move to Project"}
+                                                            onClick={() => handleMoveToProject(lead)}
+                                                            className={`rounded-md p-1.5 transition ${isLeadOnboarded(lead) ? "text-gray-400 hover:bg-gray-100" : "text-purple-500 hover:bg-purple-50"}`}
+                                                        >
                                                             <Rocket size={16} />
+                                                        </button>
+                                                    )}
+                                                    {canDelete && (
+                                                        <button title="Delete" onClick={() => handleDelete(lead)} disabled={deletingId === lead.id} className="rounded-md p-1.5 text-red-500 hover:bg-red-50 transition disabled:opacity-50">
+                                                            <Trash2 size={16} />
                                                         </button>
                                                     )}
                                                 </div>

@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
 import departmentService from "../../services/department.service";
 import { getSession } from "../../utils/session";
+import { canDeleteRecords } from "../../utils/auth";
 
 const initialCategoryForm = {
   name: "",
@@ -157,6 +158,8 @@ function Master() {
   const [savingDepartment, setSavingDepartment] = useState(false);
 
   const [modalType, setModalType] = useState(null);
+  const [deletingKey, setDeletingKey] = useState(null);
+  const canDelete = canDeleteRecords();
   const [servicePage, setServicePage] = useState(1);
   const servicesPerPage = 5;
 
@@ -274,6 +277,45 @@ function Master() {
     }
     setModalType(type);
   };
+
+  const deleteActions = {
+    category: { label: "category", fn: (id) => leadService.deleteServiceCategory(id) },
+    service: { label: "service", fn: (id) => leadService.deleteService(id) },
+    status: { label: "lead status", fn: (id) => leadService.deleteLeadStatus(id) },
+    source: { label: "lead source", fn: (id) => leadService.deleteLeadSource(id) },
+    department: { label: "department", fn: (id) => departmentService.delete(id) },
+  };
+
+  const handleDelete = async (type, record) => {
+    if (!canDelete || deletingKey) return;
+    const action = deleteActions[type];
+    if (!action) return;
+    if (!window.confirm(`Delete ${action.label} "${record.name}"? This action cannot be undone.`)) return;
+    try {
+      setDeletingKey(`${type}-${record.id}`);
+      setError("");
+      await action.fn(record.id);
+      await loadMasterData();
+      toast.success(`${action.label.charAt(0).toUpperCase() + action.label.slice(1)} deleted.`);
+    } catch (err) {
+      toast.error(err.message || `Unable to delete ${action.label}.`);
+    } finally {
+      setDeletingKey(null);
+    }
+  };
+
+  const DeleteButton = ({ type, record }) => (
+    canDelete ? (
+      <button
+        type="button"
+        onClick={() => handleDelete(type, record)}
+        disabled={deletingKey === `${type}-${record.id}`}
+        className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+      >
+        Delete
+      </button>
+    ) : null
+  );
 
   const openEditModal = (type, record) => {
     if (type === "category") {
@@ -509,6 +551,7 @@ function Master() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button type="button" onClick={() => openEditModal("category", category)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
+                      <DeleteButton type="category" record={category} />
                     </div>
                   </td>
                 </tr>
@@ -552,6 +595,7 @@ function Master() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button type="button" onClick={() => openEditModal("service", service)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
+                      <DeleteButton type="service" record={service} />
                     </div>
                   </td>
                 </tr>
@@ -627,6 +671,7 @@ function Master() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button type="button" onClick={() => openEditModal("status", status)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
+                      <DeleteButton type="status" record={status} />
                     </div>
                   </td>
                 </tr>
@@ -666,6 +711,7 @@ function Master() {
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button type="button" onClick={() => openEditModal("source", source)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
+                        <DeleteButton type="source" record={source} />
                       </div>
                     </td>
                   </tr>
@@ -731,6 +777,7 @@ function Master() {
                             >
                               Edit
                             </button>
+                            <DeleteButton type="department" record={department} />
                           </div>
                         </td>
                       </tr>

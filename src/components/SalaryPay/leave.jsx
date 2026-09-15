@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { Check, Eye, X } from "lucide-react";
+import { Check, Eye, X, Trash2 } from "lucide-react";
 import leaveService from "../../services/leave.service";
-import { getCurrentUser, hasAnyRole } from "../../utils/auth";
+import { getCurrentUser, hasAnyRole, canDeleteRecords } from "../../utils/auth";
 
 function normalizeList(payload) {
   if (Array.isArray(payload)) return payload;
@@ -32,6 +32,8 @@ function statusClass(status = "") {
 export default function LeaveManagement() {
   const currentUser = getCurrentUser();
   const canApprove = hasAnyRole(["SUPER_ADMIN", "HR", "MANAGER"]);
+  const canDelete = canDeleteRecords();
+  const [deletingId, setDeletingId] = useState(null);
 
   const [activeTab, setActiveTab] = useState("summary");
   const [loading, setLoading] = useState(false);
@@ -60,6 +62,21 @@ export default function LeaveManagement() {
     if (!categoryId) return null;
     return (summary.categories || []).find((item) => Number(item.categoryId) === categoryId) || null;
   }, [form.categoryId, summary.categories]);
+
+  const handleDeleteRequest = async (item) => {
+    if (!canDelete || deletingId) return;
+    if (!window.confirm("Delete this leave request? This action cannot be undone.")) return;
+    try {
+      setDeletingId(item.id);
+      await leaveService.deleteRequest(item.id);
+      toast.success("Leave request deleted.");
+      await loadPageData();
+    } catch (error) {
+      toast.error(error?.message || "Unable to delete leave request.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const loadPageData = async () => {
     setLoading(true);
@@ -307,6 +324,17 @@ export default function LeaveManagement() {
                                   <X size={14} />
                                 </button>
                               </>
+                            )}
+                            {canDelete && (
+                              <button
+                                onClick={() => handleDeleteRequest(item)}
+                                disabled={deletingId === item.id}
+                                title="Delete"
+                                aria-label="Delete leave request"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+                              >
+                                <Trash2 size={14} />
+                              </button>
                             )}
                           </div>
                         </td>

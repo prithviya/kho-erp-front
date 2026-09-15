@@ -26,6 +26,9 @@ const userManagementService = {
     deleteUser(id) {
         return request(`/users/${id}`, { method: "DELETE" });
     },
+    getDirectory() {
+        return request("/users/directory");
+    },
     getRoles() {
         return request("/roles");
     }

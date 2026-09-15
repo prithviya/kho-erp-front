@@ -23,9 +23,18 @@ function getPhoneCountryCode(value) {
     }
 }
 
+const DEFAULT_PHONE_COUNTRY_CODE = "+91"; // matches defaultCountry="IN" on the input
+
+// Build an E.164 value the phone input can parse. Older leads were saved
+// without a country code, so fall back to the default instead of passing a
+// bare national number (which leaves the country selector empty).
 function getPhoneInputValue(phone, countryCode) {
-    if (!phone) return "";
-    return String(phone).startsWith("+") ? phone : `${countryCode || ""}${phone}`;
+    const digits = String(phone ?? "").trim();
+    if (!digits) return "";
+    if (digits.startsWith("+")) return digits;
+    const code = String(countryCode || "").trim();
+    const prefix = code ? (code.startsWith("+") ? code : `+${code}`) : DEFAULT_PHONE_COUNTRY_CODE;
+    return `${prefix}${digits.replace(/^0+/, "")}`;
 }
 
 function sanitizePastedPhone(value) {
@@ -177,7 +186,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                         companyName: l.companyName || "",
                         salutation: l.salutation || "",
                         contactPerson: l.contactPerson || "",
-                        phoneCountryCode: l.phoneCountryCode || "",
+                        phoneCountryCode: getPhoneCountryCode(getPhoneInputValue(l.phone, l.phoneCountryCode)) || l.phoneCountryCode || "",
                         phone: getPhoneInputValue(l.phone, l.phoneCountryCode),
                         email: l.email || "",
                         leadSourceId: l.leadSourceId || "",

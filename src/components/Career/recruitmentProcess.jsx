@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { request } from '../../services/apiClient';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
-import { Rocket, Eye, X } from 'lucide-react';
+import { Rocket, Eye, X, Trash2 } from 'lucide-react';
+import { canDeleteRecords } from '../../utils/auth';
 
 const getInterviewParts = (dateTime, time) => {
   if (!dateTime) return null;
@@ -88,6 +89,28 @@ const RecruitmentPipeline = () => {
 
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const canDelete = canDeleteRecords();
+
+  const handleDeleteCandidate = async (candidate) => {
+    const cifid = resolveCandidateId(candidate);
+    if (!canDelete || deletingId || !cifid) return;
+    if (!window.confirm(`Delete candidate "${candidate.fullName || candidate.email || cifid}" from the recruitment pipeline? This removes their application and cannot be undone.`)) return;
+    try {
+      setDeletingId(cifid);
+      const response = await request(`/cif-submissions/${cifid}`, { method: 'DELETE' });
+      if (response?.success) {
+        toast.success('Candidate deleted successfully');
+        await fetchShortlistedCandidates();
+      } else {
+        toast.error(response?.message || 'Failed to delete candidate');
+      }
+    } catch (error) {
+      toast.error(error?.message || 'Failed to delete candidate');
+    } finally {
+      setDeletingId(null);
+    }
+  };
   const [saving, setSaving] = useState(false);
 
   const [selectedCandidateDetails, setSelectedCandidateDetails] = useState({
@@ -369,6 +392,11 @@ const RecruitmentPipeline = () => {
                         {candidate.appliedStatus === 'Selected' && (
                           <button onClick={() => handleLaunchToOnboarding(candidate)} className="text-green-600 hover:text-green-800 transition-colors" title="Launch to Onboarding">
                             <Rocket size={'16'} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button onClick={() => handleDeleteCandidate(candidate)} disabled={deletingId === resolveCandidateId(candidate)} className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50" title="Delete">
+                            <Trash2 size={'16'} />
                           </button>
                         )}
                       </td>

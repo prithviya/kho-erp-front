@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { request } from '../../services/apiClient';
 import employeeService from '../../services/employee.service';
+import { canDeleteRecords } from '../../utils/auth';
 
 const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
@@ -23,6 +24,8 @@ const getEmployeeDocumentDownloadUrl = (doc) => {
 const Employee = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const canDelete = canDeleteRecords();
 
   const [selectedDepartment, setSelectedDepartment] = useState('All Positions');
   const [searchTerm, setSearchTerm] = useState('');
@@ -92,6 +95,21 @@ const Employee = () => {
   useEffect(() => {
     loadEmployees();
   }, []);
+
+  const handleDelete = async (employee) => {
+    if (!canDelete || deletingId) return;
+    if (!window.confirm(`Delete employee "${employee.name || employee.fullName || employee.email}"? This action cannot be undone.`)) return;
+    try {
+      setDeletingId(employee.id);
+      await employeeService.remove(employee.id);
+      toast.success('Employee deleted successfully.');
+      await loadEmployees();
+    } catch (error) {
+      toast.error(error.message || 'Unable to delete employee.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const getStatusBadge = (status) => {
     return status === 'Active'
@@ -321,6 +339,15 @@ const Employee = () => {
                           >
                             Edit
                           </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(employee)}
+                              disabled={deletingId === employee.id}
+                              className="px-3 py-1 bg-red-100 text-red-700 text-xs rounded-md hover:bg-red-200 transition-colors disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -47,6 +47,9 @@ const employeeService = {
       body: buildEmployeeFormData(payload),
     });
   },
+  remove(id) {
+    return request(`/employees/${id}`, { method: "DELETE" });
+  },
 };
 
 export default employeeService;

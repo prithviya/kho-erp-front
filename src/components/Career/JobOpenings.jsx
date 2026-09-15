@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { toast } from 'react-toastify';  
-import { PlusSquare, Edit3, X, Link2, Link2Off, Eye  } from 'lucide-react';
+import { PlusSquare, Edit3, X, Link2, Link2Off, Eye, Trash2 } from 'lucide-react';
 import jobOpeningServices from "../../services/opening.service";
 import departmentService from "../../services/department.service";
+import { canDeleteRecords } from "../../utils/auth";
 
 const JobOpenings = () => {
     const [jobOpenings, setJobOpenings] = useState([]);
@@ -37,6 +38,28 @@ const JobOpenings = () => {
         status: "Active",
         jobOpeningUrl: ""
     });
+
+    const canDelete = canDeleteRecords();
+    const [deletingId, setDeletingId] = useState(null);
+
+    const handleDeleteJob = async (job) => {
+        if (!canDelete || deletingId) return;
+        if (!window.confirm(`Delete opening "${job.jobTitle}"? This action cannot be undone.`)) return;
+        try {
+            setDeletingId(job.jobid);
+            const response = await jobOpeningServices.deleteOpening(job.jobid);
+            if (response?.success === false) {
+                toast.error(response?.message || "Failed to delete opening.");
+                return;
+            }
+            toast.success("Opening deleted successfully.");
+            await fetchOpenings();
+        } catch (error) {
+            toast.error(error?.message || "Failed to delete opening.");
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     const fetchOpenings = async () => {
         try {
@@ -301,6 +324,11 @@ const JobOpenings = () => {
                                                     <button onClick={() => handleViewJob(job)} title="View Details" className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors" >
                                                         <Eye size={14} />
                                                     </button>
+                                                    {canDelete && (
+                                                        <button onClick={() => handleDeleteJob(job)} disabled={deletingId === job.jobid} title="Delete" className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

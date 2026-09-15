@@ -6,9 +6,9 @@ const EMPTY_FORM = {
     username: "",
     password: "",
     roleIds: [],
-    privileges: ["view", "create", "edit"],
     employeeRecord: "",
-    isActive: true
+    isActive: true,
+    canDelete: true
 };
 
 function AddRole({
@@ -44,9 +44,9 @@ function AddRole({
                 username: editingUser.username || (editingUser.email ? editingUser.email.split("@")[0] : ""),
                 password: "",
                 roleIds: Array.isArray(editingUser.roles) ? editingUser.roles.map((role) => role.id) : [],
-                privileges: ["view", "create", "edit"],
                 employeeRecord: editingUser.employeeRecord || fullName,
-                isActive: Boolean(editingUser.isActive)
+                isActive: Boolean(editingUser.isActive),
+                canDelete: editingUser.canDelete !== false
             });
             return;
         }
@@ -75,17 +75,12 @@ function AddRole({
         onSubmit?.(form, isEditMode ? editingUser : null);
     };
 
-    const togglePrivilege = (key) => {
-        setForm((prev) => {
-            const selected = prev.privileges.includes(key);
-            return {
-                ...prev,
-                privileges: selected ? prev.privileges.filter((item) => item !== key) : [...prev.privileges, key]
-            };
-        });
-    };
-
     const employeeListId = "employee-record-options";
+
+    const superAdminRoleIds = roleOptions
+        .filter((role) => String(role.code || role.name || "").toLowerCase().replace(/[\s_-]+/g, "") === "superadmin")
+        .map((role) => role.id);
+    const superAdminSelected = form.roleIds.some((id) => superAdminRoleIds.includes(id));
 
     return (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4">
@@ -186,28 +181,6 @@ function AddRole({
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Privileges (Permissions)</p>
-                        <div className="flex flex-wrap gap-x-5 gap-y-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
-                            {[
-                                { key: "view", label: "View" },
-                                { key: "create", label: "Create" },
-                                { key: "edit", label: "Edit" },
-                                { key: "delete", label: "Delete" }
-                            ].map((item) => (
-                                <label key={item.key} className="inline-flex items-center gap-2 text-base text-gray-700">
-                                    <input
-                                        type="checkbox"
-                                        checked={form.privileges.includes(item.key)}
-                                        onChange={() => togglePrivilege(item.key)}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    {item.label}
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-
                     <label className="block space-y-2 text-sm">
                         <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Link To Employee Record</span>
                         <input
@@ -223,6 +196,31 @@ function AddRole({
                             ))}
                         </datalist>
                     </label>
+
+                    {superAdminSelected ? (
+                        <div className="space-y-2">
+                            <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Delete Access (Super Admin)</p>
+                            <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                                <div>
+                                    <p className="text-base font-medium text-gray-800">
+                                        {form.canDelete ? "Delete option enabled" : "Delete option disabled"}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        Controls whether this super admin sees Delete buttons across all modules.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={form.canDelete}
+                                    onClick={() => setForm((prev) => ({ ...prev, canDelete: !prev.canDelete }))}
+                                    className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${form.canDelete ? "bg-blue-600" : "bg-gray-300"}`}
+                                >
+                                    <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${form.canDelete ? "translate-x-6" : "translate-x-1"}`} />
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
 
                     <label className="block max-w-md space-y-2 text-sm">
                         <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Status</span>

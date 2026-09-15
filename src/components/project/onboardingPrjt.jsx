@@ -7,6 +7,11 @@ import projectOnboardService from "../../services/projectOnboard.service";
 
 const DETAIL_ENABLED_NAMES = new Set(["website", "seo", "smm", "sem", "web app"]);
 
+// Services under the "Design" category collect a design count instead of named fields.
+const isDesignService = (service) => String(service?.categoryName || "").trim().toLowerCase() === "design";
+const hasServiceDetails = (service) =>
+  DETAIL_ENABLED_NAMES.has(String(service?.name || "").toLowerCase()) || isDesignService(service);
+
 const INITIAL_FORM = {
   projectName: "",
   companyName: "",
@@ -33,6 +38,9 @@ export default function ProjectOnboarding() {
 
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [serviceDetails, setServiceDetails] = useState(INITIAL_SERVICE_DETAILS);
+  const [alreadyOnboarded, setAlreadyOnboarded] = useState(false);
+
+  const ALREADY_ONBOARDED_MSG = "This lead is already onboarded with a project. If needed, create a new lead.";
 
   useEffect(() => {
     let mounted = true;
@@ -58,6 +66,11 @@ export default function ProjectOnboarding() {
         setCategories(categoriesRes?.data || []);
 
         const lead = leadRes?.data || null;
+        const leadHasProject = Array.isArray(lead?.projects) && lead.projects.length > 0;
+        setAlreadyOnboarded(leadHasProject);
+        if (leadHasProject) {
+          toast.warning(ALREADY_ONBOARDED_MSG);
+        }
         setFormData((prev) => ({
           ...prev,
           companyName: lead?.companyName || prev.companyName,
@@ -176,6 +189,22 @@ export default function ProjectOnboarding() {
     const id = Number(service.id);
     const key = service.name?.toLowerCase() || "";
     const details = serviceDetails[id] || {};
+
+    if (isDesignService(service)) {
+      return (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <label className="mb-1 block text-sm font-medium text-gray-700">Number of designs</label>
+          <input
+            type="number"
+            min="0"
+            value={details.designCount || ""}
+            onChange={(e) => handleServiceDetailChange(id, "designCount", e.target.value)}
+            placeholder="Design count"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+      );
+    }
 
     if (!DETAIL_ENABLED_NAMES.has(key)) return null;
 
@@ -301,7 +330,13 @@ export default function ProjectOnboarding() {
       const subs = details.subServices || [];
       return (
         <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 grid grid-cols-5 gap-3">
-          {[{ key: "Poster", label: "Posters", countKey: "posterCount" }, { key: "Video", label: "Video", countKey: "videoCount" },{ key: "VideoProduction", label: "Video Production", countKey: "videoproductionCount" }, { key: "Stories", label: "Stories", countKey: "Stories Count" }, { key: "Banners  ", label: "Banners", countKey: "BannersCount" },].map((item) => (
+          {[
+            { key: "Poster", label: "Posters", countKey: "posterCount" },
+            { key: "Video", label: "Video", countKey: "videoCount" },
+            { key: "VideoProduction", label: "Video Production", countKey: "videoproductionCount" },
+            { key: "Stories", label: "Stories", countKey: "storiesCount" },
+            { key: "Banners", label: "Banners", countKey: "bannersCount" }
+          ].map((item) => (
             <div key={item.key} className="rounded-lg border border-gray-200 bg-white p-2">
               <label className="flex items-center gap-2 text-sm text-gray-700">
                 <input
@@ -375,6 +410,7 @@ export default function ProjectOnboarding() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (alreadyOnboarded) return toast.warning(ALREADY_ONBOARDED_MSG);
     if (!formData.projectName.trim()) return toast.error("Project name is required.");
     if (!formData.companyName.trim()) return toast.error("Company name is required.");
     if (!formData.projectManagerIds.length) return toast.error("Select at least one project manager.");
@@ -507,6 +543,18 @@ export default function ProjectOnboarding() {
         <div className="flex-1">
           <form onSubmit={handleSubmit}>
             <div className="space-y-5 rounded-xl bg-white p-6 shadow-lg">
+              {alreadyOnboarded && (
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  <span>{ALREADY_ONBOARDED_MSG}</span>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/lead-overview")}
+                    className="shrink-0 rounded-md border border-amber-400 px-3 py-1 text-xs font-medium hover:bg-amber-100"
+                  >
+                    Back to Leads
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Project Name <span className="text-red-500">*</span></label>
@@ -592,7 +640,7 @@ export default function ProjectOnboarding() {
                 })}
               </div>
 
-              {selectedServices.some((s) => DETAIL_ENABLED_NAMES.has(String(s.name || "").toLowerCase())) && (
+              {selectedServices.some(hasServiceDetails) && (
                 <div>
                   <h2 className="mb-3 text-md font-semibold text-gray-800">Service Details</h2>
                   <div className="max-h-75 space-y-3 overflow-y-auto pr-1">
@@ -616,7 +664,7 @@ export default function ProjectOnboarding() {
               <div className="flex justify-end border-t border-gray-200 pt-4">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || alreadyOnboarded}
                   className="flex items-center gap-2 rounded-lg bg-gray-800 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-60"
                 >
                   <span>🚀</span>

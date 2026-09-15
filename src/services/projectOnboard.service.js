@@ -24,6 +24,9 @@ const projectOnboardService = {
             method: "PATCH",
             body: JSON.stringify(payload)
         });
+    },
+    remove(id) {
+        return request(`/project-onboards/${id}`, { method: "DELETE" });
     }
 };
 

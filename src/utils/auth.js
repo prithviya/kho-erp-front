@@ -6,6 +6,7 @@ const ROLE_CODES = {
     MANAGER: "MANAGER",
     CEO: "CEO",
     HR: "HR",
+    TEAM_MEMBER: "TEAM_MEMBER",
 };
 
 const normalizeRole = (value = "") =>
@@ -20,6 +21,7 @@ const ROLE_ALIASES = {
     [ROLE_CODES.MANAGER]: ["manager"],
     [ROLE_CODES.CEO]: ["ceo"],
     [ROLE_CODES.HR]: ["hr"],
+    [ROLE_CODES.TEAM_MEMBER]: ["teammember"],
 };
 
 const resolveCanonicalRole = (value = "") => {
@@ -64,6 +66,12 @@ export const hasRole = (roleCode) => {
     return getCanonicalRoles().includes(canonical);
 };
 
+export const isSuperAdmin = () => hasRole(ROLE_CODES.SUPER_ADMIN);
+
+// Delete buttons are shown only to super admins whose per-account
+// delete access (users.canDelete) has not been switched off.
+export const canDeleteRecords = () => isSuperAdmin() && getCurrentUser()?.canDelete !== false;
+
 export const hasAnyRole = (roleCodes = []) => {
     const allowed = roleCodes
         .map((roleCode) => resolveCanonicalRole(roleCode) || roleCode)
@@ -95,7 +103,8 @@ export const getDefaultHomePath = (user = null) => {
         return "/onboarding";
     }
 
-    return "/dashboard";
+    // Team members (and any role without a dedicated landing page) go to their tasks.
+    return "/task-board";
 };
 
 export const hasPermission = (permissionKey) => {
