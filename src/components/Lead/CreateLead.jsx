@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
-import PhoneInput, { parsePhoneNumber, isValidPhoneNumber } from "react-phone-number-input";
+import PhoneInput, { parsePhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
 function getTodayDate() {
@@ -48,6 +48,14 @@ function getPhoneCountryCode(value) {
     }
 }
 
+function getNationalPhoneNumber(value) {
+    try {
+        return parsePhoneNumber(value || "")?.nationalNumber || "";
+    } catch {
+        return String(value ?? "").replace(/\D/g, "");
+    }
+}
+
 const DEFAULT_PHONE_COUNTRY_CODE = "+91"; // matches defaultCountry="IN" on the input
 
 // Build an E.164 value the phone input can parse. Older leads were saved
@@ -73,11 +81,8 @@ function validate(form) {
     if (!form.contactPerson.trim()) errors.contactPerson = "Contact person is required.";
     if (!form.phoneCountryCode) errors.phoneCountryCode = "Country code is required.";
     
-    // Updated international phone validation
     if (!form.phone || !String(form.phone).trim()) {
         errors.phone = "Phone number is required.";
-    } else if (!isValidPhoneNumber(String(form.phone))) {
-        errors.phone = "Please enter a valid phone number for the selected country.";
     }
 
     if (!form.email.trim()) errors.email = "Email is required.";
@@ -249,6 +254,8 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
 
         const payload = {
             ...form,
+            phone: getNationalPhoneNumber(form.phone),
+            phoneCountryCode: form.phoneCountryCode || getPhoneCountryCode(form.phone),
             leadSourceId: Number(form.leadSourceId),
             leadStatusId: selectedStatusId,
             assignedTo: form.assignedTo ? Number(form.assignedTo) : undefined,

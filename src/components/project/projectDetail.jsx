@@ -7,13 +7,6 @@ import userManagementService from "../../services/userManagement.service";
 import projectOnboardService from "../../services/projectOnboard.service";
 import { canDeleteRecords } from "../../utils/auth";
 
-const DETAIL_ENABLED_NAMES = new Set(["website", "seo", "smm", "sem", "web app"]);
-
-// Services under the "Design" category store a design count.
-const isDesignService = (service) => String(service?.categoryName || "").trim().toLowerCase() === "design";
-const hasServiceDetails = (service) =>
-  DETAIL_ENABLED_NAMES.has(String(service?.name || "").toLowerCase()) || isDesignService(service);
-
 // Human-readable labels for the keys written by the onboarding form
 // (includes legacy keys so older records still display).
 const DETAIL_LABELS = {
@@ -42,8 +35,105 @@ const DETAIL_LABELS = {
   designCount: "Designs"
 };
 
-const getServiceDetails = (serviceDetails, serviceId) =>
-  serviceDetails?.[serviceId] || serviceDetails?.[String(serviceId)] || {};
+const parseStoredValue = (value, fallback = value) => {
+  if (typeof value !== "string") return value;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+const getArrayValue = (value) => {
+  const parsedValue = parseStoredValue(value);
+  if (Array.isArray(parsedValue)) return parsedValue;
+  return parsedValue === null || parsedValue === undefined || parsedValue === "" ? [] : [parsedValue];
+};
+
+const getEmployeeList = (response) => {
+  const data = parseStoredValue(response?.data, response?.data);
+  if (Array.isArray(data)) return data;
+  return getArrayValue(data?.employees || data?.Employees || data?.rows || data?.items);
+};
+
+const normalizeEmployee = (employee) => ({
+  ...employee,
+  id: employee?.id ?? employee?.employeeId,
+  fullName: employee?.fullName || employee?.name || `${employee?.firstName || ""} ${employee?.lastName || ""}`.trim()
+});
+
+const getSelectedValues = (project, primaryKey, relationKeys) => {
+  const primaryValues = getArrayValue(project?.[primaryKey]);
+  if (primaryValues.length) return primaryValues;
+
+  for (const key of relationKeys) {
+    const values = getArrayValue(project?.[key]);
+    if (values.length) return values;
+  }
+
+  return [];
+};
+
+const getValueId = (value, fallbackToValue = true) => {
+  if (value && typeof value === "object") {
+    return value.id ?? value.userId ?? value.serviceId ?? value.value ?? value;
+  }
+  return fallbackToValue ? value : null;
+};
+
+const normalizeProject = (project) => ({
+  ...project,
+  projectManagerIds: getSelectedValues(project, "projectManagerIds", ["projectManagers", "projectManager", "reportingHeads", "reportingHead"])
+    .map((value) => getValueId(value))
+    .filter((value) => value !== null && value !== undefined),
+  spocIds: getSelectedValues(project, "spocIds", ["spocs", "SPOCs", "spoc", "spocUser"])
+    .map((value) => getValueId(value))
+    .filter((value) => value !== null && value !== undefined),
+  serviceIds: getSelectedValues(project, "serviceIds", ["services", "Services"])
+    .map((value) => value && typeof value === "object" ? value.id ?? value.serviceId ?? value.name : value)
+    .filter((value) => value !== null && value !== undefined && String(value).trim() !== ""),
+  assignedToIds: getArrayValue(project?.assignedToIds)
+    .map((value) => getValueId(value))
+    .filter((value) => value !== null && value !== undefined),
+  serviceDetails: parseStoredValue(project?.serviceDetails, {})
+});
+
+const getProjectServiceIds = (project, resolveService) => {
+  const ids = getArrayValue(project?.serviceIds);
+  const serviceDetails = parseStoredValue(project?.serviceDetails, {});
+  const detailIds = serviceDetails && !Array.isArray(serviceDetails)
+    ? Object.keys(serviceDetails)
+    : [];
+
+  const seen = new Set();
+  return [...ids, ...detailIds].filter((value) => {
+    if (String(value).trim() === "" || Number(value) === 0) return false;
+
+    const service = resolveService?.(value);
+    const identity = service?.id ?? service?.name ?? value;
+    const key = String(identity).trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const getServiceDetails = (serviceDetails, serviceId, service) => {
+  const storedDetails = parseStoredValue(serviceDetails, {});
+  if (!storedDetails || Array.isArray(storedDetails)) return {};
+
+  const directDetails = storedDetails[serviceId] || storedDetails[String(serviceId)];
+  if (directDetails) return directDetails;
+
+  const matchingKey = Object.keys(storedDetails).find((key) => {
+    const normalizedKey = key.trim().toLowerCase();
+    return normalizedKey === String(service?.name || "").trim().toLowerCase()
+      || normalizedKey === String(service?.id || "").trim().toLowerCase();
+  });
+
+  return matchingKey ? storedDetails[matchingKey] : {};
+};
 
 const ServiceDetailSummary = ({ details }) => {
   const entries = Object.entries(details || {}).filter(([, value]) => {
@@ -168,8 +258,6 @@ const ProjectManagement = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [activeTab, setActiveTab] = useState("projects");
-
   const [projects, setProjects] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
   const canDelete = canDeleteRecords();
@@ -202,10 +290,12 @@ const ProjectManagement = () => {
     categories.forEach((category) => {
       const services = category.services || category.Services || [];
       services.forEach((service) => {
-        map.set(Number(service.id), {
+        const normalizedService = {
           ...service,
           categoryName: category.name
-        });
+        };
+        map.set(Number(service.id), normalizedService);
+        if (service.name) map.set(String(service.name).trim().toLowerCase(), normalizedService);
       });
     });
     return map;
@@ -237,7 +327,7 @@ const ProjectManagement = () => {
       ]);
 
       if (projectRes.status === "fulfilled") {
-        setProjects(projectRes.value?.data || []);
+        setProjects(getArrayValue(projectRes.value?.data).map(normalizeProject));
       } else {
         setProjects([]);
         toast.error(projectRes.reason?.message || "Failed to load projects.");
@@ -250,7 +340,7 @@ const ProjectManagement = () => {
       }
 
       if (employeeRes.status === "fulfilled") {
-        setEmployees(employeeRes.value?.data || []);
+        setEmployees(getEmployeeList(employeeRes.value).map(normalizeEmployee).filter((employee) => employee.id));
       } else {
         setEmployees([]);
         toast.error(employeeRes.reason?.message || "Failed to load employees.");
@@ -275,16 +365,11 @@ const ProjectManagement = () => {
     fetchData();
   }, [refreshAt, fetchData]);
 
-  const assignedProjects = useMemo(
-    () => projects.filter((p) => Array.isArray(p.assignedToIds) && p.assignedToIds.length > 0),
-    [projects]
-  );
-
   const getUserNames = (ids = []) =>
     (Array.isArray(ids) ? ids : [])
-      .map((id) => userMap.get(Number(id)))
+      .map((id) => typeof id === "object" ? id : userMap.get(Number(id)) || id)
       .filter(Boolean)
-      .map((u) => formatUserName(u));
+      .map((user) => typeof user === "object" ? formatUserName(user) : String(user));
 
   const getEmployeeNames = (ids = []) =>
     (Array.isArray(ids) ? ids : [])
@@ -294,12 +379,35 @@ const ProjectManagement = () => {
 
   const getServiceNames = (ids = []) =>
     (Array.isArray(ids) ? ids : [])
-      .map((id) => serviceMap.get(Number(id))?.name)
+      .map((id) => {
+        if (id && typeof id === "object") return id.name || id.serviceName;
+        return serviceMap.get(Number(id))?.name || serviceMap.get(String(id))?.name || id;
+      })
       .filter(Boolean);
+
+  const getService = (serviceId) => {
+    if (serviceId && typeof serviceId === "object") return serviceId;
+    return serviceMap.get(Number(serviceId)) || serviceMap.get(String(serviceId).trim().toLowerCase());
+  };
+
+  const hydrateSelectedProject = async (project) => {
+    if (!project?.id) return;
+
+    try {
+      const response = await projectOnboardService.getById(project.id);
+      const details = response?.data;
+      if (details) {
+        setSelectedProject((current) => current?.id === project.id ? { ...current, ...normalizeProject(details) } : current);
+      }
+    } catch (error) {
+      console.error("Failed to load project details:", error);
+    }
+  };
 
   const openViewModal = (project) => {
     setSelectedProject(project);
     setShowViewModal(true);
+    hydrateSelectedProject(project);
   };
 
   const openEditModal = (project) => {
@@ -308,6 +416,7 @@ const ProjectManagement = () => {
       spocIds: Array.isArray(project.spocIds) ? project.spocIds.map(Number) : []
     });
     setShowEditModal(true);
+    hydrateSelectedProject(project);
   };
 
   const openAssignModal = (project) => {
@@ -396,6 +505,7 @@ const ProjectManagement = () => {
     return list.map((project) => {
       const managerNames = getUserNames(project.projectManagerIds);
       const serviceNames = getServiceNames(project.serviceIds);
+      const spocNames = getUserNames(project.spocIds);
 
       return (
         <tr key={project.id} className="transition-colors hover:bg-gray-50">
@@ -424,6 +534,19 @@ const ProjectManagement = () => {
                 serviceNames.map((serviceName) => (
                   <span key={`${project.id}-${serviceName}`} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
                     {serviceName}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-gray-400">-</span>
+              )}
+            </div>
+          </td>
+          <td className="px-4 py-3">
+            <div className="flex flex-wrap gap-1">
+              {spocNames.length ? (
+                spocNames.map((name) => (
+                  <span key={`${project.id}-spoc-${name}`} className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                    {name}
                   </span>
                 ))
               ) : (
@@ -484,7 +607,8 @@ const ProjectManagement = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Project</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Company</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Reporting Head</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Services</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Required Services</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">SPOC</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Created</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Action</th>
               </tr>
@@ -496,10 +620,8 @@ const ProjectManagement = () => {
                     Loading projects...
                   </td>
                 </tr>
-              ) : activeTab === "projects" ? (
-                renderProjectRows(projects)
               ) : (
-                renderProjectRows(assignedProjects)
+                renderProjectRows(projects)
               )}
             </tbody>
           </table>
@@ -569,19 +691,16 @@ const ProjectManagement = () => {
 
                 <h3 className="mb-3 text-md font-semibold text-gray-800">Service Details</h3>
                 <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
-                  {(selectedProject.serviceIds || []).map((serviceId) => {
-                    const service = serviceMap.get(Number(serviceId));
-                    if (!service) return null;
-
-                    if (!hasServiceDetails(service)) return null;
+                  {getProjectServiceIds(selectedProject, getService).map((serviceId) => {
+                    const service = getService(serviceId);
 
                     return (
                       <div key={`detail-${serviceId}`} className="overflow-hidden rounded-lg border-2 border-gray-200">
                         <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
-                          <h4 className="text-sm font-semibold text-gray-800">{String(service.name || "")}</h4>
+                          <h4 className="text-sm font-semibold text-gray-800">{service?.name || `Service ${serviceId}`}</h4>
                         </div>
                         <div className="p-3">
-                          <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId)} />
+                          <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId, service)} />
                         </div>
                       </div>
                     );
@@ -666,21 +785,20 @@ const ProjectManagement = () => {
                       </div>
                     </div>
 
-                    {(selectedProject.serviceIds || []).some((serviceId) => hasServiceDetails(serviceMap.get(Number(serviceId)))) && (
+                    {getProjectServiceIds(selectedProject, getService).length > 0 && (
                       <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">Service Details</label>
                         <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
-                          {(selectedProject.serviceIds || []).map((serviceId) => {
-                            const service = serviceMap.get(Number(serviceId));
-                            if (!service || !hasServiceDetails(service)) return null;
+                          {getProjectServiceIds(selectedProject, getService).map((serviceId) => {
+                            const service = getService(serviceId);
 
                             return (
                               <div key={`edit-${serviceId}`} className="overflow-hidden rounded-lg border-2 border-gray-200">
                                 <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
-                                  <h4 className="text-sm font-semibold text-gray-800">{String(service.name || "")}</h4>
+                                  <h4 className="text-sm font-semibold text-gray-800">{service?.name || `Service ${serviceId}`}</h4>
                                 </div>
                                 <div className="p-3">
-                                  <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId)} />
+                                  <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId, service)} />
                                 </div>
                               </div>
                             );
@@ -761,6 +879,7 @@ const ProjectManagement = () => {
                         placeholder="Select Employees"
                         tone="green"
                       />
+                      {!employees.length && <p className="mt-1 text-xs text-gray-500">No employees available.</p>}
                     </div>
                   </div>
 

@@ -1,5 +1,11 @@
 import { request } from "./apiClient";
 
+function getTaskList(response) {
+    const data = response?.data;
+    if (Array.isArray(data)) return data;
+    return data?.tasks || data?.items || data?.rows || [];
+}
+
 export const TASK_STATUSES = [
     { value: "TODO", label: "To Do", badge: "bg-gray-100 text-gray-700", column: "border-gray-300" },
     { value: "IN_PROGRESS", label: "In Progress", badge: "bg-blue-100 text-blue-700", column: "border-blue-400" },
@@ -24,7 +30,10 @@ const taskService = {
         const query = new URLSearchParams(
             Object.fromEntries(Object.entries(params).filter(([, v]) => v !== "" && v !== null && v !== undefined))
         ).toString();
-        return request(`/tasks${query ? `?${query}` : ""}`);
+        return request(`/tasks${query ? `?${query}` : ""}`).then((response) => ({
+            ...response,
+            data: getTaskList(response)
+        }));
     },
     getTaskById(id) {
         return request(`/tasks/${id}`);

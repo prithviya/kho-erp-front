@@ -239,6 +239,12 @@ const handleSubmit = async (e) => {
     return;
   }
 
+  const appliedPosition = Number(personalformData.appliedPosition);
+  if (!Number.isInteger(appliedPosition) || appliedPosition <= 0) {
+    toast.error("Please select a valid job position.");
+    return;
+  }
+
   if (!/^\d{10}$/.test(personalformData.phoneNumber)) {
     toast.error("Phone number must contain exactly 10 digits.");
     return;
@@ -304,7 +310,7 @@ const handleSubmit = async (e) => {
       maritalStatus: personalformData.maritalStatus,
       portfolioLink: personalformData.portfolioLink,
       resume: personalformData.resume instanceof File ? personalformData.resume.name : null,
-      appliedPosition: Number(personalformData.appliedPosition),
+      appliedPosition,
     };
 
     const submissionPayload = {
@@ -326,7 +332,6 @@ const handleSubmit = async (e) => {
           role: work.jobTitle,
           startDate: work.startDate,
           endDate: work.endDate || null,
-          totalExperience: calculateExperience(work.startDate, work.endDate),
           reasonForLeaving: null,
         })),
       skills: skillformData
@@ -390,10 +395,10 @@ const handleSubmit = async (e) => {
 
     console.error("FORM SUBMISSION ERROR:", error);
 
-    toast.error(
-      error.message ||
-      "Unable to submit employee profile."
-    );
+    const validationDetails = Array.isArray(error.errors)
+      ? error.errors.map((item) => item.message || item).join(" ")
+      : "";
+    toast.error(validationDetails || error.message || "Unable to submit employee profile.");
 
   } finally {
     setSubmitting(false);

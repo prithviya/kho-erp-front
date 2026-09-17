@@ -5,7 +5,7 @@ import {
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
-import PhoneInput, { parsePhoneNumber, isValidPhoneNumber } from "react-phone-number-input";
+import PhoneInput, { parsePhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
 const NOTES_MAX = 1000;
@@ -87,11 +87,8 @@ function validate(form) {
     if (!form.contactPerson.trim()) errors.contactPerson = "Contact person is required.";
     if (!form.phoneCountryCode) errors.phoneCountryCode = "Country code is required.";
     
-    // Updated international phone validation
     if (!form.phone || !String(form.phone).trim()) {
         errors.phone = "Phone number is required.";
-    } else if (!isValidPhoneNumber(String(form.phone))) {
-        errors.phone = "Please enter a valid phone number for the selected country.";
     }
 
     if (!form.email.trim()) errors.email = "Email is required.";
@@ -244,8 +241,9 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
             return;
         }
 
+        const { phone: _phone, phoneCountryCode: _phoneCountryCode, ...leadFields } = form;
         const payload = {
-            ...form,
+            ...leadFields,
             leadSourceId: Number(form.leadSourceId),
             leadStatusId: form.leadStatusId ? Number(form.leadStatusId) : undefined,
             assignedTo: form.assignedTo ? Number(form.assignedTo) : undefined,

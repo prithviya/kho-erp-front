@@ -5,12 +5,47 @@ import leadService from "../../services/lead.service";
 import userManagementService from "../../services/userManagement.service";
 import projectOnboardService from "../../services/projectOnboard.service";
 
-const DETAIL_ENABLED_NAMES = new Set(["website", "seo", "smm", "sem", "web app"]);
+const DETAIL_ENABLED_NAMES = new Set([
+  "website",
+  "web development",
+  "web app",
+  "seo",
+  "smm",
+  "sem",
+  "content",
+  "content writing"
+]);
 
-// Services under the "Design" category collect a design count instead of named fields.
-const isDesignService = (service) => String(service?.categoryName || "").trim().toLowerCase() === "design";
+// Category & Service helpers
+const isDesignService = (service) => {
+  const cat = String(service?.categoryName || "").trim().toLowerCase();
+  const name = String(service?.name || "").trim().toLowerCase();
+  return cat.includes("design") || name.includes("design");
+};
+
+const isContentService = (service) => {
+  const cat = String(service?.categoryName || "").trim().toLowerCase();
+  const name = String(service?.name || "").trim().toLowerCase();
+  return cat.includes("content") || name.includes("content");
+};
+
+const isWebDevService = (service) => {
+  const cat = String(service?.categoryName || "").trim().toLowerCase();
+  const name = String(service?.name || "").trim().toLowerCase();
+  return (
+    cat.includes("web") ||
+    name.includes("web") ||
+    name === "website" ||
+    name === "web app" ||
+    name === "web development"
+  );
+};
+
 const hasServiceDetails = (service) =>
-  DETAIL_ENABLED_NAMES.has(String(service?.name || "").toLowerCase()) || isDesignService(service);
+  DETAIL_ENABLED_NAMES.has(String(service?.name || "").toLowerCase()) ||
+  isDesignService(service) ||
+  isContentService(service) ||
+  isWebDevService(service);
 
 const INITIAL_FORM = {
   projectName: "",
@@ -21,6 +56,26 @@ const INITIAL_FORM = {
 };
 
 const INITIAL_SERVICE_DETAILS = {};
+
+const compactServiceDetails = (serviceDetails, selectedServiceIds) => {
+  const selectedIds = new Set(selectedServiceIds.map((id) => String(id)));
+
+  return Object.entries(serviceDetails || {}).reduce((result, [serviceId, details]) => {
+    if (!selectedIds.has(String(serviceId)) || !details || typeof details !== "object") return result;
+
+    const compactDetails = Object.entries(details).reduce((compact, [key, value]) => {
+      const hasValue = Array.isArray(value)
+        ? value.length > 0
+        : value !== null && value !== undefined && String(value).trim() !== "";
+
+      if (hasValue) compact[key] = value;
+      return compact;
+    }, {});
+
+    if (Object.keys(compactDetails).length > 0) result[serviceId] = compactDetails;
+    return result;
+  }, {});
+};
 
 export default function ProjectOnboarding() {
   const location = useLocation();
@@ -190,121 +245,232 @@ export default function ProjectOnboarding() {
     const key = service.name?.toLowerCase() || "";
     const details = serviceDetails[id] || {};
 
+    // 1. DESIGN SERVICE: Design Count + Additional Information Textarea
     if (isDesignService(service)) {
       return (
+        <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Number of designs</label>
+            <input
+              type="text"
+              min="0"
+              value={details.designCount || ""}
+              onChange={(e) => handleServiceDetailChange(id, "designCount", e.target.value)}
+              placeholder="Design count"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Additional Information</label>
+            <textarea
+              rows={3}
+              value={details.additionalInfo || ""}
+              onChange={(e) => handleServiceDetailChange(id, "additionalInfo", e.target.value)}
+              placeholder="Enter design specifications, dimensions, color preferences, etc."
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // 2. CONTENT SERVICE: Additional Information Textarea
+    if (isContentService(service)) {
+      return (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-          <label className="mb-1 block text-sm font-medium text-gray-700">Number of designs</label>
-          <input
-            type="number"
-            min="0"
-            value={details.designCount || ""}
-            onChange={(e) => handleServiceDetailChange(id, "designCount", e.target.value)}
-            placeholder="Design count"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          <label className="mb-1 block text-sm font-medium text-gray-700">Additional Information</label>
+          <textarea
+            rows={3}
+            value={details.additionalInfo || ""}
+            onChange={(e) => handleServiceDetailChange(id, "additionalInfo", e.target.value)}
+            placeholder="Enter content guidelines, word count, tone of voice, reference links, etc."
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
       );
     }
 
-    if (!DETAIL_ENABLED_NAMES.has(key)) return null;
+    // 3. WEB DEVELOPMENT SERVICE (Website / Web App / Web Development)
+    if (isWebDevService(service)) {
+      const isWebsite = key === "website" || key === "web development";
 
-    if (key === "website") {
       return (
         <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Technology</label>
-            <div className="grid grid-cols-3 gap-2">
-              {["WordPress", "Shopify", "Custom"].map((tech) => (
-                <button
-                  key={tech}
-                  type="button"
-                  onClick={() => handleServiceDetailChange(id, "technology", tech)}
-                  className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${details.technology === tech ? "border-blue-600 bg-blue-100 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
-                >
-                  {tech === "Custom" ? "Custom Website" : tech}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {details.technology === "WordPress" && (
+          {isWebsite ? (
             <>
-              <p className="text-sm font-medium text-gray-700">WordPress Development</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {["Theme Development", "Minor Customization", "Full Customization"].map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => handleServiceDetailChange(id, "wpType", type)}
-                    className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${details.wpType === type ? "border-blue-600 bg-blue-100 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
-                  >
-                    {type}
-                  </button>
-                ))}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Technology</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {["WordPress", "Shopify", "Custom"].map((tech) => (
+                    <button
+                      key={tech}
+                      type="button"
+                      onClick={() => handleServiceDetailChange(id, "technology", tech)}
+                      className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${
+                        details.technology === tech
+                          ? "border-blue-600 bg-blue-100 text-blue-700"
+                          : "border-gray-300 bg-white text-gray-700"
+                      }`}
+                    >
+                      {tech === "Custom" ? "Custom Website" : tech}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <input
-                type="text"
-                value={details.wpType === "Theme Development" ? details.themeName || "" : details.customDetails || ""}
-                onChange={(e) => handleServiceDetailChange(id, details.wpType === "Theme Development" ? "themeName" : "customDetails", e.target.value)}
-                placeholder={details.wpType === "Theme Development" ? "Theme name" : "Customization details"}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
+
+              {details.technology === "WordPress" && (
+                <>
+                  <p className="text-sm font-medium text-gray-700">WordPress Development</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {["Theme Development", "Minor Customization", "Full Customization"].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleServiceDetailChange(id, "wpType", type)}
+                        className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${
+                          details.wpType === type
+                            ? "border-blue-600 bg-blue-100 text-blue-700"
+                            : "border-gray-300 bg-white text-gray-700"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={
+                      details.wpType === "Theme Development"
+                        ? details.themeName || ""
+                        : details.customDetails || ""
+                    }
+                    onChange={(e) =>
+                      handleServiceDetailChange(
+                        id,
+                        details.wpType === "Theme Development" ? "themeName" : "customDetails",
+                        e.target.value
+                      )
+                    }
+                    placeholder={
+                      details.wpType === "Theme Development" ? "Theme name" : "Customization details"
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
+                  />
+                </>
+              )}
+
+              {details.technology === "Shopify" && (
+                <>
+                  <p className="text-sm font-medium text-gray-700">Shopify Development</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {["Theme Development", "Minor Customization", "Full Customization"].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleServiceDetailChange(id, "shopifyType", type)}
+                        className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${
+                          details.shopifyType === type
+                            ? "border-blue-600 bg-blue-100 text-blue-700"
+                            : "border-gray-300 bg-white text-gray-700"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={
+                      details.shopifyType === "Theme Development"
+                        ? details.shopifyThemeName || ""
+                        : details.shopifyCustomDetails || ""
+                    }
+                    onChange={(e) =>
+                      handleServiceDetailChange(
+                        id,
+                        details.shopifyType === "Theme Development"
+                          ? "shopifyThemeName"
+                          : "shopifyCustomDetails",
+                        e.target.value
+                      )
+                    }
+                    placeholder={
+                      details.shopifyType === "Theme Development" ? "Theme name" : "Customization details"
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
+                  />
+                </>
+              )}
+
+              {details.technology === "Custom" && (
+                <>
+                  <p className="text-sm font-medium text-gray-700">Custom Website Development</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {[
+                      "UI/UX Design + Development",
+                      "Existing Website Customization",
+                      "Fully Custom Website Development"
+                    ].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleServiceDetailChange(id, "customType", type)}
+                        className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${
+                          details.customType === type
+                            ? "border-blue-600 bg-blue-100 text-blue-700"
+                            : "border-gray-300 bg-white text-gray-700"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={details.techStack || ""}
+                    onChange={(e) => handleServiceDetailChange(id, "techStack", e.target.value)}
+                    placeholder="Tech stack (e.g. React, Node.js)"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
+                  />
+                </>
+              )}
             </>
-          )}
-
-          {details.technology === "Shopify" && (
+          ) : (
+            // Web App
             <>
-              <p className="text-sm font-medium text-gray-700">Shopify Development</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {["Theme Development", "Minor Customization", "Full Customization"].map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => handleServiceDetailChange(id, "shopifyType", type)}
-                    className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${details.shopifyType === type ? "border-blue-600 bg-blue-100 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-              <input
-                type="text"
-                value={details.shopifyType === "Theme Development" ? details.shopifyThemeName || "" : details.shopifyCustomDetails || ""}
-                onChange={(e) => handleServiceDetailChange(id, details.shopifyType === "Theme Development" ? "shopifyThemeName" : "shopifyCustomDetails", e.target.value)}
-                placeholder={details.shopifyType === "Theme Development" ? "Theme name" : "Customization details"}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </>
-          )}
-
-          {details.technology === "Custom" && (
-            <>
-              <p className="text-sm font-medium text-gray-700">Custom Website Development</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {["UI/UX Design + Development", "Existing Website Customization", "Fully Custom Website Development"].map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => handleServiceDetailChange(id, "customType", type)}
-                    className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${details.customType === type ? "border-blue-600 bg-blue-100 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
               <input
                 type="text"
                 value={details.techStack || ""}
                 onChange={(e) => handleServiceDetailChange(id, "techStack", e.target.value)}
-                placeholder="Tech stack or requirements"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                placeholder="Tech stack"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
+              />
+              <textarea
+                rows={2}
+                value={details.features || ""}
+                onChange={(e) => handleServiceDetailChange(id, "features", e.target.value)}
+                placeholder="Features"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
               />
             </>
           )}
+
+          {/* Web Development Additional Information Textarea */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Additional Information</label>
+            <textarea
+              rows={3}
+              value={details.additionalInfo || ""}
+              onChange={(e) => handleServiceDetailChange(id, "additionalInfo", e.target.value)}
+              placeholder="Add any additional requirements, domain/hosting details, or notes..."
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
         </div>
       );
     }
 
+    // 4. DM (SEO, SMM, SEM) - UNTOUCHED & WORKS FINE
     if (key === "seo") {
       return (
         <div className="grid grid-cols-2 gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
@@ -313,14 +479,14 @@ export default function ProjectOnboarding() {
             value={details.keywordCount || ""}
             onChange={(e) => handleServiceDetailChange(id, "keywordCount", e.target.value)}
             placeholder="Keyword count"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
           />
           <input
             type="number"
             value={details.blogCount || ""}
             onChange={(e) => handleServiceDetailChange(id, "blogCount", e.target.value)}
             placeholder="Blog count"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
           />
         </div>
       );
@@ -373,33 +539,16 @@ export default function ProjectOnboarding() {
                 key={platform}
                 type="button"
                 onClick={() => handleListToggle(id, "platforms", platform)}
-                className={`rounded-lg border px-3 py-1 text-xs ${platforms.includes(platform) ? "border-blue-600 bg-blue-100 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
+                className={`rounded-lg border px-3 py-1 text-xs ${
+                  platforms.includes(platform)
+                    ? "border-blue-600 bg-blue-100 text-blue-700"
+                    : "border-gray-300 bg-white text-gray-700"
+                }`}
               >
                 {platform}
               </button>
             ))}
           </div>
-        </div>
-      );
-    }
-
-    if (key === "web app") {
-      return (
-        <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
-          <input
-            type="text"
-            value={details.techStack || ""}
-            onChange={(e) => handleServiceDetailChange(id, "techStack", e.target.value)}
-            placeholder="Tech stack"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-          <textarea
-            rows={2}
-            value={details.features || ""}
-            onChange={(e) => handleServiceDetailChange(id, "features", e.target.value)}
-            placeholder="Features"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
         </div>
       );
     }
@@ -419,14 +568,15 @@ export default function ProjectOnboarding() {
 
     try {
       setSaving(true);
+      const selectedServiceIds = formData.serviceIds.map(Number).filter((id) => Number.isFinite(id));
       await projectOnboardService.create({
         leadId: leadIdFromState,
         projectName: formData.projectName.trim(),
         companyName: formData.companyName.trim(),
-        projectManagerIds: formData.projectManagerIds,
-        spocIds: formData.spocIds,
-        serviceIds: formData.serviceIds,
-        serviceDetails
+        projectManagerIds: formData.projectManagerIds.map(Number),
+        spocIds: formData.spocIds.map(Number),
+        serviceIds: selectedServiceIds,
+        serviceDetails: compactServiceDetails(serviceDetails, selectedServiceIds)
       });
 
       toast.success("Project onboarded successfully.");
@@ -440,7 +590,12 @@ export default function ProjectOnboarding() {
         state: { refreshAt: Date.now() }
       });
     } catch (err) {
-      toast.error(err.message || "Failed to onboard project.");
+      const errorMessage = String(err?.message || "");
+      if (/max_allowed_packet|packet bigger/i.test(errorMessage)) {
+        toast.error("Project could not be saved because the server database packet limit was exceeded. Please contact the backend administrator.");
+      } else {
+        toast.error(errorMessage || "Failed to onboard project.");
+      }
     } finally {
       setSaving(false);
     }
@@ -455,7 +610,12 @@ export default function ProjectOnboarding() {
         <div className="flex flex-wrap items-center gap-1">
           {selected.length > 0 ? (
             selected.map((u) => (
-              <span key={u.id} className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${tone === "blue" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+              <span
+                key={u.id}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${
+                  tone === "blue" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+                }`}
+              >
                 {userName(u)}
                 <button
                   type="button"
@@ -479,27 +639,31 @@ export default function ProjectOnboarding() {
         <div className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-300 bg-white shadow-lg">
           {options.length === 0 ? (
             <div className="px-3 py-2 text-sm text-gray-400">No users available</div>
-          ) : options.map((u) => {
-            const checked = selected.some((x) => x.id === u.id);
-            return (
-              <label
-                key={u.id}
-                className={`flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-gray-50 ${checked ? "bg-blue-50" : ""}`}
-                onClick={() => {
-                  const nextSelected = checked
-                    ? selected.filter((x) => x.id !== u.id)
-                    : [...selected, u];
-                  setSelected(nextSelected);
-                }}
-              >
-                <input type="checkbox" readOnly checked={checked} />
-                <div>
-                  <div className="text-sm font-medium text-gray-700">{userName(u)}</div>
-                  <div className="text-xs text-gray-500">{u.email}</div>
-                </div>
-              </label>
-            );
-          })}
+          ) : (
+            options.map((u) => {
+              const checked = selected.some((x) => x.id === u.id);
+              return (
+                <label
+                  key={u.id}
+                  className={`flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-gray-50 ${
+                    checked ? "bg-blue-50" : ""
+                  }`}
+                  onClick={() => {
+                    const nextSelected = checked
+                      ? selected.filter((x) => x.id !== u.id)
+                      : [...selected, u];
+                    setSelected(nextSelected);
+                  }}
+                >
+                  <input type="checkbox" readOnly checked={checked} />
+                  <div>
+                    <div className="text-sm font-medium text-gray-700">{userName(u)}</div>
+                    <div className="text-xs text-gray-500">{u.email}</div>
+                  </div>
+                </label>
+              );
+            })
+          )}
         </div>
       )}
     </div>
@@ -623,7 +787,9 @@ export default function ProjectOnboarding() {
                           return (
                             <label
                               key={service.id}
-                              className={`flex cursor-pointer items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm ${selected ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"}`}
+                              className={`flex cursor-pointer items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm ${
+                                selected ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
+                              }`}
                             >
                               <input
                                 type="checkbox"

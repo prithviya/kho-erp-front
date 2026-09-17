@@ -1,23 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { ArrowLeft, ArrowRight, CalendarDays, RefreshCcw, X } from "lucide-react";
-import taskService, { TASK_STATUSES, getPriorityMeta, getStatusMeta } from "../../services/task.service";
+import { ArrowLeft, ArrowRight, RefreshCcw, X } from "lucide-react";
+import taskService, { TASK_STATUSES, getStatusMeta } from "../../services/task.service";
 import { getCurrentUser, hasAnyRole, isSuperAdmin } from "../../utils/auth";
 
 function userName(user) {
   if (!user) return "-";
   return `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || "-";
-}
-
-function formatDate(value) {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-}
-
-function isOverdue(task) {
-  if (!task?.dueDate || task.status === "COMPLETED") return false;
-  return new Date(task.dueDate) < new Date(new Date().toDateString());
 }
 
 const STATUS_ORDER = TASK_STATUSES.map((s) => s.value);
@@ -150,25 +139,15 @@ export default function TaskBoard() {
                   <p className="px-1 py-6 text-center text-xs text-gray-400">No tasks</p>
                 ) : (
                   column.tasks.map((task) => {
-                    const priority = getPriorityMeta(task.priority);
-                    const due = formatDate(task.dueDate);
                     const index = STATUS_ORDER.indexOf(task.status);
                     const movable = canMove(task);
                     return (
                       <div key={task.id} className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md">
                         <button type="button" onClick={() => setSelectedTask(task)} className="w-full text-left">
                           <p className="text-sm font-medium text-gray-900">{task.title}</p>
-                          <p className="mt-0.5 truncate text-xs text-gray-500">
-                            {task.project?.projectName}{task.service?.name ? ` · ${task.service.name}` : ""}
-                          </p>
+                          {task.service?.name && <p className="mt-0.5 truncate text-xs text-gray-500">{task.service.name}</p>}
                         </button>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${priority.badge}`}>{priority.label}</span>
-                          {due && (
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${isOverdue(task) ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>
-                              <CalendarDays size={11} /> {due}
-                            </span>
-                          )}
                           {(superAdmin || manager) && (
                             <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] text-purple-700">{userName(task.assignee)}</span>
                           )}
@@ -215,10 +194,7 @@ export default function TaskBoard() {
               <div className="space-y-4 px-6 py-5 text-sm">
                 <div>
                   <p className="text-base font-semibold text-gray-900">{selectedTask.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {selectedTask.project?.projectName} · {selectedTask.project?.companyName}
-                    {selectedTask.service?.name ? ` · ${selectedTask.service.name}` : ""}
-                  </p>
+                  {selectedTask.service?.name && <p className="text-xs text-gray-500">{selectedTask.service.name}</p>}
                 </div>
                 {selectedTask.description && (
                   <p className="whitespace-pre-wrap rounded-lg bg-gray-50 px-3 py-2 text-gray-700">{selectedTask.description}</p>
@@ -233,16 +209,8 @@ export default function TaskBoard() {
                     <p className="text-gray-800">{userName(selectedTask.reportingHead)}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Priority</p>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getPriorityMeta(selectedTask.priority).badge}`}>{getPriorityMeta(selectedTask.priority).label}</span>
-                  </div>
-                  <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</p>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusMeta(selectedTask.status).badge}`}>{getStatusMeta(selectedTask.status).label}</span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Due Date</p>
-                    <p className={isOverdue(selectedTask) ? "font-medium text-red-600" : "text-gray-800"}>{formatDate(selectedTask.dueDate) || "-"}</p>
                   </div>
                 </div>
                 {canMove(selectedTask) && (

@@ -2371,7 +2371,7 @@ const EmployeeOnboarding = () => {
           { key: 'hrPolicies', label: 'HR Policies' },
           { key: 'attendanceRules', label: 'Attendance Rules' },
           { key: 'leavePolicy', label: 'Leave Policy' },
-          { key: 'OfficialSim', label: 'Official Phone Number' },
+          // { key: 'OfficialSim', label: 'Official Phone Number' },
           { key: 'teamIntro', label: 'Team Introduction' },
         ].map((item) => (
           <label key={item.key} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
