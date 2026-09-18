@@ -30,9 +30,6 @@ const ciform = () => {
     // Professional & Academic
   const [educationformData, seteducationFormData] = useState([{ degree: '', university: '', graduationYear: '', grade: '', city: '' }]);
   
-  // Work Experience
-  const [workformData, setworkFormData] = useState([{ employer: '', location: '', jobTitle: '', startDate: '', endDate: '' }]);
-  
   // Skills & Training
   const [skillformData, setskillFormData] = useState ([{ skill: '', level: '', year: '', institute: '' }]);
   
@@ -129,7 +126,6 @@ const ciform = () => {
     resume: null,
     maritualStatus: '',
     education: [{ degree: '', university: '', graduationYear: '', grade: '', city: '' }],
-    workExperience: [{ employer: '', location: '', jobTitle: '', startDate: '', endDate: '' }],
     skills: [{ skill: '', level: '', year: '', institute: '' }],
     softwareTools: [{ name: '', proficiency: 'Good' }],
     languages: [{ language: '', speak: 'Basic', read: 'Basic', write: 'Basic' }],
@@ -153,7 +149,6 @@ const ciform = () => {
   const handleArrayChange = (section, index, field, value) => {
   const setters = {
     education: seteducationFormData,
-    workExperience: setworkFormData,
     skills: setskillFormData,
     softwareTools: settoolFormData,
     languages: setlangFormData,
@@ -174,7 +169,6 @@ const ciform = () => {
 const addItem = (section, template) => {
   const setters = {
     education: seteducationFormData,
-    workExperience: setworkFormData,
     skills: setskillFormData,
     softwareTools: settoolFormData,
     languages: setlangFormData,
@@ -191,7 +185,6 @@ const addItem = (section, template) => {
 const removeItem = (section, index) => {
   const setters = {
     education: seteducationFormData,
-    workExperience: setworkFormData,
     skills: setskillFormData,
     softwareTools: settoolFormData,
     languages: setlangFormData,
@@ -206,30 +199,6 @@ const removeItem = (section, index) => {
     if (prev.length <= 1) return prev;
     return prev.filter((_, i) => i !== index);
   });
-};
-const calculateExperience = (startDate, endDate) => {
-  if (!startDate) return 0;
-
-  const start = new Date(startDate);
-
-  const end = endDate
-    ? new Date(endDate)
-    : new Date();
-
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    return 0;
-  }
-
-  const difference =
-    end.getTime() - start.getTime();
-
-  const days =
-    difference / (1000 * 60 * 60 * 24);
-
-  const years =
-    days / 365.25;
-
-  return Number(years.toFixed(2));
 };
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -266,22 +235,6 @@ const handleSubmit = async (e) => {
 
   if (invalidAcademic) {
     toast.error("Degree, university, and a four-digit graduation year are required for each academic entry.");
-    return;
-  }
-
-  const invalidExperience = workformData.find((work) => {
-    const started = [work.employer, work.location, work.jobTitle, work.startDate, work.endDate]
-      .some((value) => String(value || '').trim());
-    if (!started) return false;
-
-    return !work.employer.trim()
-      || !work.location.trim()
-      || !work.jobTitle.trim()
-      || !work.startDate;
-  });
-
-  if (invalidExperience) {
-    toast.error("Employer, location, job title, and start date are required for each experience entry.");
     return;
   }
 
@@ -324,16 +277,6 @@ const handleSubmit = async (e) => {
           grade: education.grade,
           city: education.city,
         })),
-      experiences: workformData
-        .filter((work) => work.employer && work.jobTitle && work.startDate)
-        .map((work) => ({
-          companyName: work.employer,
-          location: work.location,
-          role: work.jobTitle,
-          startDate: work.startDate,
-          endDate: work.endDate || null,
-          reasonForLeaving: null,
-        })),
       skills: skillformData
         .filter((skill) => skill.skill && skill.level)
         .map((skill) => ({
@@ -366,7 +309,6 @@ const handleSubmit = async (e) => {
     const formData = new FormData();
     formData.append('personal', JSON.stringify(personalPayload));
     formData.append('academics', JSON.stringify(submissionPayload.academics));
-    formData.append('experiences', JSON.stringify(submissionPayload.experiences));
     formData.append('skills', JSON.stringify(submissionPayload.skills));
     formData.append('softwares', JSON.stringify(submissionPayload.softwares));
     formData.append('languages', JSON.stringify(submissionPayload.languages));
@@ -628,80 +570,6 @@ const handleSubmit = async (e) => {
                 className="text-blue-600 hover:text-blue-800 text-sm font-medium"
               >
                 + Add another degree/course
-              </button>
-            </div>
-          )}
-
-          {/* WORK EXPERIENCE */}
-          {renderSection('WORK EXPERIENCE',
-            <div>
-              {workformData.map((work, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
-                  {index > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => removeItem('workExperience', index)}
-                      className="absolute top-2 right-2 text-red-500 hover:text-red-700"
-                    >
-                      ✕
-                    </button>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Employer</label>
-                    <input
-                      type="text"
-                      value={work.employer}
-                      onChange={(e) => handleArrayChange('workExperience', index, 'employer', e.target.value)}
-                      placeholder="Company name"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                    <input
-                      type="text"
-                      value={work.location}
-                      onChange={(e) => handleArrayChange('workExperience', index, 'location', e.target.value)}
-                      placeholder="City, Country"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
-                    <input
-                      type="text"
-                      value={work.jobTitle}
-                      onChange={(e) => handleArrayChange('workExperience', index, 'jobTitle', e.target.value)}
-                      placeholder="Role"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <input
-                      type="date"
-                      value={work.startDate}
-                      onChange={(e) => handleArrayChange('workExperience', index, 'startDate', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                    <input
-                      type="date"
-                      value={work.endDate}
-                      onChange={(e) => handleArrayChange('workExperience', index, 'endDate', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => addItem('workExperience', { employer: '', location: '', jobTitle: '', startDate: '', endDate: '' })}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
-                + Add work experience
               </button>
             </div>
           )}
