@@ -22,9 +22,11 @@ function UserRole() {
     const [tableError, setTableError] = useState("");
     const [editingUser, setEditingUser] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
+    const [userToDelete, setUserToDelete] = useState(null);
 
     const [canDelete, setCanDelete] = useState(() => canDeleteRecords());
-    const currentUserId = getCurrentUser()?.id;
+    const currentUser = getCurrentUser();
+    const currentUserId = currentUser?.id || currentUser?._id;
 
     const loadData = async (searchText = "") => {
         try {
@@ -99,11 +101,11 @@ function UserRole() {
                 ...(form.password?.trim() ? { password: form.password.trim() } : {})
             };
 
-            if (userToEdit?.id) {
-                const updated = await userManagementService.updateUser(userToEdit.id, payload);
-                // Editing own account: reflect the new delete access immediately
-                // without forcing a re-login.
-                if (userToEdit.id === currentUserId) {
+            const targetId = userToEdit?.id || userToEdit?._id;
+
+            if (targetId) {
+                const updated = await userManagementService.updateUser(targetId, payload);
+                if (targetId === currentUserId) {
                     const session = getSession();
                     if (session?.user) {
                         setSession({ ...session, user: { ...session.user, ...(updated?.data || {}), canDelete: payload.canDelete } });
@@ -131,20 +133,25 @@ function UserRole() {
     };
 
     const handleDeleteUser = async (user) => {
-        if (!canDelete || deletingId) return;
-        const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email;
-        if (!window.confirm(`Delete user "${fullName}"? This action cannot be undone.`)) return;
+        const targetId = String(user?.id || user?._id || "");
+    if (!canDelete || deletingId || !targetId) return;
 
-        try {
-            setDeletingId(user.id);
-            await userManagementService.deleteUser(user.id);
-            toast.success("User deleted successfully.");
-            await loadData(search.trim());
-        } catch (err) {
-            toast.error(err.message || "Failed to delete user.");
-        } finally {
-            setDeletingId(null);
-        }
+    try {
+        setDeletingId(targetId);
+        await userManagementService.deleteUser(targetId);
+
+        toast.dismiss();
+        toast.success("User deleted successfully!");
+        setUserToDelete(null);
+        setUsers((prevUsers) =>
+            prevUsers.filter((u) => String(u.id || u._id) !== targetId)
+        );
+    } catch (err) {
+        console.error("Delete Error:", err);
+        toast.error(err.message || "Failed to delete user.");
+    } finally {
+        setDeletingId(null);
+    }
     };
 
     const rows = useMemo(() => users || [], [users]);
@@ -194,13 +201,14 @@ function UserRole() {
                     ) : (
                         <div className="divide-y divide-gray-100">
                             {rows.map((user) => {
+                                const userId = user.id || user._id;
                                 const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unknown User";
 
                                 return (
-                                    <div key={user.id} className="grid grid-cols-[2fr_3fr_1.2fr_2fr_0.8fr] items-center px-5 py-3 hover:bg-gray-50">
+                                    <div key={userId} className="grid grid-cols-[2fr_3fr_1.2fr_2fr_0.8fr] items-center px-5 py-3 hover:bg-gray-50">
                                         <div className="min-w-0">
                                             <p className="truncate text-lg font-semibold text-gray-800">{fullName}</p>
-                                            <p className="text-xs text-gray-500">ID: #{user.id}</p>
+                                            <p className="text-xs text-gray-500">ID: #{userId}</p>
                                         </div>
 
                                         <div className="min-w-0">
@@ -218,7 +226,7 @@ function UserRole() {
 
                                         <div className="flex flex-wrap gap-2">
                                             {(user.roles || []).map((role) => (
-                                                <span key={`${user.id}-${role.id}`} className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                                                <span key={`${userId}-${role.id || role._id}`} className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
                                                     {role.name}
                                                 </span>
                                             ))}
@@ -239,11 +247,11 @@ function UserRole() {
                                                         Edit
                                                     </span>
                                                 </button>
-                                                {canDelete && user.id !== currentUserId && (
+                                                {canDelete && userId !== currentUserId && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleDeleteUser(user)}
-                                                        disabled={deletingId === user.id}
+                                                        onClick={() => setUserToDelete(user)}
+                                                        disabled={deletingId === userId}
                                                         className="group relative rounded-md p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
                                                     >
                                                         <Trash2 size={14} />
@@ -272,6 +280,39 @@ function UserRole() {
                 saving={saving}
                 error={formError}
             />
+
+            {userToDelete && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+                        <h2 className="text-xl font-bold text-gray-900">Delete user?</h2>
+                        <p className="mt-2 text-sm text-gray-600">
+                            Are you sure you want to delete{" "}
+                            <span className="font-semibold text-gray-900">
+                                {`${userToDelete.firstName || ""} ${userToDelete.lastName || ""}`.trim() || userToDelete.email}
+                            </span>
+                            ?
+                        </p>
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setUserToDelete(null)}
+                                disabled={Boolean(deletingId)}
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleDeleteUser(userToDelete)}
+                                disabled={Boolean(deletingId)}
+                                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {deletingId ? "Deleting..." : "OK"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

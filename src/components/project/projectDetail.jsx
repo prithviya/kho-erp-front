@@ -84,10 +84,10 @@ const getValueId = (value, fallbackToValue = true) => {
 
 const normalizeProject = (project) => ({
   ...project,
-  projectManagerIds: getSelectedValues(project, "projectManagerIds", ["projectManagers", "projectManager", "reportingHeads", "reportingHead"])
+  projectManagerIds: getSelectedValues(project, "projectManagerIds", ["projectManagerIds", "projectManagers", "projectManager", "reportingHeadIds", "reportingHeads", "reportingHead"])
     .map((value) => getValueId(value))
     .filter((value) => value !== null && value !== undefined),
-  spocIds: getSelectedValues(project, "spocIds", ["spocs", "SPOCs", "spoc", "spocUser"])
+  spocIds: getSelectedValues(project, "spocIds", ["spocIds", "spocUserIds", "spocs", "SPOCs", "spoc", "spocUser"])
     .map((value) => getValueId(value))
     .filter((value) => value !== null && value !== undefined),
   serviceIds: getSelectedValues(project, "serviceIds", ["services", "Services"])
@@ -135,7 +135,13 @@ const getServiceDetails = (serviceDetails, serviceId, service) => {
   return matchingKey ? storedDetails[matchingKey] : {};
 };
 
-const ServiceDetailSummary = ({ details }) => {
+const ServiceDetailSummary = ({ details, resolveValue = (value) => value }) => {
+  const displayValue = (value) => {
+    const parsedValue = parseStoredValue(value, value);
+    if (Array.isArray(parsedValue)) return parsedValue.map(resolveValue).join(", ");
+    return resolveValue(parsedValue);
+  };
+
   const entries = Object.entries(details || {}).filter(([, value]) => {
     if (Array.isArray(value)) return value.length > 0;
     return value !== null && value !== undefined && String(value).trim() !== "";
@@ -150,7 +156,7 @@ const ServiceDetailSummary = ({ details }) => {
       {entries.map(([key, value]) => (
         <div key={key} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
           <span className="font-medium">{DETAIL_LABELS[key] || key}:</span>{" "}
-          {Array.isArray(value) ? value.join(", ") : String(value)}
+          {displayValue(value)}
         </div>
       ))}
     </div>
@@ -373,9 +379,9 @@ const ProjectManagement = () => {
 
   const getEmployeeNames = (ids = []) =>
     (Array.isArray(ids) ? ids : [])
-      .map((id) => employeeMap.get(Number(id)))
+      .map((id) => userMap.get(Number(id)) || employeeMap.get(Number(id)))
       .filter(Boolean)
-      .map((employee) => formatUserName(employee));
+      .map((person) => formatUserName(person));
 
   const getServiceNames = (ids = []) =>
     (Array.isArray(ids) ? ids : [])
@@ -388,6 +394,11 @@ const ProjectManagement = () => {
   const getService = (serviceId) => {
     if (serviceId && typeof serviceId === "object") return serviceId;
     return serviceMap.get(Number(serviceId)) || serviceMap.get(String(serviceId).trim().toLowerCase());
+  };
+
+  const resolveDetailValue = (value) => {
+    if (value && typeof value === "object") return value.name || value.serviceName || value.label || String(value.id ?? value);
+    return getService(value)?.name || String(value);
   };
 
   const hydrateSelectedProject = async (project) => {
@@ -430,6 +441,7 @@ const ProjectManagement = () => {
       reportingHeadId: project.reportingHeadId ? Number(project.reportingHeadId) : fallbackReportingHeadId
     });
     setShowAssignModal(true);
+    hydrateSelectedProject(project);
   };
 
   const closeAllModals = () => {
@@ -473,11 +485,16 @@ const ProjectManagement = () => {
     e.preventDefault();
     if (!selectedProject) return;
 
-    if (!assignForm.assignedToIds.length) return toast.error("Select at least one assignee.");
+    const validAssignedToIds = (assignForm.assignedToIds || [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && userMap.has(id));
+
+    if (!validAssignedToIds.length) return toast.error("Select at least one valid assignee.");
+
     try {
       setSaving(true);
       await projectOnboardService.assign(selectedProject.id, {
-        assignedToIds: assignForm.assignedToIds,
+        assignedToIds: validAssignedToIds,
         reportingHeadId: assignForm.reportingHeadId ? Number(assignForm.reportingHeadId) : null
       });
 
@@ -639,53 +656,53 @@ const ProjectManagement = () => {
               </div>
 
               <div className="px-6 py-6">
-                <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Project Name</label>
-                    <p className="text-gray-900">{selectedProject.projectName}</p>
+                    <label className="text-md font-medium text-gray-900">Project Name</label>
+                    <p className="text-gray-500 text-sm">{selectedProject.projectName}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Company Name</label>
-                    <p className="text-gray-900">{selectedProject.companyName}</p>
+                    <label className="text-md font-medium text-gray-900">Company Name</label>
+                    <p className="text-gray-500 text-sm">{selectedProject.companyName}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Reporting Head</label>
+                    <label className="text-md font-medium text-gray-900">Reporting Head</label>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {getUserNames(selectedProject.projectManagerIds).map((name) => (
-                        <span key={name} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">{name}</span>
+                        <span key={name} className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-500 text-xs">{name}</span>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">SPOC</label>
+                    <label className="text-md font-medium text-gray-900">SPOC</label>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {getUserNames(selectedProject.spocIds).map((name) => (
                         <span key={name} className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">{name}</span>
                       ))}
                     </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Created</label>
-                    <p className="text-gray-900">{formatDate(selectedProject.createdAt)}</p>
-                  </div>
                   <div className="md:col-span-2">
-                    <label className="text-sm font-medium text-gray-500">Assigned To</label>
+                    <label className="text-md font-medium text-gray-900">Assigned To</label>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {getEmployeeNames(selectedProject.assignedToIds).length ? (
                         getEmployeeNames(selectedProject.assignedToIds).map((name) => (
                           <span key={name} className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">{name}</span>
                         ))
                       ) : (
-                        <span className="text-sm text-gray-400">Not assigned</span>
+                        <span className="text-gray-500 text-sm">Not assigned</span>
                       )}
                     </div>
+                  </div>
+                  <div>
+                    <label className="text-md font-medium text-gray-900 ">Created</label>
+                    <p className="text-gray-500 text-sm">{formatDate(selectedProject.createdAt)}</p>
                   </div>
                 </div>
 
                 <h3 className="mb-3 text-md font-semibold text-gray-800">Services</h3>
                 <div className="mb-4 flex flex-wrap gap-2">
                   {getServiceNames(selectedProject.serviceIds).map((serviceName) => (
-                    <span key={serviceName} className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700">{serviceName}</span>
+                    <span key={serviceName} className="rounded-full bg-orange-100 px-3 py-1 text-xs text-orange-700">{serviceName}</span>
                   ))}
                 </div>
 
@@ -700,7 +717,7 @@ const ProjectManagement = () => {
                           <h4 className="text-sm font-semibold text-gray-800">{service?.name || `Service ${serviceId}`}</h4>
                         </div>
                         <div className="p-3">
-                          <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId, service)} />
+                          <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId, service)} resolveValue={resolveDetailValue} />
                         </div>
                       </div>
                     );
@@ -798,7 +815,7 @@ const ProjectManagement = () => {
                                   <h4 className="text-sm font-semibold text-gray-800">{service?.name || `Service ${serviceId}`}</h4>
                                 </div>
                                 <div className="p-3">
-                                  <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId, service)} />
+                                  <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId, service)} resolveValue={resolveDetailValue} />
                                 </div>
                               </div>
                             );
@@ -844,42 +861,71 @@ const ProjectManagement = () => {
               <div className="px-6 py-6">
                 <form onSubmit={saveProjectAssign}>
                   <div className="space-y-4">
-                    <div className="rounded-lg bg-gray-50 p-4">
-                      <h3 className="mb-2 text-sm font-semibold text-gray-700">Project Information</h3>
-                      <p className="text-sm font-medium text-gray-900">{selectedProject.projectName}</p>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {getServiceNames(selectedProject.serviceIds).map((serviceName) => (
-                          <span key={serviceName} className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-700">{serviceName}</span>
-                        ))}
+                    <div className="rounded-lg bg-gray-50">
+                      <h3 className="mb-2 text-sm font-semibold text-gray-900">Project Information</h3>
+                      <p className="text-sm font-medium text-gray-700">{selectedProject.projectName}</p>
+                      <p className="mt-1 text-xs text-gray-500">{selectedProject.companyName}</p>
+
+                      <div className="mt-3">
+                        <p className="mb-2 text-sm font-semibold text-gray-900">Reporting Head</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {getUserNames(selectedProject.projectManagerIds).length ? (
+                            getUserNames(selectedProject.projectManagerIds).map((name) => (
+                              <span key={`assign-pm-${name}`} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                                {name}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Reporting Head</label>
-                      <select
-                        value={assignForm.reportingHeadId}
-                        onChange={(e) => setAssignForm((prev) => ({ ...prev, reportingHeadId: e.target.value }))}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
-                      >
-                        <option value="">Select Reporting Head (Optional)</option>
-                        {users.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {formatUserName(user)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                      <div className="mt-3">
+                        <p className="mb-2 text-sm font-semibold text-gray-900">Services</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {getServiceNames(selectedProject.serviceIds).length ? (
+                            getServiceNames(selectedProject.serviceIds).map((serviceName) => (
+                              <span key={`assign-svc-${serviceName}`} className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-700">{serviceName}</span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-gray-400">No services</span>
+                          )}
+                        </div>
+                      </div>
 
+                      {getProjectServiceIds(selectedProject, getService).length > 0 && (
+                        <div className="mt-3">
+                          <p className="mb-2 text-sm font-semibold text-gray-900">Service Details</p>
+                          <div className="mt-1 max-h-48 space-y-2 overflow-y-auto pr-1">
+                            {getProjectServiceIds(selectedProject, getService).map((serviceId) => {
+                              const service = getService(serviceId);
+
+                              return (
+                                <div key={`assign-detail-${serviceId}`} className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                                  <div className="border-b border-gray-200 bg-gray-50 px-3 py-1.5">
+                                    <h4 className="text-xs font-semibold text-gray-800">{service?.name || `Service ${serviceId}`}</h4>
+                                  </div>
+                                  <div className="p-2">
+                                    <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId, service)} resolveValue={resolveDetailValue} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Assign To</label>
                       <MultiUserSelect
-                        users={employees}
+                        users={users}
                         selectedIds={assignForm.assignedToIds}
                         onChange={(ids) => setAssignForm((prev) => ({ ...prev, assignedToIds: ids }))}
-                        placeholder="Select Employees"
+                        placeholder="Select Users"
                         tone="green"
                       />
-                      {!employees.length && <p className="mt-1 text-xs text-gray-500">No employees available.</p>}
+                      {!users.length && <p className="mt-1 text-xs text-gray-500">No users available.</p>}
                     </div>
                   </div>
 

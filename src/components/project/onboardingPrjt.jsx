@@ -186,10 +186,8 @@ export default function ProjectOnboarding() {
     });
   };
 
-  const hasSpocAccess = (user) => !hasManagerAccess(user);
-
   const managerOptions = useMemo(() => users.filter(hasManagerAccess), [users]);
-  const spocOptions = useMemo(() => users.filter(hasSpocAccess), [users]);
+  const spocOptions = useMemo(() => users, [users]);
 
   const selectedManagers = managerOptions.filter((u) => formData.projectManagerIds.includes(u.id));
   const selectedSpocs = spocOptions.filter((u) => formData.spocIds.includes(u.id));

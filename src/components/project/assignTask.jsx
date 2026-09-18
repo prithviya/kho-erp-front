@@ -38,6 +38,24 @@ function formatDate(value) {
   return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function getProjectValues(project, keys) {
+  for (const key of keys) {
+    const value = parseStoredValue(project?.[key], project?.[key]);
+    if (Array.isArray(value) && value.length) return value;
+    if (value && !Array.isArray(value)) return [value];
+  }
+  return [];
+}
+
+function parseStoredValue(value, fallback = value) {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
 const Badge = ({ meta }) => (
   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${meta.badge}`}>{meta.label}</span>
 );
@@ -115,6 +133,12 @@ export default function AssignTask() {
     return map;
   }, [employees]);
 
+  const peopleMap = useMemo(() => {
+    const map = new Map(employeeMap);
+    users.forEach((user) => map.set(Number(user.id), user));
+    return map;
+  }, [employeeMap, users]);
+
   const serviceMap = useMemo(() => {
     const map = new Map();
     categories.forEach((category) => {
@@ -162,6 +186,55 @@ export default function AssignTask() {
         return svc?.name || (typeof item === "object" ? item.name : String(item));
       })
       .filter(Boolean);
+  };
+
+  const getProjectServiceIds = (project) => {
+    const parsedDetails = parseStoredValue(project?.serviceDetails, {});
+    const serviceDetails = parsedDetails && typeof parsedDetails === "object" && !Array.isArray(parsedDetails)
+      ? parsedDetails
+      : {};
+    const values = getProjectValues(project, ["serviceIds", "services", "Services"]);
+    return [...values, ...Object.keys(serviceDetails)].filter((value, index, allValues) => {
+      const service = typeof value === "object" ? value : serviceMap.get(Number(value)) || serviceMap.get(String(value).trim().toLowerCase());
+      const identity = service?.id ?? service?.name ?? value;
+      return allValues.findIndex((item) => {
+        const itemService = typeof item === "object" ? item : serviceMap.get(Number(item)) || serviceMap.get(String(item).trim().toLowerCase());
+        return String(itemService?.id ?? itemService?.name ?? item).trim().toLowerCase() === String(identity).trim().toLowerCase();
+      }) === index;
+    });
+  };
+
+  const getProjectServiceDetailText = (project) => {
+    const parsedDetails = parseStoredValue(project?.serviceDetails, {});
+    const serviceDetails = parsedDetails && typeof parsedDetails === "object" && !Array.isArray(parsedDetails)
+      ? parsedDetails
+      : {};
+
+    return getProjectServiceIds(project).flatMap((serviceId) => {
+      const service = typeof serviceId === "object"
+        ? serviceId
+        : serviceMap.get(Number(serviceId)) || serviceMap.get(String(serviceId).trim().toLowerCase());
+      const serviceKey = String(service?.id ?? service?.name ?? serviceId);
+      const detailKey = Object.keys(serviceDetails).find((key) =>
+        key === serviceKey
+        || key.toLowerCase() === String(service?.name || "").trim().toLowerCase()
+      );
+      const details = detailKey ? serviceDetails[detailKey] : {};
+      if (!details || typeof details !== "object" || Array.isArray(details)) return [];
+
+      const values = Object.entries(details)
+        .filter(([, value]) => Array.isArray(value) ? value.length > 0 : value !== null && value !== undefined && String(value).trim() !== "")
+        .map(([key, value]) => {
+          const valuesToDisplay = Array.isArray(value) ? value : [value];
+          const names = valuesToDisplay.map((item) => {
+            if (item && typeof item === "object") return item.name || item.serviceName || item.label || String(item.id ?? item);
+            return serviceMap.get(Number(item))?.name || serviceMap.get(String(item).trim().toLowerCase())?.name || String(item);
+          });
+          return `${key}: ${names.join(", ")}`;
+        });
+
+      return values.length ? [`${service?.name || serviceKey}: ${values.join(" | ")}`] : [];
+    });
   };
 
   const openCreate = (defaultProjectId = "") => {
@@ -312,10 +385,20 @@ export default function AssignTask() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {projects.map((project) => {
             const isSelected = String(projectFilter) === String(project.id);
-            const rHeads = getNamesFromList(project.projectManagerIds || [project.reportingHeadId], userMap);
-            const spocs = getNamesFromList(project.spocIds || [project.spocId], userMap);
-            const assignees = getNamesFromList(project.assignedToIds || [], employeeMap);
-            const svcs = getServiceNamesFromList(project.serviceIds || []);
+            const rHeads = getNamesFromList(
+              getProjectValues(project, ["projectManagerIds", "projectManagers", "projectManager", "reportingHeadIds", "reportingHeads", "reportingHead", "reportingHeadId"]),
+              userMap
+            );
+            const spocs = getNamesFromList(
+              getProjectValues(project, ["spocIds", "spocUserIds", "spocs", "SPOCs", "spoc", "spocUser", "spocId"]),
+              userMap
+            );
+            const assignees = getNamesFromList(
+              getProjectValues(project, ["assignedToIds", "assignedTo", "assignedUsers", "employees"]),
+              peopleMap
+            );
+            const svcs = getServiceNamesFromList(getProjectServiceIds(project));
+            const serviceDetailText = getProjectServiceDetailText(project);
 
             return (
               <div
@@ -413,6 +496,17 @@ export default function AssignTask() {
                             {svc}
                           </span>
                         ))
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="font-semibold text-gray-500">Service Details:</span>
+                    <div className="mt-0.5 space-y-0.5 text-gray-600">
+                      {serviceDetailText.length ? (
+                        serviceDetailText.map((detail) => <p key={detail}>{detail}</p>)
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
