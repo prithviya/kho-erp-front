@@ -418,7 +418,7 @@ const EmployeeOnboarding = () => {
           const roles = Array.isArray(user?.roles) ? user.roles : [];
           const roleCodes = roles.map((role) => String(role?.code || role?.name || '')).filter(Boolean);
           const normalizedRoleCodes = roleCodes.map((roleCode) => String(roleCode).trim().toUpperCase().replace(/[_\s-]+/g, ''));
-          const hasEligibleRole = normalizedRoleCodes.some((roleCode) => roleCode === 'MANAGER' || roleCode === 'SUPERADMIN' || roleCode === 'SUPER_ADMIN');
+          const hasEligibleRole = normalizedRoleCodes.some((roleCode) => roleCode === 'MANAGER' || roleCode === 'SUPERADMIN' || roleCode === 'SUPER_ADMIN' || roleCode === 'CEO');
 
           if (!hasEligibleRole) return null;
 

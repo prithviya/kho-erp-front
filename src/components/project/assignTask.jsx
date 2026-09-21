@@ -75,6 +75,7 @@ export default function AssignTask() {
 
   const [statusFilter, setStatusFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
   const [search, setSearch] = useState("");
 
   const [showForm, setShowForm] = useState(false);
@@ -86,12 +87,12 @@ export default function AssignTask() {
 
   const loadTasks = useCallback(async () => {
     try {
-      const res = await taskService.getTasks({ status: statusFilter, projectOnboardId: projectFilter, search: search.trim() });
+      const res = await taskService.getTasks({ status: statusFilter, projectOnboardId: projectFilter, assignedToId: assigneeFilter, search: search.trim() });
       setTasks(res?.data || []);
     } catch (err) {
       toast.error(err.message || "Failed to load tasks.");
     }
-  }, [statusFilter, projectFilter, search]);
+  }, [statusFilter, projectFilter, assigneeFilter, search]);
 
   useEffect(() => {
     let mounted = true;
@@ -548,6 +549,17 @@ export default function AssignTask() {
           <option value="">Filter: All Projects</option>
           {projects.map((p) => (
             <option key={p.id} value={p.id}>{p.projectName}</option>
+          ))}
+        </select>
+
+        <select
+          value={assigneeFilter}
+          onChange={(e) => setAssigneeFilter(e.target.value)}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm"
+        >
+          <option value="">Filter: All Team Members</option>
+          {users.map((user) => (
+            <option key={user.id} value={user.id}>{userName(user)}</option>
           ))}
         </select>
 

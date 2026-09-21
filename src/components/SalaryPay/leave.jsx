@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Check, Eye, X, Trash2 } from "lucide-react";
 import leaveService from "../../services/leave.service";
-import { getCurrentUser, hasAnyRole, canDeleteRecords } from "../../utils/auth";
+import { getCurrentUser, canDeleteRecords } from "../../utils/auth";
 
 function normalizeList(payload) {
   if (Array.isArray(payload)) return payload;
@@ -29,9 +29,109 @@ function statusClass(status = "") {
   return "bg-yellow-100 text-yellow-700";
 }
 
+const conflictingLeaveCodes = new Set(["CASUAL_LEAVE", "LEAVE_WITHOUT_PAY", "PERMISSION"]);
+const conflictingLeaveTypes = {
+  CASUAL_LEAVE: ["LEAVE_WITHOUT_PAY", "PERMISSION"],
+  LEAVE_WITHOUT_PAY: ["CASUAL_LEAVE", "PERMISSION"],
+  PERMISSION: ["CASUAL_LEAVE", "LEAVE_WITHOUT_PAY"],
+};
+
+const durationOptions = [
+  ["FULL_DAY", "Full Day"],
+  ["HALF_DAY", "Half Day"],
+  ["QUARTER_DAY", "Quarter Day"],
+  ["HOURS", "Hours"],
+];
+
+function getAllowedDurationTypes(categoryCode) {
+  return {
+    CASUAL_LEAVE: ["FULL_DAY", "HALF_DAY"],
+    ON_THE_DUTY: ["FULL_DAY", "HALF_DAY", "QUARTER_DAY", "HOURS"],
+    LEAVE_WITHOUT_PAY: ["FULL_DAY", "HALF_DAY", "HOURS"],
+    PERMISSION: ["HOURS"],
+  }[categoryCode] || durationOptions.map(([value]) => value);
+}
+
+function get12HourParts(value) {
+  const [hours = "", minutes = ""] = String(value || "").split(":");
+  const hourValue = Number(hours);
+  if (!Number.isInteger(hourValue) || hourValue < 0 || hourValue > 23 || !/^\d{2}$/.test(minutes)) {
+    return { hour: "", minute: "", period: "AM" };
+  }
+
+  return {
+    hour: String(hourValue % 12 || 12).padStart(2, "0"),
+    minute: minutes,
+    period: hourValue >= 12 ? "PM" : "AM",
+  };
+}
+
+function to24HourValue(hour, minute, period) {
+  if (!hour || !minute || !period) return "";
+  let hourValue = Number(hour) % 12;
+  if (period === "PM") hourValue += 12;
+  return `${String(hourValue).padStart(2, "0")}:${minute}`;
+}
+
+function TimeInput({ label, value, onChange }) {
+  const [parts, setParts] = useState(() => get12HourParts(value));
+
+  const updateTime = (nextParts) => {
+    setParts(nextParts);
+    onChange(to24HourValue(nextParts.hour, nextParts.minute, nextParts.period));
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}<span className="text-red-500">*</span></label>
+      <div className="grid grid-cols-3 gap-2">
+        <select
+          value={parts.hour}
+          onChange={(event) => updateTime({ ...parts, hour: event.target.value })}
+          required
+          className="w-full px-2 py-2 border border-gray-300 rounded-md"
+          aria-label={`${label} hour`}
+        >
+          <option value="">HH</option>
+          {Array.from({ length: 12 }, (_, index) => {
+            const hour = String(index + 1).padStart(2, "0");
+            return <option key={hour} value={hour}>{hour}</option>;
+          })}
+        </select>
+        <select
+          value={parts.minute}
+          onChange={(event) => updateTime({ ...parts, minute: event.target.value })}
+          required
+          className="w-full px-2 py-2 border border-gray-300 rounded-md"
+          aria-label={`${label} minute`}
+        >
+          <option value="">MM</option>
+          {Array.from({ length: 60 }, (_, index) => {
+            const minute = String(index).padStart(2, "0");
+            return <option key={minute} value={minute}>{minute}</option>;
+          })}
+        </select>
+        <select
+          value={parts.period}
+          onChange={(event) => updateTime({ ...parts, period: event.target.value })}
+          required
+          className="w-full px-2 py-2 border border-gray-300 rounded-md"
+          aria-label={`${label} AM or PM`}
+        >
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function datesOverlap(firstFrom, firstTo, secondFrom, secondTo) {
+  return firstFrom <= secondTo && firstTo >= secondFrom;
+}
+
 export default function LeaveManagement() {
   const currentUser = getCurrentUser();
-  const canApprove = hasAnyRole(["SUPER_ADMIN", "HR", "MANAGER"]);
   const canDelete = canDeleteRecords();
   const [deletingId, setDeletingId] = useState(null);
 
@@ -62,6 +162,48 @@ export default function LeaveManagement() {
     if (!categoryId) return null;
     return (summary.categories || []).find((item) => Number(item.categoryId) === categoryId) || null;
   }, [form.categoryId, summary.categories]);
+
+  const hasCasualLeaveForMonth = (dateValue) => {
+    if (!dateValue) return false;
+    const monthStart = `${dateValue.slice(0, 7)}-01`;
+    const monthEnd = new Date(
+      Number(dateValue.slice(0, 4)),
+      Number(dateValue.slice(5, 7)),
+      0
+    ).toISOString().slice(0, 10);
+
+    return requests.some((item) => (
+      item.category?.code === "CASUAL_LEAVE" &&
+      ["PENDING", "APPROVED"].includes(String(item.status || "").toUpperCase()) &&
+      datesOverlap(item.fromDate, item.toDate, monthStart, monthEnd)
+    ));
+  };
+
+  const hasCasualLeaveInRange = (fromDate, toDate) => {
+    if (!fromDate) return false;
+    const endDate = toDate || fromDate;
+    let cursor = new Date(`${fromDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+
+    while (cursor <= end) {
+      const monthDate = cursor.toISOString().slice(0, 10);
+      if (hasCasualLeaveForMonth(monthDate)) return true;
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+
+    return false;
+  };
+
+  const hasRestrictedDateOverlap = (category, fromDate, toDate) => {
+    if (!conflictingLeaveCodes.has(category.code) || !fromDate) return false;
+    const endDate = toDate || fromDate;
+
+    return requests.some((item) => (
+      conflictingLeaveTypes[category.code]?.includes(item.category?.code) &&
+      ["PENDING", "APPROVED"].includes(String(item.status || "").toUpperCase()) &&
+      datesOverlap(item.fromDate, item.toDate, fromDate, endDate)
+    ));
+  };
 
   const handleDeleteRequest = async (item) => {
     if (!canDelete || deletingId) return;
@@ -108,6 +250,17 @@ export default function LeaveManagement() {
 
   const handleApply = async (event) => {
     event.preventDefault();
+    const selectedCategory = categories.find((category) => Number(category.id) === Number(form.categoryId));
+    if (selectedCategory?.code === "CASUAL_LEAVE" && hasCasualLeaveInRange(form.fromDate, form.toDate)) {
+      toast.error("Casual Leave is already booked for this month.");
+      return;
+    }
+
+    if (selectedCategory && hasRestrictedDateOverlap(selectedCategory, form.fromDate, form.toDate)) {
+      toast.error("Another leave type is already booked for an overlapping date.");
+      return;
+    }
+
     try {
       const payload = {
         categoryId: Number(form.categoryId),
@@ -176,9 +329,7 @@ export default function LeaveManagement() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Leave Management</h1>
           <p className="text-sm text-gray-500">
-            {canApprove
-              ? "Review employee leave balances and approve requests"
-              : "Apply leave and track your request status"}
+            Apply leave, track your request status, and review requests assigned to you
           </p>
         </div>
 
@@ -275,6 +426,7 @@ export default function LeaveManagement() {
                   )}
                   {requests.map((item) => {
                     const isPending = String(item.status || "").toUpperCase() === "PENDING";
+                    const isDesignatedApprover = Number(item.designatedApproverId) === Number(currentUser?.id);
 
                     return (
                       <tr key={item.id} className="hover:bg-gray-50 transition-colors">
@@ -305,7 +457,7 @@ export default function LeaveManagement() {
                             >
                               <Eye size={14} />
                             </button>
-                            {canApprove && isPending && (
+                            {isDesignatedApprover && isPending && (
                               <>
                                 <button
                                   onClick={() => handleApproveReject(item.id, "APPROVED")}
@@ -373,14 +525,33 @@ export default function LeaveManagement() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Leave category <span className="text-red-500">*</span></label>
                     <select
                       value={form.categoryId}
-                      onChange={(e) => setForm((prev) => ({ ...prev, categoryId: e.target.value }))}
+                      onChange={(e) => {
+                        const categoryId = e.target.value;
+                        const category = categories.find((item) => String(item.id) === categoryId);
+                        const allowedTypes = getAllowedDurationTypes(category?.code);
+                        setForm((prev) => ({
+                          ...prev,
+                          categoryId,
+                          durationType: allowedTypes.includes(prev.durationType) ? prev.durationType : allowedTypes[0],
+                        }));
+                      }}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     >
                       <option value="">Select category</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>{category.name}</option>
-                      ))}
+                      {categories.map((category) => {
+                        const clMonthBooked = category.code === "CASUAL_LEAVE" && hasCasualLeaveInRange(form.fromDate, form.toDate);
+                        const dateConflict = hasRestrictedDateOverlap(category, form.fromDate, form.toDate);
+                        return (
+                          <option
+                            key={category.id}
+                            value={category.id}
+                            disabled={clMonthBooked || dateConflict}
+                          >
+                            {category.name}{clMonthBooked ? " (already booked this month)" : ""}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -414,10 +585,11 @@ export default function LeaveManagement() {
                       onChange={(e) => setForm((prev) => ({ ...prev, durationType: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     >
-                      <option value="FULL_DAY">Full Day</option>
-                      <option value="HALF_DAY">Half Day</option>
-                      <option value="QUARTER_DAY">Quarter Day</option>
-                      <option value="HOURS">Hours</option>
+                      {durationOptions
+                        .filter(([value]) => getAllowedDurationTypes(
+                          categories.find((category) => String(category.id) === String(form.categoryId))?.code
+                        ).includes(value))
+                        .map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </select>
                   </div>
 
@@ -455,24 +627,16 @@ export default function LeaveManagement() {
 
                   {form.durationType === "HOURS" && (
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Start time<span className="text-red-500">*</span></label>
-                        <input
-                          type="time"
-                          value={form.startTime}
-                          onChange={(e) => setForm((prev) => ({ ...prev, startTime: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">End time<span className="text-red-500">*</span></label>
-                        <input
-                          type="time"
-                          value={form.endTime}
-                          onChange={(e) => setForm((prev) => ({ ...prev, endTime: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        />
-                      </div>
+                      <TimeInput
+                        label="Start time"
+                        value={form.startTime}
+                        onChange={(value) => setForm((prev) => ({ ...prev, startTime: value }))}
+                      />
+                      <TimeInput
+                        label="End time"
+                        value={form.endTime}
+                        onChange={(value) => setForm((prev) => ({ ...prev, endTime: value }))}
+                      />
                     </div>
                   )}
 

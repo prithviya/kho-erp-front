@@ -57,7 +57,7 @@ export default function AppRoutes() {
                 <Route path="/report" element={<RoleRoute roles={["SUPER_ADMIN"]}><Report /></RoleRoute>} />
                 <Route path="/onboard-prjt" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><ProjectOnboarding /></RoleRoute>} />
                 <Route path="/prjt-details" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><ProjectDetail /></RoleRoute>} />
-                <Route path="/tasks" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><AssignTask /></RoleRoute>} />
+                <Route path="/tasks" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "TEAM_MEMBER"]}><AssignTask /></RoleRoute>} />
                 <Route path="/task-board" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]}><TaskBoard /></RoleRoute>} />
                 <Route path="/user-management" element={<RoleRoute roles={["SUPER_ADMIN"]}><UserManagement /></RoleRoute>} />
                 <Route path="/master" element={<RoleRoute roles={["SUPER_ADMIN"]}><Master /></RoleRoute>} />
@@ -68,7 +68,7 @@ export default function AppRoutes() {
                 <Route path="/onboarding" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Onboarding /></RoleRoute>} />
                 <Route path="/employee" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Employee /></RoleRoute>} />
                 <Route path="/payroll" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Salary /></RoleRoute>} />
-                <Route path="/leave" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER", "CRM_EXECUTIVE"]}><Leave /></RoleRoute>} />
+                <Route path="/leave" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER", "CRM_EXECUTIVE", "TEAM_MEMBER"]}><Leave /></RoleRoute>} />
 
                 <Route path="*" element={<Navigate to={fallbackPath} replace />} />
             </Route>
