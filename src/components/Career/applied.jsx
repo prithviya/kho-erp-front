@@ -395,7 +395,7 @@ const Applied = () => {
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => viewApplication(candidateId)}
-                              className="flex h-8 w-8 items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 hover:text-sky-800"
+                              className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors "
                               title="View application"
                               aria-label="View application"
                             >
@@ -403,7 +403,7 @@ const Applied = () => {
                             </button>
                             <button
                               onClick={() => openResume(app)}
-                              className="flex h-8 w-8 items-center justify-center rounded-md border border-violet-200 bg-violet-50 text-violet-700 transition-colors hover:bg-violet-100 hover:text-violet-800"
+                              className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors "
                               title="View Resume"
                               aria-label="View resume"
                             >
@@ -419,12 +419,12 @@ const Applied = () => {
                               }
                               title="Shortlist"
                               aria-label="Shortlist"
-                              className={`flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${
+                              className={`flex items-center justify-center rounded-md transition-colors ${
                                 normalizeStatus(app.status) === 'shortlisted'
                                   ? 'border-emerald-200 bg-emerald-100 text-emerald-600 cursor-not-allowed'
                                   : normalizeStatus(app.status) === 'rejected' ||
                                     normalizeStatus(app.status) === 'selected'
-                                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  ? 'px-2 py-1 bg-green-700 text-white rounded text-xs font-medium hover:bg-green-200 transition-colors cursor-not-allowed'
                                   : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800'
                               }`}
                             >
@@ -440,11 +440,11 @@ const Applied = () => {
                               }
                               title="Reject"
                               aria-label="Reject"
-                              className={`flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${
+                              className={`flex items-center justify-center rounded-md transition-colors ${
                                 normalizeStatus(app.status) === 'rejected'
                                   ? 'border-rose-200 bg-rose-100 text-rose-600 cursor-not-allowed'
                                   : normalizeStatus(app.status) === 'selected'
-                                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  ? 'px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium hover:bg-orange-200 transition-colors cursor-not-allowed'
                                   : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800'
                               }`}
                             >
@@ -456,7 +456,7 @@ const Applied = () => {
                                 disabled={deletingId === candidateId}
                                 title="Delete"
                                 aria-label="Delete application"
-                                className="flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-700 transition-colors hover:bg-red-100 hover:text-red-800 disabled:opacity-50"
+                                className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
                               >
                                 <Trash2 size={15} />
                               </button>

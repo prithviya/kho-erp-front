@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { request } from '../../services/apiClient';
 import employeeService from '../../services/employee.service';
 import { canDeleteRecords } from '../../utils/auth';
+import {X, Eye, Edit, Trash } from 'lucide-react'
 
 const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
@@ -63,7 +64,19 @@ const Employee = () => {
     });
   };
 
-  const mapEmployee = (employee) => ({
+  const formatSalary = (value) => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) return '-';
+
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const mapEmployee = (employee, onboardingData = {}) => ({
     id: employee.id,
     employeeId: employee.employeeCode,
     name: employee.fullName,
@@ -77,6 +90,7 @@ const Employee = () => {
     userAccount: false,
     phone: employee.phone,
     city: employee.city,
+    salary: formatSalary(onboardingData.currentSalary),
     original: employee,
   });
 
@@ -84,7 +98,25 @@ const Employee = () => {
     try {
       setLoading(true);
       const response = await employeeService.list();
-      setEmployees((response?.data || []).map(mapEmployee));
+      const employeeRecords = Array.isArray(response?.data) ? response.data : [];
+      const employeesWithSalary = await Promise.all(employeeRecords.map(async (employee) => {
+        const employeeCode = String(employee?.employeeCode || employee?.employeeId || '').trim();
+        let onboardingData = {};
+
+        if (employeeCode) {
+          try {
+            const onboardingResponse = await request(
+              `/onboardings/record/employee_code/${encodeURIComponent(employeeCode)}`
+            );
+            onboardingData = onboardingResponse?.data?.formData || {};
+          } catch {
+            // The employee may not yet have an onboarding_info record.
+          }
+        }
+
+        return mapEmployee(employee, onboardingData);
+      }));
+      setEmployees(employeesWithSalary);
     } catch (error) {
       toast.error(error.message || 'Unable to load employees.');
     } finally {
@@ -321,6 +353,11 @@ const Employee = () => {
                           <p className="text-sm text-gray-700">Submitted: {employee.doj}</p>
                         </div>
                       </td>
+                      <td className='px-4 py-3'>
+                        <p className="text-sm font-medium text-gray-900">
+                          {employee.salary}
+                        </p>
+                      </td>
                       <td className="px-4 py-3">
                         <span className={getStatusBadge(employee.status)}>
                           {employee.status}
@@ -330,15 +367,15 @@ const Employee = () => {
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleView(employee)}
-                            className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-md hover:bg-gray-200 transition-colors"
+                            className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors"
                           >
-                            View
+                            <Eye size={16} />
                           </button>
                           <button
                             onClick={() => handleEdit(employee, index)}
-                            className="px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded-md hover:bg-gray-300 transition-colors"
+                            className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
                           >
-                            Edit
+                            <Edit size={16} />
                           </button>
                           {canDelete && (
                             <button
@@ -346,8 +383,7 @@ const Employee = () => {
                               disabled={deletingId === employee.id}
                               className="px-3 py-1 bg-red-100 text-red-700 text-xs rounded-md hover:bg-red-200 transition-colors disabled:opacity-50"
                             >
-                              Delete
-                            </button>
+                              <Trash size={16} />                            </button>
                           )}
                         </div>
                       </td>
@@ -355,7 +391,7 @@ const Employee = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
                       {loading ? 'Loading employees...' : 'No employees found matching your filters'}
                     </td>
                   </tr>

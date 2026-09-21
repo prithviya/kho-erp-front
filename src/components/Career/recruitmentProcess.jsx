@@ -386,16 +386,16 @@ const RecruitmentPipeline = () => {
                         {getStatusBadge(candidate.appliedStatus)}
                       </td>
                       <td className="px-4 py-3 flex items-center space-x-3">
-                        <button onClick={() => handleViewDetails(candidate)} className="text-blue-600 hover:text-blue-800 transition-colors" title="View Details">
+                        <button onClick={() => handleViewDetails(candidate)} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors " title="View Details">
                           <Eye size={'16'} />
                         </button>
                         {candidate.appliedStatus === 'Selected' && (
-                          <button onClick={() => handleLaunchToOnboarding(candidate)} className="text-green-600 hover:text-green-800 transition-colors" title="Launch to Onboarding">
+                          <button onClick={() => handleLaunchToOnboarding(candidate)} className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors " title="Launch to Onboarding">
                             <Rocket size={'16'} />
                           </button>
                         )}
                         {canDelete && (
-                          <button onClick={() => handleDeleteCandidate(candidate)} disabled={deletingId === resolveCandidateId(candidate)} className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50" title="Delete">
+                          <button onClick={() => handleDeleteCandidate(candidate)} disabled={deletingId === resolveCandidateId(candidate)} className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors " title="Delete">
                             <Trash2 size={'16'} />
                           </button>
                         )}

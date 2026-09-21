@@ -1,73 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
+import { request } from '../../services/apiClient';
+import employeeService from '../../services/employee.service';
 
 function Salary() {
-  const [employees, setEmployees] = useState([
-    {
-      id: 1,
-      name: 'John Doe',
-      designation: 'Senior Developer',
-      department: 'Development',
-      monthlySalary: 50000,
-      lopDays: 0,
-      clTaken: 0,
-      isBestPerformer: false,
-      joinedDate: '2024-01-15',
-      salaryPaid: false,
-      paymentDate: ''
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      designation: 'Project Manager',
-      department: 'Operations',
-      monthlySalary: 75000,
-      lopDays: 2,
-      clTaken: 0,
-      isBestPerformer: false,
-      joinedDate: '2023-06-10',
-      salaryPaid: false,
-      paymentDate: ''
-    },
-    {
-      id: 3,
-      name: 'Mike Johnson',
-      designation: 'Designer',
-      department: 'Designer',
-      monthlySalary: 45000,
-      lopDays: 1,
-      clTaken: 0,
-      isBestPerformer: false,
-      joinedDate: '2024-03-20',
-      salaryPaid: false,
-      paymentDate: ''
-    },
-    {
-      id: 4,
-      name: 'Sarah Williams',
-      designation: 'SEO Specialist',
-      department: 'Content',
-      monthlySalary: 40000,
-      lopDays: 0,
-      clTaken: 0,
-      isBestPerformer: false,
-      joinedDate: '2024-05-01',
-      salaryPaid: false,
-      paymentDate: ''
-    },
-    {
-      id: 5,
-      name: 'Emily Davis',
-      designation: 'SMM Expert',
-      department: 'Media',
-      monthlySalary: 42000,
-      lopDays: 3,
-      clTaken: 0,
-      isBestPerformer: false,
-      joinedDate: '2024-02-14',
-      salaryPaid: false,
-      paymentDate: ''
-    }
-  ]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -80,6 +18,57 @@ function Salary() {
     paymentDate: '',
     lopDays: 0
   });
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadSalaryEmployees = async () => {
+      try {
+        setLoading(true);
+        const employeeResponse = await employeeService.list();
+        const employeeRecords = Array.isArray(employeeResponse?.data) ? employeeResponse.data : [];
+
+        const salaryEmployees = await Promise.all(employeeRecords.map(async (employee) => {
+          const employeeCode = String(employee?.employeeCode || employee?.employeeId || '').trim();
+          let onboardingData = {};
+
+          if (employeeCode) {
+            try {
+              const onboardingResponse = await request(
+                `/onboardings/record/employee_code/${encodeURIComponent(employeeCode)}`
+              );
+              onboardingData = onboardingResponse?.data?.formData || {};
+            } catch {
+              // An employee may not yet have an onboarding_info record.
+            }
+          }
+
+          return {
+            id: employee.id,
+            name: onboardingData.fullName || employee.fullName || '-',
+            designation: onboardingData.designation || employee.jobPosition || '-',
+            department: onboardingData.department || employee.department || '-',
+            monthlySalary: Number(onboardingData.currentSalary) || 0,
+            lopDays: 0,
+            clTaken: 0,
+            isBestPerformer: false,
+            joinedDate: onboardingData.dateOfJoining || employee.createdAt || '',
+            salaryPaid: false,
+            paymentDate: '',
+          };
+        }));
+
+        if (isActive) setEmployees(salaryEmployees);
+      } catch (error) {
+        if (isActive) toast.error(error.message || 'Unable to load salary details.');
+      } finally {
+        if (isActive) setLoading(false);
+      }
+    };
+
+    loadSalaryEmployees();
+    return () => { isActive = false; };
+  }, []);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -237,14 +226,14 @@ function Salary() {
         <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-700">📅 Total Working Days:</label>
+              <label className="text-sm font-medium text-gray-700">📅 Days:</label>
               <input
                 type="number"
                 min="1"
                 max="31"
-                value={totalWorkingDays}
+                value={totalWorkingDays} disabled
                 onChange={(e) => setTotalWorkingDays(Math.max(1, parseInt(e.target.value) || 26))}
-                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm text-center"
+                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm text-center text-gray-400"
               />
               <span className="text-xs text-gray-400">(Used for Per Day Salary calculation)</span>
             </div>
@@ -271,7 +260,21 @@ function Salary() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {employees.map((employee) => {
+                {loading && (
+                  <tr>
+                    <td colSpan="8" className="px-4 py-8 text-center text-sm text-gray-500">
+                      Loading salary details from onboarding records...
+                    </td>
+                  </tr>
+                )}
+                {!loading && employees.length === 0 && (
+                  <tr>
+                    <td colSpan="8" className="px-4 py-8 text-center text-sm text-gray-500">
+                      No employee salary details are available in onboarding records.
+                    </td>
+                  </tr>
+                )}
+                {!loading && employees.map((employee) => {
                   const salary = calculateSalary(employee);
                   return (
                     <tr key={employee.id} className="hover:bg-gray-50 transition-colors">

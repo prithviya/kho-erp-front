@@ -312,11 +312,7 @@ const JobOpenings = () => {
 
                                             <td className="whitespace-nowrap px-4 py-3">
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => toggleStatus(job.jobid, job.isActive)} disabled={saving} title={job.isActive ? "Deactivate" : "Activate"} className={`px-2 py-1 rounded text-xs font-medium transition-colors ${ job.isActive ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200" : "bg-green-100 text-green-700 hover:bg-green-200" }`}>
-                                                        {job.isActive ? ( <Link2Off size={16} /> ) : (
-                                                            <Link2 size={16} />
-                                                        )}
-                                                        </button>
+                                                   
                                                     <button onClick={() => editJob(job)} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">
                                                         <Edit3 size={'14px'}/>
                                                     </button>
@@ -324,6 +320,11 @@ const JobOpenings = () => {
                                                     <button onClick={() => handleViewJob(job)} title="View Details" className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors" >
                                                         <Eye size={14} />
                                                     </button>
+                                                     <button onClick={() => toggleStatus(job.jobid, job.isActive)} disabled={saving} title={job.isActive ? "Deactivate" : "Activate"} className={`px-2 py-1 rounded text-xs font-medium transition-colors ${ job.isActive ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200" : "bg-green-100 text-green-700 hover:bg-green-200" }`}>
+                                                        {job.isActive ? ( <Link2Off size={16} /> ) : (
+                                                            <Link2 size={16} />
+                                                        )}
+                                                        </button>
                                                     {canDelete && (
                                                         <button onClick={() => handleDeleteJob(job)} disabled={deletingId === job.jobid} title="Delete" className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50">
                                                             <Trash2 size={14} />

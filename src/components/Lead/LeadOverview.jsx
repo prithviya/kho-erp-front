@@ -270,23 +270,23 @@
                                             {/* Actions */}
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center justify-center gap-1.5">
-                                                    <button title="View" onClick={() => { setSelectedLead(lead); setViewOpen(true); }} className="rounded-md p-1.5 text-blue-500 hover:bg-blue-50 transition"  >
+                                                    <button title="View" onClick={() => { setSelectedLead(lead); setViewOpen(true); }} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors ">
                                                         <Eye size={16} />
                                                     </button>
-                                                    <button title="Edit" onClick={() => { setSelectedLead(lead); setEditOpen(true); }} className="rounded-md p-1.5 text-green-500 hover:bg-green-50 transition">
+                                                    <button title="Edit" onClick={() => { setSelectedLead(lead); setEditOpen(true); }} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors ">
                                                         <Pencil size={16} />
                                                     </button>
                                                     {isConverted && (
                                                         <button
                                                             title={isLeadOnboarded(lead) ? "Already onboarded" : "Move to Project"}
                                                             onClick={() => handleMoveToProject(lead)}
-                                                            className={`rounded-md p-1.5 transition ${isLeadOnboarded(lead) ? "text-gray-400 hover:bg-gray-100" : "text-purple-500 hover:bg-purple-50"}`}
+                                                            className={`rounded-md p-1.5 transition ${isLeadOnboarded(lead) ? "text-gray-400 hover:bg-gray-100" : "px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors "}`}
                                                         >
                                                             <Rocket size={16} />
                                                         </button>
                                                     )}
                                                     {canDelete && (
-                                                        <button title="Delete" onClick={() => handleDelete(lead)} disabled={deletingId === lead.id} className="rounded-md p-1.5 text-red-500 hover:bg-red-50 transition disabled:opacity-50">
+                                                        <button title="Delete" onClick={() => handleDelete(lead)} disabled={deletingId === lead.id} className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50">
                                                             <Trash2 size={16} />
                                                         </button>
                                                     )}

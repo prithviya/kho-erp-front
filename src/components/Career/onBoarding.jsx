@@ -2476,19 +2476,19 @@ const EmployeeOnboarding = () => {
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleViewEmployee(employee)}
-                            className="px-3 py-1 bg-gray-600 text-white text-xs rounded-md hover:bg-gray-700 transition-colors"
+                            className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors"
                           >
                             <Eye size={16} />
                           </button>
                           <button
                             onClick={() => handleEditEmployee(employee)}
-                            className="px-3 py-1 bg-gray-800 text-white text-xs rounded-md hover:bg-gray-900 transition-colors"
+                            className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
                           >
                             <Edit size={16} />
                           </button>
                           <button
                             onClick={() => handleAddEmployee(employee)}
-                            className="px-3 py-1 bg-green-700 text-white text-xs rounded-md hover:bg-green-800 transition-colors"
+                            className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors"
                           >
                             <Rocket size={16} />
                           </button>
@@ -2497,7 +2497,7 @@ const EmployeeOnboarding = () => {
                               onClick={() => handleDeleteEmployee(employee)}
                               disabled={deletingId === employee.id}
                               title="Delete"
-                              className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
+                              className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
                             >
                               <Trash2 size={16} />
                             </button>
