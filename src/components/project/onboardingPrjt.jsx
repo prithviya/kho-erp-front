@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
 import userManagementService from "../../services/userManagement.service";
 import projectOnboardService from "../../services/projectOnboard.service";
+import { filterEmployeeOptions } from "../../utils/employeeOptions";
 
 const DETAIL_ENABLED_NAMES = new Set([
   "website",
@@ -115,7 +116,7 @@ export default function ProjectOnboarding() {
         if (!mounted) return;
 
         const allUsers = usersRes?.data || [];
-        const activeUsers = allUsers.filter((u) => u.isActive && !u.deletedAt);
+        const activeUsers = filterEmployeeOptions(allUsers.filter((u) => u.isActive && !u.deletedAt));
         setUsers(activeUsers);
 
         setCategories(categoriesRes?.data || []);

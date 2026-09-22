@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { request } from '../../services/apiClient';
+import { isExcludedSuperadmin } from '../../utils/employeeOptions';
 import departmentService from '../../services/department.service';
 import userManagementService from '../../services/userManagement.service';
 import { toast } from 'react-toastify';
@@ -414,6 +415,7 @@ const EmployeeOnboarding = () => {
       const response = await request('/users', { method: 'GET' });
       const users = Array.isArray(response?.data) ? response.data : [];
       const normalizedOptions = users
+        .filter((user) => !isExcludedSuperadmin(user))
         .map((user) => {
           const roles = Array.isArray(user?.roles) ? user.roles : [];
           const roleCodes = roles.map((role) => String(role?.code || role?.name || '')).filter(Boolean);

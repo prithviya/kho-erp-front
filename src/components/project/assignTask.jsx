@@ -7,6 +7,7 @@ import userManagementService from "../../services/userManagement.service";
 import employeeService from "../../services/employee.service";
 import leadService from "../../services/lead.service";
 import { getCurrentUser, isSuperAdmin, canDeleteRecords } from "../../utils/auth";
+import { filterEmployeeOptions } from "../../utils/employeeOptions";
 
 const EMPTY_FORM = {
   projectOnboardId: "",
@@ -15,6 +16,7 @@ const EMPTY_FORM = {
   description: "",
   assignedToId: "",
   reportingHeadId: "",
+  spocId: "",
   priority: "MEDIUM",
   dueDate: ""
 };
@@ -72,6 +74,10 @@ export default function AssignTask() {
   const [users, setUsers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [selectedProjectDetails, setSelectedProjectDetails] = useState(null);
+  const [projectServicesLoading, setProjectServicesLoading] = useState(false);
+  const [projectServicesError, setProjectServicesError] = useState("");
+  const [projectPeopleError, setProjectPeopleError] = useState("");
 
   const [statusFilter, setStatusFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
@@ -106,8 +112,8 @@ export default function AssignTask() {
       ]);
       if (!mounted) return;
       setProjects(projectRes.status === "fulfilled" ? projectRes.value?.data || [] : []);
-      setUsers(userRes.status === "fulfilled" ? userRes.value?.data || [] : []);
-      setEmployees(employeeRes.status === "fulfilled" ? employeeRes.value?.data || [] : []);
+      setUsers(filterEmployeeOptions(userRes.status === "fulfilled" ? userRes.value?.data || [] : []));
+      setEmployees(filterEmployeeOptions(employeeRes.status === "fulfilled" ? employeeRes.value?.data || [] : []));
       setCategories(categoryRes.status === "fulfilled" ? categoryRes.value?.data || [] : []);
       
       if (projectRes.status === "rejected") toast.error("Failed to load projects.");
@@ -152,13 +158,87 @@ export default function AssignTask() {
   }, [categories]);
 
   const projectMap = useMemo(() => new Map(projects.map((p) => [Number(p.id), p])), [projects]);
-  const managerOptions = useMemo(() => users.filter(isManagerUser), [users]);
 
-  const formProject = projectMap.get(Number(form.projectOnboardId));
+  const formProject = selectedProjectDetails || projectMap.get(Number(form.projectOnboardId));
   const formServiceOptions = useMemo(() => {
-    const ids = Array.isArray(formProject?.serviceIds) ? formProject.serviceIds : [];
-    return ids.map((id) => serviceMap.get(Number(id))).filter(Boolean);
+    return getProjectValues(formProject, ["serviceIds", "services", "Services"])
+      .map((service) => {
+        const id = typeof service === "object" ? service.id ?? service.serviceId : service;
+        return typeof service === "object" ? serviceMap.get(Number(id)) || service : serviceMap.get(Number(id));
+      })
+      .filter((service) => service?.id && service?.name);
   }, [formProject, serviceMap]);
+
+  const reportingHead = useMemo(() => {
+    return getProjectPeople(formProject, "reportingHeadIds")
+      .map((id) => users.find((user) => Number(user.id) === Number(id)))
+      .filter(Boolean);
+  }, [formProject, users]);
+function getProjectPeople(project, key) {
+  const ids = key === "reportingHeadIds"
+    ? getProjectValues(project, ["reportingHeadIds", "projectManagerIds", "projectManagers", "projectManager", "reportingHeads", "reportingHead"])
+    : getProjectValues(project, [key]);
+  const assignmentIds = key === "assignedToIds"
+    ? (Array.isArray(project?.assignments) ? project.assignments.map((item) => item.assignedToId) : [])
+    : key === "reportingHeadIds"
+      ? (Array.isArray(project?.assignments) ? project.assignments.map((item) => item.reportingHeadId) : [])
+      : [];
+  const directIds = key === "reportingHeadIds" && project?.reportingHeadId ? [project.reportingHeadId] : [];
+  return [...ids, ...assignmentIds, ...directIds]
+    .map((value) => typeof value === "object" ? value.id ?? value.userId : value)
+    .filter((value, index, all) => value && all.findIndex((item) => Number(item) === Number(value)) === index);
+}
+
+  useEffect(() => {
+    let mounted = true;
+    const projectId = Number(form.projectOnboardId);
+
+    setSelectedProjectDetails(null);
+    setProjectServicesError("");
+    setProjectPeopleError("");
+    if (!projectId) {
+      setProjectServicesLoading(false);
+      return () => { mounted = false; };
+    }
+
+    setProjectServicesLoading(true);
+    projectOnboardService.getById(projectId)
+      .then((response) => {
+        if (mounted) setSelectedProjectDetails(response?.data || response);
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        setProjectServicesError(error.message || "Failed to load project services.");
+        setProjectPeopleError(error.message || "Failed to load project team.");
+        setSelectedProjectDetails(projectMap.get(projectId) || null);
+      })
+      .finally(() => {
+        if (mounted) setProjectServicesLoading(false);
+      });
+
+    return () => { mounted = false; };
+  }, [form.projectOnboardId, projectMap]);
+
+  useEffect(() => {
+    if (!form.serviceId || !formServiceOptions.length) return;
+    const selectedService = formServiceOptions.find((service) =>
+      String(service.id) === String(form.serviceId)
+      || String(service.name || "").trim().toLowerCase() === String(form.serviceId).trim().toLowerCase()
+    );
+    if (selectedService && String(selectedService.id) !== String(form.serviceId)) {
+      setForm((previous) => ({ ...previous, serviceId: String(selectedService.id) }));
+    }
+  }, [form.serviceId, formServiceOptions]);
+
+  const projectPeople = useMemo(() => ({
+    assignedTo: getProjectPeople(formProject, "assignedToIds")
+      .map((id) => users.find((user) => Number(user.id) === Number(id)))
+      .filter(Boolean),
+    reportingHeads: reportingHead,
+    spocs: getProjectPeople(formProject, "spocIds")
+      .map((id) => users.find((user) => Number(user.id) === Number(id)))
+      .filter(Boolean)
+  }), [formProject, reportingHead, users]);
 
   const counts = useMemo(() => {
     const result = { ALL: tasks.length };
@@ -194,12 +274,13 @@ export default function AssignTask() {
     const serviceDetails = parsedDetails && typeof parsedDetails === "object" && !Array.isArray(parsedDetails)
       ? parsedDetails
       : {};
-    const values = getProjectValues(project, ["serviceIds", "services", "Services"]);
+    const values = getProjectValues(project, ["serviceIds", "services", "Services"])
+      .map((value) => typeof value === "object" ? value.id ?? value.serviceId : value);
     return [...values, ...Object.keys(serviceDetails)].filter((value, index, allValues) => {
-      const service = typeof value === "object" ? value : serviceMap.get(Number(value)) || serviceMap.get(String(value).trim().toLowerCase());
+      const service = serviceMap.get(Number(value)) || serviceMap.get(String(value).trim().toLowerCase());
       const identity = service?.id ?? service?.name ?? value;
       return allValues.findIndex((item) => {
-        const itemService = typeof item === "object" ? item : serviceMap.get(Number(item)) || serviceMap.get(String(item).trim().toLowerCase());
+        const itemService = serviceMap.get(Number(item)) || serviceMap.get(String(item).trim().toLowerCase());
         return String(itemService?.id ?? itemService?.name ?? item).trim().toLowerCase() === String(identity).trim().toLowerCase();
       }) === index;
     });
@@ -238,12 +319,13 @@ export default function AssignTask() {
     });
   };
 
-  const openCreate = (defaultProjectId = "") => {
+  const openCreate = (defaultProjectId = "", defaultServiceId = "") => {
     setEditingTask(null);
     setForm({
       ...EMPTY_FORM,
       projectOnboardId: defaultProjectId || projectFilter || "",
-      reportingHeadId: superAdmin ? "" : String(currentUser?.id || "")
+      serviceId: defaultServiceId ? String(defaultServiceId) : "",
+      reportingHeadId: ""
     });
     setShowForm(true);
   };
@@ -257,6 +339,7 @@ export default function AssignTask() {
       description: task.description || "",
       assignedToId: String(task.assignedToId || ""),
       reportingHeadId: task.reportingHeadId ? String(task.reportingHeadId) : "",
+      spocId: task.spocId ? String(task.spocId) : "",
       priority: task.priority || "MEDIUM",
       dueDate: task.dueDate || ""
     });
@@ -274,6 +357,9 @@ export default function AssignTask() {
     setForm((prev) => {
       const next = { ...prev, [name]: value };
       if (name === "projectOnboardId") next.serviceId = "";
+      if (name === "projectOnboardId") next.reportingHeadId = "";
+      if (name === "projectOnboardId") next.assignedToId = "";
+      if (name === "projectOnboardId") next.spocId = "";
       return next;
     });
   };
@@ -283,14 +369,20 @@ export default function AssignTask() {
     if (!form.projectOnboardId) return toast.error("Select a project.");
     if (!form.title.trim()) return toast.error("Task title is required.");
     if (!form.assignedToId) return toast.error("Select an assignee.");
+    if (!form.reportingHeadId) return toast.error("Select a reporting head.");
+    if (!form.spocId) return toast.error("Select a SPOC.");
+
+    const selectedService = formServiceOptions.find((service) => String(service.id) === String(form.serviceId));
+    if (form.serviceId && !selectedService) return toast.error("Selected service is not part of this project.");
 
     const payload = {
       projectOnboardId: Number(form.projectOnboardId),
-      serviceId: form.serviceId ? Number(form.serviceId) : null,
+      serviceId: selectedService ? Number(selectedService.id) : null,
       title: form.title.trim(),
       description: form.description.trim() || null,
       assignedToId: Number(form.assignedToId),
       reportingHeadId: form.reportingHeadId ? Number(form.reportingHeadId) : null,
+      spocId: form.spocId ? Number(form.spocId) : null,
       priority: form.priority,
       dueDate: form.dueDate || null
     };
@@ -485,33 +577,40 @@ export default function AssignTask() {
                     </div>
                   </div>
 
-                  {/* Required Services */}
-                  <div>
-                    <span className="font-semibold text-gray-500 flex items-center gap-1">
-                      <Layers size={13} className="text-orange-500" /> Required Services:
-                    </span>
-                    <div className="mt-0.5 flex flex-wrap gap-1">
-                      {svcs.length ? (
-                        svcs.map((svc) => (
-                          <span key={svc} className="rounded-md bg-gray-100 px-2 py-0.5 text-gray-700">
-                            {svc}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </div>
-                  </div>
+                </div>
 
-                  <div>
-                    <span className="font-semibold text-gray-500">Service Details:</span>
-                    <div className="mt-0.5 space-y-0.5 text-gray-600">
-                      {serviceDetailText.length ? (
-                        serviceDetailText.map((detail) => <p key={detail}>{detail}</p>)
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </div>
+                <div className="mt-4 border-t border-gray-100 pt-3">
+                  <div className="mb-2 flex items-center gap-1 text-xs font-semibold text-gray-500">
+                    <Layers size={13} className="text-orange-500" /> Project Deliverables by Service
+                  </div>
+                  <div className="flex gap-3 overflow-x-auto pb-2">
+                    {getProjectServiceIds(project).map((serviceId) => {
+                      const service = serviceMap.get(Number(serviceId));
+                      const serviceTasks = tasks.filter((task) => Number(task.projectOnboardId) === Number(project.id) && Number(task.serviceId) === Number(serviceId));
+                      const details = getProjectServiceDetailText(project).filter((detail) => detail.toLowerCase().startsWith(`${String(service?.name || serviceId).toLowerCase()}:`));
+                      return (
+                        <div key={serviceId} className="min-w-56 flex-1 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                          <div className="mb-2 flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-bold text-gray-800">{service?.name || `Service #${serviceId}`}</p>
+                              {details.map((detail) => <p key={detail} className="mt-1 text-[11px] text-gray-500">{detail}</p>)}
+                            </div>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); openCreate(String(project.id), String(serviceId)); }} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-gray-800 px-2 py-1 text-[11px] font-semibold text-white hover:bg-gray-900" title={`Assign task for ${service?.name || "service"}`}>
+                              <Plus size={12} /> Assign Task
+                            </button>
+                          </div>
+                          <div className="space-y-1.5">
+                            {serviceTasks.length ? serviceTasks.map((task) => (
+                              <div key={task.id} className="rounded-md border border-white bg-white px-2 py-1.5 text-xs shadow-sm">
+                                <p className="font-medium text-gray-800">{task.title}</p>
+                                <p className="text-gray-500">{userName(task.assignee)}</p>
+                              </div>
+                            )) : <p className="py-3 text-center text-[11px] text-gray-400">No deliverables yet</p>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {!getProjectServiceIds(project).length && <p className="text-xs text-gray-400">No services configured for this project.</p>}
                   </div>
                 </div>
 
@@ -671,10 +770,11 @@ export default function AssignTask() {
                   </div>
                   <div>
                     <label className={labelCls}>Service</label>
-                    <select value={form.serviceId} onChange={(e) => setField("serviceId", e.target.value)} className={inputCls} disabled={!form.projectOnboardId}>
-                      <option value="">{form.projectOnboardId ? "General (no specific service)" : "Select project first"}</option>
+                    <select value={form.serviceId} onChange={(e) => setField("serviceId", e.target.value)} className={inputCls} disabled={!form.projectOnboardId || projectServicesLoading || Boolean(projectServicesError)}>
+                      <option value="">{!form.projectOnboardId ? "Select project first" : projectServicesLoading ? "Loading services..." : projectServicesError ? "Unable to load services" : formServiceOptions.length ? "General (no specific service)" : "No services for this project"}</option>
                       {formServiceOptions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
+                    {projectServicesError && <p className="mt-1 text-xs text-red-600">{projectServicesError}</p>}
                   </div>
                 </div>
 
@@ -691,16 +791,59 @@ export default function AssignTask() {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label className={labelCls}>Assign To <span className="text-red-500">*</span></label>
-                    <select value={form.assignedToId} onChange={(e) => setField("assignedToId", e.target.value)} className={inputCls} required>
-                      <option value="">Select team member</option>
-                      {users.map((u) => <option key={u.id} value={u.id}>{userName(u)}</option>)}
+                    <select value={form.assignedToId} onChange={(e) => setField("assignedToId", e.target.value)} className={inputCls} disabled={!form.projectOnboardId || projectServicesLoading || Boolean(projectPeopleError)} required>
+                      <option value="">{!form.projectOnboardId ? "Select project first" : projectServicesLoading ? "Loading team..." : projectPeopleError ? "Unable to load team" : projectPeople.assignedTo.length ? "Select team member" : "No team members for this project"}</option>
+                      {projectPeople.assignedTo.map((u) => <option key={u.id} value={u.id}>{userName(u)}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className={labelCls}>Reporting Head</label>
-                    <select value={form.reportingHeadId} onChange={(e) => setField("reportingHeadId", e.target.value)} className={inputCls}>
-                      <option value="">{superAdmin ? "Select reporting head" : "Me (default)"}</option>
-                      {managerOptions.map((u) => <option key={u.id} value={u.id}>{userName(u)}</option>)}
+                    <label className={labelCls}>
+                      Reporting Head <span className="text-red-500">*</span>
+                    </label>
+
+                    {!form.projectOnboardId ? (
+                      <p className="text-sm text-gray-500 mt-1">Select project first</p>
+                    ) : projectServicesLoading ? (
+                      <p className="text-sm text-gray-500 mt-1">
+                        Loading reporting heads...
+                      </p>
+                    ) : projectPeopleError ? (
+                      <p className="text-sm text-red-500 mt-1">
+                        Unable to load reporting heads
+                      </p>
+                    ) : projectPeople.reportingHeads.length ? (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {projectPeople.reportingHeads.map((u) => {
+                          const selected = form.reportingHeadId === u.id;
+
+                          return (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => setField("reportingHeadId", u.id)}
+                              className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                                selected
+                                  ? "bg-blue-600 text-white border-blue-600"
+                                  : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                              }`}
+                            >
+                              {userName(u)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 mt-1">
+                        No reporting heads for this project
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>SPOC <span className="text-red-500">*</span></label>
+                    <select value={form.spocId} onChange={(e) => setField("spocId", e.target.value)} className={inputCls} disabled={!form.projectOnboardId || projectServicesLoading || Boolean(projectPeopleError)} required>
+                      <option value="">{!form.projectOnboardId ? "Select project first" : projectServicesLoading ? "Loading SPOCs..." : projectPeopleError ? "Unable to load SPOCs" : projectPeople.spocs.length ? "Select SPOC" : "No SPOCs for this project"}</option>
+                      {projectPeople.spocs.map((u) => <option key={u.id} value={u.id}>{userName(u)}</option>)}
                     </select>
                   </div>
                   <div>

@@ -6,6 +6,7 @@ import employeeService from "../../services/employee.service";
 import userManagementService from "../../services/userManagement.service";
 import projectOnboardService from "../../services/projectOnboard.service";
 import { canDeleteRecords } from "../../utils/auth";
+import { filterEmployeeOptions } from "../../utils/employeeOptions";
 
 // Human-readable labels for the keys written by the onboarding form
 // (includes legacy keys so older records still display).
@@ -340,13 +341,13 @@ const ProjectManagement = () => {
       }
 
       if (userRes.status === "fulfilled") {
-        setUsers(userRes.value?.data || []);
+        setUsers(filterEmployeeOptions(userRes.value?.data || []));
       } else {
         setUsers([]);
       }
 
       if (employeeRes.status === "fulfilled") {
-        setEmployees(getEmployeeList(employeeRes.value).map(normalizeEmployee).filter((employee) => employee.id));
+        setEmployees(filterEmployeeOptions(getEmployeeList(employeeRes.value).map(normalizeEmployee).filter((employee) => employee.id)));
       } else {
         setEmployees([]);
         toast.error(employeeRes.reason?.message || "Failed to load employees.");
