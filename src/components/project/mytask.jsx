@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { CalendarDays, CheckCircle2, CircleAlert, Loader2, RefreshCw, X } from "lucide-react";
 import { toast } from "react-toastify";
 import taskService, { TASK_PRIORITIES, TASK_STATUSES, getPriorityMeta, getStatusMeta } from "../../services/task.service";
 import projectOnboardService from "../../services/projectOnboard.service";
+import { hasAnyRole } from "../../utils/auth";
 
 function userName(user) {
   if (!user) return "Unassigned";
@@ -27,6 +29,8 @@ function parseArray(value) {
 }
 
 export default function MyTask() {
+  const navigate = useNavigate();
+  const canAssignTasks = hasAnyRole(["SUPER_ADMIN", "MANAGER", "TEAM_MEMBER"]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -162,7 +166,16 @@ export default function MyTask() {
                     })}
                   </div>
                   </div>
-                  <button type="button" title={`Add task to ${serviceGroup.name}`} onClick={() => toast.info("Use Assign Task to add work for this service.")} className="mx-auto mb-3 block rounded-lg border border-gray-300 bg-white px-3 py-1 text-lg leading-none text-gray-500 hover:bg-gray-50">+</button>
+                  <button
+                    type="button"
+                    title={canAssignTasks ? `Add task to ${serviceGroup.name}` : "Only managers can assign tasks"}
+                    onClick={() => canAssignTasks
+                      ? navigate("/tasks", { state: { openProjectId: project.id, openServiceId: serviceGroup.id === "general" ? "" : serviceGroup.id } })
+                      : toast.info("Only managers can assign new tasks.")}
+                    className="mx-auto mb-3 block rounded-lg border border-gray-300 bg-white px-3 py-1 text-lg leading-none text-gray-500 hover:bg-gray-50"
+                  >
+                    +
+                  </button>
                 </div>)}
                 {!serviceGroups.size && <p className="w-full py-5 text-center text-xs text-gray-400">No project deliverables</p>}
               </div>
