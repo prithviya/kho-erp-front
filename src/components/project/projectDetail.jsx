@@ -5,8 +5,9 @@ import leadService from "../../services/lead.service";
 import employeeService from "../../services/employee.service";
 import userManagementService from "../../services/userManagement.service";
 import projectOnboardService from "../../services/projectOnboard.service";
-import { canDeleteRecords } from "../../utils/auth";
+import { canDeleteRecords, isSuperAdmin } from "../../utils/auth";
 import { filterEmployeeOptions } from "../../utils/employeeOptions";
+import ServiceDetailFields, { hasServiceDetails } from "./ServiceDetailFields";
 
 // Human-readable labels for the keys written by the onboarding form
 // (includes legacy keys so older records still display).
@@ -165,7 +166,12 @@ const ServiceDetailSummary = ({ details, resolveValue = (value) => value }) => {
 };
 
 const EMPTY_EDIT_FORM = {
-  spocIds: []
+  projectName: "",
+  companyName: "",
+  projectManagerIds: [],
+  spocIds: [],
+  serviceIds: [],
+  serviceDetails: {}
 };
 
 const EMPTY_ASSIGN_FORM = {
@@ -268,6 +274,7 @@ const ProjectManagement = () => {
   const [projects, setProjects] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
   const canDelete = canDeleteRecords();
+  const superAdmin = isSuperAdmin();
   const [users, setUsers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -347,7 +354,9 @@ const ProjectManagement = () => {
       }
 
       if (employeeRes.status === "fulfilled") {
-        setEmployees(filterEmployeeOptions(getEmployeeList(employeeRes.value).map(normalizeEmployee).filter((employee) => employee.id)));
+        // Employees are a separate table from Users (no shared id space), so the
+        // super-admin-user exclusion in filterEmployeeOptions does not apply here.
+        setEmployees(getEmployeeList(employeeRes.value).map(normalizeEmployee).filter((employee) => employee.id));
       } else {
         setEmployees([]);
         toast.error(employeeRes.reason?.message || "Failed to load employees.");
@@ -380,7 +389,7 @@ const ProjectManagement = () => {
 
   const getEmployeeNames = (ids = []) =>
     (Array.isArray(ids) ? ids : [])
-      .map((id) => userMap.get(Number(id)) || employeeMap.get(Number(id)))
+      .map((id) => employeeMap.get(Number(id)) || userMap.get(Number(id)))
       .filter(Boolean)
       .map((person) => formatUserName(person));
 
@@ -425,10 +434,59 @@ const ProjectManagement = () => {
   const openEditModal = (project) => {
     setSelectedProject(project);
     setEditForm({
-      spocIds: Array.isArray(project.spocIds) ? project.spocIds.map(Number) : []
+      projectName: project.projectName || "",
+      companyName: project.companyName || "",
+      projectManagerIds: Array.isArray(project.projectManagerIds) ? project.projectManagerIds.map(Number) : [],
+      spocIds: Array.isArray(project.spocIds) ? project.spocIds.map(Number) : [],
+      serviceIds: Array.isArray(project.serviceIds) ? project.serviceIds.map((id) => Number(id)).filter(Number.isFinite) : [],
+      serviceDetails: project.serviceDetails && typeof project.serviceDetails === "object" ? project.serviceDetails : {}
     });
     setShowEditModal(true);
     hydrateSelectedProject(project);
+  };
+
+  const handleEditServiceToggle = (serviceId) => {
+    const id = Number(serviceId);
+    setEditForm((prev) => {
+      const current = prev.serviceIds || [];
+      if (current.includes(id)) {
+        const nextDetails = { ...prev.serviceDetails };
+        delete nextDetails[id];
+        return { ...prev, serviceIds: current.filter((s) => s !== id), serviceDetails: nextDetails };
+      }
+      return { ...prev, serviceIds: [...current, id] };
+    });
+  };
+
+  const handleEditServiceDetailChange = (serviceId, field, value) => {
+    setEditForm((prev) => ({
+      ...prev,
+      serviceDetails: {
+        ...prev.serviceDetails,
+        [serviceId]: {
+          ...prev.serviceDetails[serviceId],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const handleEditServiceListToggle = (serviceId, field, value) => {
+    setEditForm((prev) => {
+      const current = prev.serviceDetails[serviceId] || {};
+      const list = current[field] || [];
+      const exists = list.includes(value);
+      return {
+        ...prev,
+        serviceDetails: {
+          ...prev.serviceDetails,
+          [serviceId]: {
+            ...current,
+            [field]: exists ? list.filter((x) => x !== value) : [...list, value]
+          }
+        }
+      };
+    });
   };
 
   const openAssignModal = (project) => {
@@ -460,17 +518,35 @@ const ProjectManagement = () => {
 
     if (!editForm.spocIds.length) return toast.error("Select at least one SPOC.");
 
+    const payload = superAdmin
+      ? {
+          projectName: editForm.projectName.trim(),
+          companyName: editForm.companyName.trim(),
+          projectManagerIds: editForm.projectManagerIds,
+          spocIds: editForm.spocIds,
+          serviceIds: editForm.serviceIds,
+          serviceDetails: editForm.serviceDetails || {}
+        }
+      : {
+          // Non-super-admins may only change the SPOC; the rest is sent back unchanged.
+          projectName: selectedProject.projectName,
+          companyName: selectedProject.companyName,
+          projectManagerIds: Array.isArray(selectedProject.projectManagerIds) ? selectedProject.projectManagerIds : [],
+          spocIds: editForm.spocIds,
+          serviceIds: Array.isArray(selectedProject.serviceIds) ? selectedProject.serviceIds : [],
+          serviceDetails: selectedProject.serviceDetails || {}
+        };
+
+    if (superAdmin) {
+      if (!payload.projectName) return toast.error("Project name is required.");
+      if (!payload.companyName) return toast.error("Company name is required.");
+      if (!payload.projectManagerIds.length) return toast.error("Select at least one reporting head.");
+      if (!payload.serviceIds.length) return toast.error("Select at least one service.");
+    }
+
     try {
       setSaving(true);
-      // Only SPOC is editable; the rest is sent back unchanged.
-      await projectOnboardService.update(selectedProject.id, {
-        projectName: selectedProject.projectName,
-        companyName: selectedProject.companyName,
-        projectManagerIds: Array.isArray(selectedProject.projectManagerIds) ? selectedProject.projectManagerIds : [],
-        spocIds: editForm.spocIds,
-        serviceIds: Array.isArray(selectedProject.serviceIds) ? selectedProject.serviceIds : [],
-        serviceDetails: selectedProject.serviceDetails || {}
-      });
+      await projectOnboardService.update(selectedProject.id, payload);
 
       toast.success("Project updated successfully.");
       closeAllModals();
@@ -488,7 +564,7 @@ const ProjectManagement = () => {
 
     const validAssignedToIds = (assignForm.assignedToIds || [])
       .map((id) => Number(id))
-      .filter((id) => Number.isFinite(id) && userMap.has(id));
+      .filter((id) => Number.isFinite(id) && employeeMap.has(id));
 
     if (!validAssignedToIds.length) return toast.error("Select at least one valid assignee.");
 
@@ -513,7 +589,7 @@ const ProjectManagement = () => {
     if (!list.length) {
       return (
         <tr>
-          <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+          <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
             No projects found
           </td>
         </tr>
@@ -634,7 +710,7 @@ const ProjectManagement = () => {
             <tbody className="divide-y divide-gray-200 bg-white">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                     Loading projects...
                   </td>
                 </tr>
@@ -744,37 +820,67 @@ const ProjectManagement = () => {
                 <form onSubmit={saveProjectUpdate}>
                   <div className="space-y-4">
                     <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                      Only the SPOC can be changed here. Project name, company, reporting head, and services are locked after onboarding.
+                      {superAdmin
+                        ? "As a Super Admin you can edit every field on this project."
+                        : "Only the SPOC can be changed here. Project name, company, reporting head, and services are locked after onboarding."}
                     </p>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Project Name</label>
-                        <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                          {selectedProject.projectName || "-"}
-                        </div>
+                        {superAdmin ? (
+                          <input
+                            type="text"
+                            value={editForm.projectName}
+                            onChange={(e) => setEditForm((prev) => ({ ...prev, projectName: e.target.value }))}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                          />
+                        ) : (
+                          <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                            {selectedProject.projectName || "-"}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Company Name</label>
-                        <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                          {selectedProject.companyName || "-"}
-                        </div>
+                        {superAdmin ? (
+                          <input
+                            type="text"
+                            value={editForm.companyName}
+                            onChange={(e) => setEditForm((prev) => ({ ...prev, companyName: e.target.value }))}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                          />
+                        ) : (
+                          <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                            {selectedProject.companyName || "-"}
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Reporting Head</label>
-                      <div className="flex min-h-10.5 flex-wrap items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        {getUserNames(selectedProject.projectManagerIds).length ? (
-                          getUserNames(selectedProject.projectManagerIds).map((name) => (
-                            <span key={`edit-pm-${name}`} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                              {name}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-sm text-gray-400">-</span>
-                        )}
-                      </div>
+                      {superAdmin ? (
+                        <MultiUserSelect
+                          users={users}
+                          selectedIds={editForm.projectManagerIds}
+                          onChange={(ids) => setEditForm((prev) => ({ ...prev, projectManagerIds: ids }))}
+                          placeholder="Select reporting head(s)"
+                          tone="blue"
+                        />
+                      ) : (
+                        <div className="flex min-h-10.5 flex-wrap items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                          {getUserNames(selectedProject.projectManagerIds).length ? (
+                            getUserNames(selectedProject.projectManagerIds).map((name) => (
+                              <span key={`edit-pm-${name}`} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                                {name}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -790,39 +896,101 @@ const ProjectManagement = () => {
 
                     <div>
                       <label className="mb-2 block text-sm font-medium text-gray-700">Services</label>
-                      <div className="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        {getServiceNames(selectedProject.serviceIds).length ? (
-                          getServiceNames(selectedProject.serviceIds).map((serviceName) => (
-                            <span key={`edit-svc-${serviceName}`} className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
-                              {serviceName}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-sm text-gray-400">No services</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {getProjectServiceIds(selectedProject, getService).length > 0 && (
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">Service Details</label>
-                        <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
-                          {getProjectServiceIds(selectedProject, getService).map((serviceId) => {
-                            const service = getService(serviceId);
-
+                      {superAdmin ? (
+                        <div className="space-y-3">
+                          {categories.map((category) => {
+                            const services = category.services || category.Services || [];
+                            if (!services.length) return null;
                             return (
-                              <div key={`edit-${serviceId}`} className="overflow-hidden rounded-lg border-2 border-gray-200">
-                                <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
-                                  <h4 className="text-sm font-semibold text-gray-800">{service?.name || `Service ${serviceId}`}</h4>
-                                </div>
-                                <div className="p-3">
-                                  <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId, service)} resolveValue={resolveDetailValue} />
+                              <div key={category.id}>
+                                <h4 className="mb-1 text-xs font-medium text-gray-500">{category.name}</h4>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                  {services.map((service) => {
+                                    const checked = editForm.serviceIds.includes(Number(service.id));
+                                    return (
+                                      <label
+                                        key={service.id}
+                                        className={`flex cursor-pointer items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm ${
+                                          checked ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={() => handleEditServiceToggle(service.id)}
+                                        />
+                                        <span className="font-medium text-gray-700">{service.name}</span>
+                                      </label>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             );
                           })}
                         </div>
-                      </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                          {getServiceNames(selectedProject.serviceIds).length ? (
+                            getServiceNames(selectedProject.serviceIds).map((serviceName) => (
+                              <span key={`edit-svc-${serviceName}`} className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
+                                {serviceName}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-400">No services</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {superAdmin ? (
+                      editForm.serviceIds.filter((id) => hasServiceDetails(getService(id))).length > 0 && (
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-gray-700">Service Details</label>
+                          <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
+                            {editForm.serviceIds.filter((id) => hasServiceDetails(getService(id))).map((serviceId) => {
+                              const service = getService(serviceId);
+                              return (
+                                <div key={`edit-detail-${serviceId}`} className="overflow-hidden rounded-lg border-2 border-gray-200">
+                                  <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
+                                    <h4 className="text-sm font-semibold text-gray-800">{service?.name || `Service ${serviceId}`}</h4>
+                                  </div>
+                                  <div className="p-3">
+                                    <ServiceDetailFields
+                                      service={service}
+                                      details={editForm.serviceDetails[serviceId] || {}}
+                                      onDetailChange={(field, value) => handleEditServiceDetailChange(serviceId, field, value)}
+                                      onListToggle={(field, value) => handleEditServiceListToggle(serviceId, field, value)}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      getProjectServiceIds(selectedProject, getService).length > 0 && (
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-gray-700">Service Details</label>
+                          <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
+                            {getProjectServiceIds(selectedProject, getService).map((serviceId) => {
+                              const service = getService(serviceId);
+
+                              return (
+                                <div key={`edit-${serviceId}`} className="overflow-hidden rounded-lg border-2 border-gray-200">
+                                  <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
+                                    <h4 className="text-sm font-semibold text-gray-800">{service?.name || `Service ${serviceId}`}</h4>
+                                  </div>
+                                  <div className="p-3">
+                                    <ServiceDetailSummary details={getServiceDetails(selectedProject.serviceDetails, serviceId, service)} resolveValue={resolveDetailValue} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )
                     )}
                   </div>
 
@@ -839,7 +1007,7 @@ const ProjectManagement = () => {
                       disabled={saving}
                       className="rounded-lg bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-900 disabled:opacity-60"
                     >
-                      {saving ? "Updating..." : "Update SPOC"}
+                      {saving ? "Updating..." : superAdmin ? "Update Project" : "Update SPOC"}
                     </button>
                   </div>
                 </form>
@@ -918,15 +1086,28 @@ const ProjectManagement = () => {
                       )}
                       </div>
                     <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Reporting Head</label>
+                      <select
+                        value={assignForm.reportingHeadId || ""}
+                        onChange={(e) => setAssignForm((prev) => ({ ...prev, reportingHeadId: e.target.value ? Number(e.target.value) : "" }))}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      >
+                        <option value="">Select reporting head</option>
+                        {users.map((u) => (
+                          <option key={u.id} value={u.id}>{formatUserName(u)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Assign To</label>
                       <MultiUserSelect
-                        users={users}
+                        users={employees}
                         selectedIds={assignForm.assignedToIds}
                         onChange={(ids) => setAssignForm((prev) => ({ ...prev, assignedToIds: ids }))}
-                        placeholder="Select Users"
+                        placeholder="Select Employees"
                         tone="green"
                       />
-                      {!users.length && <p className="mt-1 text-xs text-gray-500">No users available.</p>}
+                      {!employees.length && <p className="mt-1 text-xs text-gray-500">No employees available.</p>}
                     </div>
                   </div>
 

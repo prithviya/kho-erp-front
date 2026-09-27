@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Plus, Eye, Pencil, Trash2, Search, X, Briefcase, UserCheck, Users, Layers } from "lucide-react";
 import taskService, { TASK_STATUSES, TASK_PRIORITIES, getStatusMeta } from "../../services/task.service";
@@ -66,6 +67,8 @@ export default function AssignTask() {
   const currentUser = getCurrentUser();
   const superAdmin = isSuperAdmin();
   const canDelete = canDeleteRecords();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,7 +116,9 @@ export default function AssignTask() {
       if (!mounted) return;
       setProjects(projectRes.status === "fulfilled" ? projectRes.value?.data || [] : []);
       setUsers(filterEmployeeOptions(userRes.status === "fulfilled" ? userRes.value?.data || [] : []));
-      setEmployees(filterEmployeeOptions(employeeRes.status === "fulfilled" ? employeeRes.value?.data || [] : []));
+      // Employees are a separate table from Users (no shared id space), so the
+      // super-admin-user exclusion in filterEmployeeOptions does not apply here.
+      setEmployees(employeeRes.status === "fulfilled" ? employeeRes.value?.data || [] : []);
       setCategories(categoryRes.status === "fulfilled" ? categoryRes.value?.data || [] : []);
       
       if (projectRes.status === "rejected") toast.error("Failed to load projects.");
@@ -139,12 +144,6 @@ export default function AssignTask() {
     employees.forEach((emp) => map.set(Number(emp.id), emp));
     return map;
   }, [employees]);
-
-  const peopleMap = useMemo(() => {
-    const map = new Map(employeeMap);
-    users.forEach((user) => map.set(Number(user.id), user));
-    return map;
-  }, [employeeMap, users]);
 
   const serviceMap = useMemo(() => {
     const map = new Map();
@@ -231,14 +230,15 @@ function getProjectPeople(project, key) {
   }, [form.serviceId, formServiceOptions]);
 
   const projectPeople = useMemo(() => ({
-    assignedTo: getProjectPeople(formProject, "assignedToIds")
-      .map((id) => users.find((user) => Number(user.id) === Number(id)))
-      .filter(Boolean),
+    // Note: a project's assignedToIds are Employee ids (project_assignments -> employees),
+    // while Task.assignedToId requires a User id -- there's no link between the two tables,
+    // so "assign to" offers every user rather than trying to filter to project employees.
+    assignedTo: users,
     reportingHeads: reportingHead,
     spocs: getProjectPeople(formProject, "spocIds")
       .map((id) => users.find((user) => Number(user.id) === Number(id)))
       .filter(Boolean)
-  }), [formProject, reportingHead, users]);
+  }), [reportingHead, users]);
 
   const counts = useMemo(() => {
     const result = { ALL: tasks.length };
@@ -329,6 +329,13 @@ function getProjectPeople(project, key) {
     });
     setShowForm(true);
   };
+
+  useEffect(() => {
+    if (!location.state?.openProjectId) return;
+    openCreate(String(location.state.openProjectId), location.state.openServiceId ? String(location.state.openServiceId) : "");
+    navigate(location.pathname, { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, location.pathname]);
 
   const openEdit = (task) => {
     setEditingTask(task);
@@ -488,7 +495,7 @@ function getProjectPeople(project, key) {
             );
             const assignees = getNamesFromList(
               getProjectValues(project, ["assignedToIds", "assignedTo", "assignedUsers", "employees"]),
-              peopleMap
+              employeeMap
             );
             const svcs = getServiceNamesFromList(getProjectServiceIds(project));
             const serviceDetailText = getProjectServiceDetailText(project);
@@ -791,8 +798,8 @@ function getProjectPeople(project, key) {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label className={labelCls}>Assign To <span className="text-red-500">*</span></label>
-                    <select value={form.assignedToId} onChange={(e) => setField("assignedToId", e.target.value)} className={inputCls} disabled={!form.projectOnboardId || projectServicesLoading || Boolean(projectPeopleError)} required>
-                      <option value="">{!form.projectOnboardId ? "Select project first" : projectServicesLoading ? "Loading team..." : projectPeopleError ? "Unable to load team" : projectPeople.assignedTo.length ? "Select team member" : "No team members for this project"}</option>
+                    <select value={form.assignedToId} onChange={(e) => setField("assignedToId", e.target.value)} className={inputCls} disabled={!form.projectOnboardId} required>
+                      <option value="">{!form.projectOnboardId ? "Select project first" : projectPeople.assignedTo.length ? "Select team member" : "No users available"}</option>
                       {projectPeople.assignedTo.map((u) => <option key={u.id} value={u.id}>{userName(u)}</option>)}
                     </select>
                   </div>
@@ -814,7 +821,7 @@ function getProjectPeople(project, key) {
                     ) : projectPeople.reportingHeads.length ? (
                       <div className="flex flex-wrap gap-2 mt-2">
                         {projectPeople.reportingHeads.map((u) => {
-                          const selected = form.reportingHeadId === u.id;
+                          const selected = Number(form.reportingHeadId) === Number(u.id);
 
                           return (
                             <button
