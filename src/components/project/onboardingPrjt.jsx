@@ -4,7 +4,6 @@ import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
 import userManagementService from "../../services/userManagement.service";
 import projectOnboardService from "../../services/projectOnboard.service";
-import { filterEmployeeOptions } from "../../utils/employeeOptions";
 
 const DETAIL_ENABLED_NAMES = new Set([
   "website",
@@ -116,7 +115,7 @@ export default function ProjectOnboarding() {
         if (!mounted) return;
 
         const allUsers = usersRes?.data || [];
-        const activeUsers = filterEmployeeOptions(allUsers.filter((u) => u.isActive && !u.deletedAt));
+        const activeUsers = allUsers.filter((u) => u.isActive && !u.deletedAt);
         setUsers(activeUsers);
 
         setCategories(categoriesRes?.data || []);
@@ -179,16 +178,16 @@ export default function ProjectOnboarding() {
 
   const normalizeRoleCode = (value) => String(value || "").trim().toUpperCase().replace(/[\s_-]+/g, "");
 
-  const hasManagerAccess = (user) => {
+  const isManager = (user) => {
     const roles = Array.isArray(user?.roles) ? user.roles : [];
     return roles.some((role) => {
       const roleCode = normalizeRoleCode(role?.code || role?.name || "");
-      return roleCode === "MANAGER" || roleCode === "SUPERADMIN" || roleCode === "SUPER_ADMIN";
+      return roleCode === "MANAGER";
     });
   };
 
-  const managerOptions = useMemo(() => users.filter(hasManagerAccess), [users]);
-  const spocOptions = useMemo(() => users, [users]);
+  const managerOptions = useMemo(() => users.filter(isManager), [users]);
+  const spocOptions = useMemo(() => users.filter((user) => !isManager(user)), [users]);
 
   const selectedManagers = managerOptions.filter((u) => formData.projectManagerIds.includes(u.id));
   const selectedSpocs = spocOptions.filter((u) => formData.spocIds.includes(u.id));
@@ -561,7 +560,7 @@ export default function ProjectOnboarding() {
     if (alreadyOnboarded) return toast.warning(ALREADY_ONBOARDED_MSG);
     if (!formData.projectName.trim()) return toast.error("Project name is required.");
     if (!formData.companyName.trim()) return toast.error("Company name is required.");
-    if (!formData.projectManagerIds.length) return toast.error("Select at least one project manager.");
+    if (!formData.projectManagerIds.length) return toast.error("Reporting Head is required.");
     if (!formData.spocIds.length) return toast.error("Select at least one SPOC.");
     if (!formData.serviceIds.length) return toast.error("Select at least one service.");
 
