@@ -89,7 +89,6 @@ const hasRole = (user, expectedRole) => (Array.isArray(user?.roles) ? user.roles
   .some((role) => normalizeRoleCode(role?.code || role?.name) === expectedRole);
 
 const isManagerUser = (user) => hasRole(user, "MANAGER");
-const isSuperAdminUser = (user) => hasRole(user, "SUPERADMIN");
 
 const normalizeProject = (project) => ({
   ...project,
@@ -389,7 +388,7 @@ const ProjectManagement = () => {
 
   const managerUsers = useMemo(() => users.filter(isManagerUser), [users]);
   const spocUsers = useMemo(() => users.filter((user) => !isManagerUser(user)), [users]);
-  const assignableUsers = useMemo(() => users.filter((user) => !isSuperAdminUser(user)), [users]);
+  const assignableEmployees = useMemo(() => employees, [employees]);
 
   const getEmployeeNames = (ids = []) =>
     (Array.isArray(ids) ? ids : [])
@@ -502,7 +501,7 @@ const ProjectManagement = () => {
 
     const validAssignedToIds = (assignForm.assignedToIds || [])
       .map((id) => Number(id))
-      .filter((id) => Number.isFinite(id) && userMap.has(id));
+      .filter((id) => Number.isFinite(id) && employeeMap.has(id));
 
     if (!validAssignedToIds.length) return toast.error("Select at least one valid assignee.");
 
@@ -929,7 +928,7 @@ const ProjectManagement = () => {
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Assign To</label>
                       <MultiUserSelect
-                        users={assignableUsers}
+                        users={assignableEmployees}
                         selectedIds={assignForm.assignedToIds}
                         onChange={(ids) => setAssignForm((prev) => ({ ...prev, assignedToIds: ids }))}
                         placeholder="Select Users"
