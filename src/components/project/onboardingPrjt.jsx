@@ -193,6 +193,16 @@ export default function ProjectOnboarding() {
   const selectedManagers = managerOptions.filter((u) => formData.projectManagerIds.includes(u.id));
   const selectedSpocs = spocOptions.filter((u) => formData.spocIds.includes(u.id));
 
+  const canSubmit = Boolean(
+    !saving &&
+    !alreadyOnboarded &&
+    formData.projectName.trim() &&
+    formData.companyName.trim() &&
+    formData.projectManagerIds.length > 0 &&
+    formData.spocIds.length > 0 &&
+    formData.serviceIds.length > 0
+  );
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -829,7 +839,7 @@ export default function ProjectOnboarding() {
               <div className="flex justify-end border-t border-gray-200 pt-4">
                 <button
                   type="submit"
-                  disabled={saving || alreadyOnboarded}
+                  disabled={!canSubmit}
                   className="flex items-center gap-2 rounded-lg bg-gray-800 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-60"
                 >
                   <span>🚀</span>

@@ -374,7 +374,7 @@ const ProjectManagement = () => {
 
   const getUserNames = (ids = []) =>
     (Array.isArray(ids) ? ids : [])
-      .map((id) => typeof id === "object" ? id : userMap.get(Number(id)) || id)
+      .map((id) => typeof id === "object" ? id : userMap.get(Number(id)) || employeeMap.get(Number(id)) || id)
       .filter(Boolean)
       .map((user) => typeof user === "object" ? formatUserName(user) : String(user));
 
@@ -522,6 +522,7 @@ const ProjectManagement = () => {
 
     return list.map((project) => {
       const managerNames = getUserNames(project.projectManagerIds);
+      const assignedNames = getEmployeeNames(project.assignedToIds);
       const serviceNames = getServiceNames(project.serviceIds);
       const spocNames = getUserNames(project.spocIds);
 
@@ -543,6 +544,19 @@ const ProjectManagement = () => {
                 ))
               ) : (
                 <span className="text-xs text-gray-400">-</span>
+              )}
+            </div>
+          </td>
+          <td className="px-4 py-3">
+            <div className="flex flex-wrap gap-1">
+              {assignedNames.length ? (
+                assignedNames.map((name) => (
+                  <span key={`${project.id}-assigned-${name}`} className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">
+                    {name}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-gray-400">Not assigned</span>
               )}
             </div>
           </td>
@@ -625,8 +639,10 @@ const ProjectManagement = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Project</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Company</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Reporting Head</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Assigned</th>
+               
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Required Services</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">SPOC</th>
+                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">SPOC</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Created</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Action</th>
               </tr>
@@ -634,7 +650,7 @@ const ProjectManagement = () => {
             <tbody className="divide-y divide-gray-200 bg-white">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
                     Loading projects...
                   </td>
                 </tr>
