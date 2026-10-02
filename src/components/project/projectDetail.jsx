@@ -83,6 +83,13 @@ const getValueId = (value, fallbackToValue = true) => {
   return fallbackToValue ? value : null;
 };
 
+const normalizeRoleCode = (value) => String(value || "").trim().toUpperCase().replace(/[\s_-]+/g, "");
+
+const hasRole = (user, expectedRole) => (Array.isArray(user?.roles) ? user.roles : [])
+  .some((role) => normalizeRoleCode(role?.code || role?.name) === expectedRole);
+
+const isManagerUser = (user) => hasRole(user, "MANAGER");
+
 const normalizeProject = (project) => ({
   ...project,
   projectManagerIds: getSelectedValues(project, "projectManagerIds", ["projectManagerIds", "projectManagers", "projectManager", "reportingHeadIds", "reportingHeads", "reportingHead"])
@@ -165,6 +172,7 @@ const ServiceDetailSummary = ({ details, resolveValue = (value) => value }) => {
 };
 
 const EMPTY_EDIT_FORM = {
+  projectManagerIds: [],
   spocIds: []
 };
 
@@ -341,7 +349,7 @@ const ProjectManagement = () => {
       }
 
       if (userRes.status === "fulfilled") {
-        setUsers(filterEmployeeOptions(userRes.value?.data || []));
+        setUsers((userRes.value?.data || []).filter((user) => user.isActive && !user.deletedAt));
       } else {
         setUsers([]);
       }
@@ -377,6 +385,10 @@ const ProjectManagement = () => {
       .map((id) => typeof id === "object" ? id : userMap.get(Number(id)) || employeeMap.get(Number(id)) || id)
       .filter(Boolean)
       .map((user) => typeof user === "object" ? formatUserName(user) : String(user));
+
+  const managerUsers = useMemo(() => users.filter(isManagerUser), [users]);
+  const spocUsers = useMemo(() => users.filter((user) => !isManagerUser(user)), [users]);
+  const assignableEmployees = useMemo(() => employees, [employees]);
 
   const getEmployeeNames = (ids = []) =>
     (Array.isArray(ids) ? ids : [])
@@ -425,6 +437,7 @@ const ProjectManagement = () => {
   const openEditModal = (project) => {
     setSelectedProject(project);
     setEditForm({
+      projectManagerIds: Array.isArray(project.projectManagerIds) ? project.projectManagerIds.map(Number) : [],
       spocIds: Array.isArray(project.spocIds) ? project.spocIds.map(Number) : []
     });
     setShowEditModal(true);
@@ -458,15 +471,15 @@ const ProjectManagement = () => {
     e.preventDefault();
     if (!selectedProject) return;
 
+    if (!editForm.projectManagerIds.length) return toast.error("Select at least one Reporting Head.");
     if (!editForm.spocIds.length) return toast.error("Select at least one SPOC.");
 
     try {
       setSaving(true);
-      // Only SPOC is editable; the rest is sent back unchanged.
       await projectOnboardService.update(selectedProject.id, {
         projectName: selectedProject.projectName,
         companyName: selectedProject.companyName,
-        projectManagerIds: Array.isArray(selectedProject.projectManagerIds) ? selectedProject.projectManagerIds : [],
+        projectManagerIds: editForm.projectManagerIds,
         spocIds: editForm.spocIds,
         serviceIds: Array.isArray(selectedProject.serviceIds) ? selectedProject.serviceIds : [],
         serviceDetails: selectedProject.serviceDetails || {}
@@ -488,7 +501,7 @@ const ProjectManagement = () => {
 
     const validAssignedToIds = (assignForm.assignedToIds || [])
       .map((id) => Number(id))
-      .filter((id) => Number.isFinite(id) && userMap.has(id));
+      .filter((id) => Number.isFinite(id) && employeeMap.has(id));
 
     if (!validAssignedToIds.length) return toast.error("Select at least one valid assignee.");
 
@@ -760,7 +773,7 @@ const ProjectManagement = () => {
                 <form onSubmit={saveProjectUpdate}>
                   <div className="space-y-4">
                     <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                      Only the SPOC can be changed here. Project name, company, reporting head, and services are locked after onboarding.
+                      Project name, company, and services are locked after onboarding. Reporting Head and SPOC can be changed here.
                     </p>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -780,23 +793,18 @@ const ProjectManagement = () => {
 
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Reporting Head</label>
-                      <div className="flex min-h-10.5 flex-wrap items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        {getUserNames(selectedProject.projectManagerIds).length ? (
-                          getUserNames(selectedProject.projectManagerIds).map((name) => (
-                            <span key={`edit-pm-${name}`} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                              {name}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-sm text-gray-400">-</span>
-                        )}
-                      </div>
+                      <MultiUserSelect
+                        users={managerUsers}
+                        selectedIds={editForm.projectManagerIds}
+                        onChange={(ids) => setEditForm((prev) => ({ ...prev, projectManagerIds: ids }))}
+                        placeholder="Select Reporting Head"
+                      />
                     </div>
 
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">SPOC</label>
                       <MultiUserSelect
-                        users={users}
+                        users={spocUsers}
                         selectedIds={editForm.spocIds}
                         onChange={(ids) => setEditForm((prev) => ({ ...prev, spocIds: ids }))}
                         placeholder="Select SPOC"
@@ -855,7 +863,7 @@ const ProjectManagement = () => {
                       disabled={saving}
                       className="rounded-lg bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-900 disabled:opacity-60"
                     >
-                      {saving ? "Updating..." : "Update SPOC"}
+                      {saving ? "Updating..." : "Update Project"}
                     </button>
                   </div>
                 </form>
@@ -936,7 +944,7 @@ const ProjectManagement = () => {
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Assign To</label>
                       <MultiUserSelect
-                        users={users}
+                        users={assignableEmployees}
                         selectedIds={assignForm.assignedToIds}
                         onChange={(ids) => setAssignForm((prev) => ({ ...prev, assignedToIds: ids }))}
                         placeholder="Select Users"
