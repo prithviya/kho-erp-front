@@ -58,7 +58,7 @@ export default function AppRoutes() {
                 <Route path="/report" element={<RoleRoute roles={["SUPER_ADMIN"]}><Report /></RoleRoute>} />
                 <Route path="/onboard-prjt" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><ProjectOnboarding /></RoleRoute>} />
                 <Route path="/prjt-details" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><ProjectDetail /></RoleRoute>} />
-                <Route path="/tasks" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "TEAM_MEMBER"]}><AssignTask /></RoleRoute>} />
+                <Route path="/tasks" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]}><AssignTask /></RoleRoute>} />
                 <Route path="/task-board" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]}><TaskBoard /></RoleRoute>} />
                 <Route path="/user-management" element={<RoleRoute roles={["SUPER_ADMIN"]}><UserManagement /></RoleRoute>} />
                 <Route path="/master" element={<RoleRoute roles={["SUPER_ADMIN"]}><Master /></RoleRoute>} />

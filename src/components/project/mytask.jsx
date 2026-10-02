@@ -37,12 +37,19 @@ export default function MyTask() {
   const loadTasks = useCallback(async () => {
     try {
       setLoading(true);
-      const [taskResponse, projectResponse] = await Promise.all([
+      const [taskResult, projectResult] = await Promise.allSettled([
         taskService.getTasks(),
         projectOnboardService.list()
       ]);
-      setTasks(taskResponse?.data || []);
-      setProjectRecords(projectResponse?.data || []);
+      if (taskResult.status === "rejected") {
+        throw taskResult.reason;
+      }
+
+      const loadedTasks = taskResult.value?.data || [];
+      setTasks(loadedTasks);
+      setProjectRecords(projectResult.status === "fulfilled"
+        ? projectResult.value?.data || []
+        : loadedTasks.map((task) => task.project).filter(Boolean));
     } catch (error) {
       toast.error(error.message || "Failed to load tasks.");
     } finally {

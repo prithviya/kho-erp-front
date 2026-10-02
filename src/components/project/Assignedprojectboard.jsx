@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Plus, 
   MessageSquare, 
@@ -19,7 +19,8 @@ import { toast } from 'react-toastify';
 import taskService from '../../services/task.service';
 import projectOnboardService from '../../services/projectOnboard.service';
 import userManagementService from '../../services/userManagement.service';
-import { getCurrentUser } from '../../utils/auth';
+import leadService from '../../services/lead.service';
+import { getCanonicalRoles, getCurrentUser, isSuperAdmin } from '../../utils/auth';
 
 function parseIds(value) {
   if (Array.isArray(value)) return value;
@@ -32,8 +33,14 @@ function parseIds(value) {
   }
 }
 
+function getId(value) {
+  return value && typeof value === 'object' ? value.id ?? value.userId ?? value.serviceId : value;
+}
+
 function Assignedprojectboard() {
   const currentUser = getCurrentUser();
+  const superAdmin = isSuperAdmin();
+  const isManager = getCanonicalRoles(currentUser).includes('MANAGER');
   const normalizeTask = (task) => ({
     ...task,
     status: task.status || 'TODO',
@@ -50,13 +57,7 @@ function Assignedprojectboard() {
   const [loading, setLoading] = useState(true);
 
   // Columns & Tasks State
-  const [columns, setColumns] = useState([
-    { id: 'social', title: 'Social Media', headerColor: 'bg-blue-400', tasks: [] },
-    { id: 'print', title: 'Print', headerColor: 'bg-pink-500', tasks: [] },
-    { id: 'ads', title: 'Ads', headerColor: 'bg-amber-400', tasks: [] },
-    { id: 'blogs', title: 'Website Blogs', headerColor: 'bg-emerald-400', tasks: [] },
-    { id: 'seo', title: 'SEO', headerColor: 'bg-purple-400', tasks: [] }
-  ]);
+  const [columns, setColumns] = useState([]);
 
   // Modal State for Creating/Editing Task
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -81,46 +82,105 @@ function Assignedprojectboard() {
 
   useEffect(() => {
     let mounted = true;
-    Promise.allSettled([taskService.getTasks(), projectOnboardService.list(), userManagementService.getDirectory()])
-      .then(([taskResult, projectResult, userResult]) => {
+    Promise.allSettled([taskService.getTasks(), projectOnboardService.list(), userManagementService.getDirectory(), leadService.getCategoriesWithServices()])
+      .then(([taskResult, projectResult, userResult, serviceResult]) => {
         if (!mounted) return;
 
         const records = taskResult.status === 'fulfilled' ? taskResult.value?.data || [] : [];
-        const taskProjects = records.map((task) => task.project).filter(Boolean);
+        const taskProjects = [...new Map(
+          records
+            .map((task) => task.project)
+            .filter(Boolean)
+            .map((project) => [Number(project.id), project])
+        ).values()];
         const availableProjects = projectResult.status === 'fulfilled'
           ? projectResult.value?.data || []
           : taskProjects;
-        const assignedProjects = availableProjects.filter((project) => {
-          const hasAssignment = parseIds(project.assignedToIds).some((id) => Number(id) === Number(currentUser?.id));
-          const hasVisibleTask = records.some((task) => Number(task.projectOnboardId) === Number(project.id));
-          return hasAssignment || (projectResult.status !== 'fulfilled' && hasVisibleTask);
-        });
+        const visibleTaskProjectIds = new Set(records.map((task) => Number(task.projectOnboardId)));
+        const assignedProjects = superAdmin || isManager
+          ? availableProjects
+          : availableProjects.filter((project) => visibleTaskProjectIds.has(Number(project.id)) || parseIds(project.spocIds).some((id) => Number(getId(id)) === Number(currentUser?.id)));
 
         setProjects(assignedProjects);
         if (userResult.status === 'fulfilled') {
           setEmployeesList((userResult.value?.data || []).filter((user) => user.isActive !== false));
         }
-        setColumns((previous) => previous.map((column) => ({
-          ...column,
-          tasks: records.filter((task) => (!selectedProjectId || Number(task.projectOnboardId) === Number(selectedProjectId)) && (task.service?.name || '').toLowerCase().includes(column.title.toLowerCase().replace('website ', ''))).map(normalizeTask)
-        })));
+        const catalog = serviceResult.status === 'fulfilled' ? serviceResult.value?.data || [] : [];
+        const services = catalog.flatMap((category) => category.services || category.Services || []);
+        const selectedProject = assignedProjects.find((project) => String(project.id) === String(selectedProjectId));
+        const requiredServices = parseIds(selectedProject?.serviceIds).map((value) => {
+          const id = getId(value);
+          return services.find((service) => Number(service.id) === Number(id) || String(service.name).toLowerCase() === String(id).toLowerCase()) || (typeof value === 'object' ? value : { id, name: `Service #${id}` });
+        }).filter((service, index, list) => service && list.findIndex((item) => String(item.id) === String(service.id)) === index);
+        const serviceColumns = requiredServices.map((service, index) => ({
+          id: String(service.id),
+          title: service.name,
+          headerColor: ['bg-blue-400', 'bg-pink-500', 'bg-amber-400', 'bg-emerald-400', 'bg-purple-400'][index % 5],
+          tasks: records.filter((task) => (!selectedProjectId || Number(task.projectOnboardId) === Number(selectedProjectId)) && Number(task.serviceId) === Number(service.id)).map(normalizeTask)
+        }));
+        setColumns(serviceColumns);
 
         if (taskResult.status === 'rejected') {
           toast.error(taskResult.reason?.message || 'Failed to load assigned tasks.');
         }
-        if (projectResult.status === 'rejected' && taskResult.status === 'fulfilled') {
+        if (projectResult.status === 'rejected' && taskResult.status === 'fulfilled' && (superAdmin || isManager)) {
           toast.info('Showing projects from your assigned tasks.');
         }
       })
       .finally(() => mounted && setLoading(false));
     return () => { mounted = false; };
-  }, [currentUser?.id, selectedProjectId]);
+  }, [currentUser?.id, selectedProjectId, superAdmin, isManager]);
+
+  const selectedProject = useMemo(
+    () => projects.find((project) => String(project.id) === String(selectedProjectId)),
+    [projects, selectedProjectId]
+  );
+
+  const selectedProjectPeople = useMemo(() => {
+    const findUsers = (ids, resolvedUsers = []) => resolvedUsers.length
+      ? resolvedUsers
+      : parseIds(ids).map(getId).map((id) => employeesList.find((user) => Number(user.id) === Number(id))).filter(Boolean);
+    const projectTasks = columns.flatMap((column) => column.tasks);
+    const assigned = projectTasks
+      .map((task) => task.assignee)
+      .filter((name, index, names) => name && name !== 'Unassigned' && names.indexOf(name) === index);
+    return {
+      spocs: findUsers(selectedProject?.spocIds, selectedProject?.spocUsers),
+      reportingHeads: selectedProject?.reportingHeadUser
+        ? [selectedProject.reportingHeadUser]
+        : findUsers(selectedProject?.reportingHeadId ? [selectedProject.reportingHeadId] : selectedProject?.projectManagerIds),
+      assigned
+    };
+  }, [columns, employeesList, selectedProject]);
+
+  const isSelectedProjectSpoc = Boolean(selectedProject && parseIds(selectedProject.spocIds)
+    .some((id) => Number(getId(id)) === Number(currentUser?.id)));
+  const canCreateTasks = superAdmin || isManager || isSelectedProjectSpoc;
+  const spocProjects = useMemo(
+    () => projects.filter((project) => parseIds(project.spocIds).some((id) => Number(getId(id)) === Number(currentUser?.id))),
+    [currentUser?.id, projects]
+  );
+  const assignedProjects = useMemo(
+    () => projects.filter((project) => !spocProjects.some((spocProject) => Number(spocProject.id) === Number(project.id))),
+    [projects, spocProjects]
+  );
+
+  const projectAssignees = useMemo(() => {
+    if (selectedProject?.assignedUsers?.length) return selectedProject.assignedUsers;
+    const assignedIds = new Set(parseIds(selectedProject?.assignedToIds).map(getId).map((id) => Number(id)));
+    return employeesList.filter((employee) => assignedIds.has(Number(employee.id)));
+  }, [employeesList, selectedProject]);
+
+  const projectAssignedPeople = useMemo(() => [
+    ...projectAssignees.map((person) => ({ ...person, personType: 'Employee' })),
+    ...(selectedProject?.assignedVendorUsers || []).map((vendor) => ({ ...vendor, personType: 'Vendor' }))
+  ], [projectAssignees, selectedProject]);
 
   // Open modal to add a task
   const handleOpenAddModal = (columnId) => {
     setActiveColumnId(columnId);
     setTaskName('');
-    setProjectId('');
+    setProjectId(selectedProjectId);
     setDueDate('');
     setDueTime('');
     setTaskImage(null);
@@ -143,13 +203,13 @@ function Assignedprojectboard() {
     if (!projectId || !selectedAssigneeIds.length) return;
     try {
       await Promise.all(selectedAssigneeIds.map((assignedToId) => taskService.createTask({
-        projectOnboardId: Number(projectId), title: taskName.trim(), assignedToId: Number(assignedToId), dueDate: dueDate || null
+        projectOnboardId: Number(projectId), serviceId: Number(activeColumnId), title: taskName.trim(), assignedToId: Number(assignedToId), dueDate: dueDate || null
       })));
       toast.success(`${selectedAssigneeIds.length} task${selectedAssigneeIds.length > 1 ? 's' : ''} created.`);
       setIsModalOpen(false);
       const response = await taskService.getTasks();
       const records = response?.data || [];
-      setColumns((previous) => previous.map((column) => ({ ...column, tasks: records.filter((task) => (!selectedProjectId || Number(task.projectOnboardId) === Number(selectedProjectId)) && (task.service?.name || '').toLowerCase().includes(column.title.toLowerCase().replace('website ', ''))).map(normalizeTask) })));
+      setColumns((previous) => previous.map((column) => ({ ...column, tasks: records.filter((task) => (!selectedProjectId || Number(task.projectOnboardId) === Number(selectedProjectId)) && Number(task.serviceId) === Number(column.id)).map(normalizeTask) })));
     } catch (error) {
       toast.error(error.message || 'Failed to create task.');
     }
@@ -230,19 +290,7 @@ function Assignedprojectboard() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 font-sans">
       
-      {/* Top Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-4 py-3 sm:px-6">
-        <div className="flex min-w-0 items-center space-x-3">
-          <span className="bg-emerald-600 text-white font-bold text-xs px-2 py-1 rounded">KI</span>
-          <h1 className="truncate text-base font-bold text-gray-800 sm:text-lg">Kumaraguru Institutions</h1>
-        </div>
-        <div className="flex items-center space-x-4 text-sm text-gray-500">
-          <Filter size={16} className="cursor-pointer hover:text-gray-700" />
-          <ArrowUpDown size={16} className="cursor-pointer hover:text-gray-700" />
-          <Activity size={16} className="cursor-pointer hover:text-gray-700" />
-        </div>
-      </div>
-
+      
       {/* Assigned Projects + Kanban Board Workspace */}
       <div className="flex flex-1 min-h-0 flex-col md:flex-row">
         <aside className="w-full shrink-0 border-b bg-white p-3 sm:p-4 md:w-64 md:border-b-0 md:border-r">
@@ -261,7 +309,20 @@ function Assignedprojectboard() {
             >
               All assigned projects
             </button>
-            {projects.map((project) => (
+            {!!spocProjects.length && <p className="mt-4 px-1 text-[11px] font-bold uppercase tracking-wider text-emerald-600">SPOC Projects</p>}
+            {spocProjects.map((project) => (
+              <button
+                type="button"
+                key={project.id}
+                onClick={() => setSelectedProjectId(String(project.id))}
+                className={`min-w-44 rounded-lg border px-3 py-2 text-left transition md:w-full ${String(selectedProjectId) === String(project.id) ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50'}`}
+              >
+                <span className="block truncate text-sm font-semibold text-gray-800">{project.projectName}</span>
+                <span className="mt-0.5 block truncate text-xs text-gray-500">{project.companyName}</span>
+              </button>
+            ))}
+            {!!assignedProjects.length && <p className="mt-4 px-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">Assigned Projects</p>}
+            {assignedProjects.map((project) => (
               <button
                 type="button"
                 key={project.id}
@@ -277,9 +338,44 @@ function Assignedprojectboard() {
         </aside>
 
         <div className="min-h-0 flex-1 overflow-x-auto p-3 sm:p-6">
+        {selectedProject && (
+          <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                
+                <h2 className="text-lg font-bold text-gray-800">{selectedProject.projectName}</h2>
+                <p className="text-xs text-gray-500">{selectedProject.companyName}</p>
+              </div>
+              <div className="flex flex-wrap gap-6 text-xs">
+                <div>
+                  <p className="font-semibold uppercase tracking-wide text-gray-400">SPOC</p>
+                  <p className="mt-1 text-gray-700">{selectedProjectPeople.spocs.map((user) => `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email).join(', ') || 'Not assigned'}</p>
+                </div>
+                <div>
+                  <p className="font-semibold uppercase tracking-wide text-gray-400">Reporting Head</p>
+                  <p className="mt-1 text-gray-700">{selectedProjectPeople.reportingHeads.map((user) => `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email).join(', ') || 'Not assigned'}</p>
+                </div>
+                <div>
+                  <p className="font-semibold uppercase tracking-wide text-gray-400">Assigned to</p>
+                  <p className="mt-1 text-gray-700">
+                    {projectAssignedPeople
+                      .map((person) => {
+                        const name = person.personType === 'Vendor'
+                          ? person.vendor_name || person.vendor_company_name || person.vendor_email
+                          : `${person.firstName || ''} ${person.lastName || ''}`.trim() || person.fullName || person.email;
+                        return name ? `${name} (${person.personType})` : '';
+                      })
+                      .filter(Boolean)
+                      .join(', ') || 'Not assigned'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex min-w-max space-x-3 pb-2 sm:space-x-4">
           {columns.map((col) => (
-            <div key={col.id} className="w-[min(18rem,calc(100vw-1.5rem))] rounded-lg bg-gray-200/60 flex max-h-[calc(100vh-12rem)] flex-col sm:w-72">
+            <div key={col.id}  className="w-[calc(100vw-2rem)] max-w-72 shrink-0 rounded-lg bg-gray-200/60 flex max-h-[calc(100vh-12rem)] flex-col sm:w-72" >
               
               {/* Column Header */}
               <div className="flex items-center justify-between p-3 bg-white rounded-t-lg border-b">
@@ -297,12 +393,15 @@ function Assignedprojectboard() {
                 
                 {/* Add Task Button */}
                 <div className="flex justify-center my-1">
-                  <button 
-                    onClick={() => handleOpenAddModal(col.id)}
-                    className="bg-white hover:bg-gray-50 text-gray-500 p-1.5 rounded-full shadow-sm border border-gray-200"
-                  >
-                    <Plus size={14} />
-                  </button>
+                  {canCreateTasks && (
+                    <button 
+                      onClick={() => handleOpenAddModal(col.id)}
+                      className="bg-white hover:bg-gray-50 text-gray-500 p-1.5 rounded-full shadow-sm border border-gray-200"
+                      title="Create task"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  )}
                 </div>
 
                 {/* Task Cards */}
@@ -317,7 +416,7 @@ function Assignedprojectboard() {
                         onClick={() => handleOpenTaskDetails(task, col.id)}
                         className="bg-white p-3.5 rounded-md shadow-sm border border-gray-200 space-y-2 cursor-pointer hover:border-indigo-400 transition"
                       >
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between overflow-hidden">
                           <h4 className={`font-semibold text-sm text-gray-800 ${isCompleted ? 'line-through text-gray-400' : ''}`}>
                             {task.title}
                           </h4>
@@ -355,7 +454,7 @@ function Assignedprojectboard() {
                   <div className="flex flex-col items-center justify-center py-16 text-center text-gray-400">
                     <CheckCircle2 size={24} className="mb-2 text-gray-300" />
                     <p className="font-semibold text-gray-600 text-sm">No Tasks</p>
-                    <p className="text-[11px] text-gray-400 mt-1">Click + to add new Tasks.</p>
+                    {canCreateTasks && <p className="text-[11px] text-gray-400 mt-1">Click + to add new Tasks.</p>}
                   </div>
                 )}
               </div>
@@ -395,23 +494,27 @@ function Assignedprojectboard() {
                 <label className="block text-gray-600 font-medium mb-1">Project</label>
                 <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full border rounded px-3 py-2 bg-white" required>
                   <option value="">Select project</option>
-                  {projects.map((project) => <option key={project.id} value={project.id}>{project.projectName} - {project.companyName}</option>)}
+                  {selectedProject && <option value={selectedProject.id}>{selectedProject.projectName} - {selectedProject.companyName}</option>}
                 </select>
               </div>
 
               <div className="relative">
                 <label className="block text-gray-600 font-medium mb-1">Assigned To</label>
                 <div className="max-h-40 overflow-y-auto rounded border bg-white p-2 space-y-1">
-                  {employeesList.map((employee) => {
-                    const name = `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || employee.fullName || employee.email;
-                    const selected = selectedAssigneeIds.includes(employee.id);
-                    return <label key={employee.id} className={`flex items-center gap-2 rounded px-2 py-1.5 text-xs cursor-pointer ${selected ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <input type="checkbox" checked={selected} onChange={() => setSelectedAssigneeIds((current) => selected ? current.filter((id) => id !== employee.id) : [...current, employee.id])} />
+                  {projectAssignedPeople.map((person) => {
+                    const isVendor = person.personType === 'Vendor';
+                    const personId = isVendor ? person.vendorId : person.id;
+                    const name = isVendor
+                      ? person.vendor_name || person.vendor_company_name || person.vendor_email
+                      : `${person.firstName || ''} ${person.lastName || ''}`.trim() || person.fullName || person.email;
+                    const selected = !isVendor && selectedAssigneeIds.includes(personId);
+                    return <label key={`${person.personType}-${personId}`} className={`flex items-center gap-2 rounded px-2 py-1.5 text-xs ${isVendor ? 'text-gray-500' : `cursor-pointer ${selected ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50 text-gray-700'}`}`}>
+                      <input type="checkbox" checked={selected} disabled={isVendor} onChange={() => setSelectedAssigneeIds((current) => selected ? current.filter((id) => id !== personId) : [...current, personId])} />
                       <User size={14} />
-                      <span>{name}</span>
+                      <span>{name} <span className="text-[10px] text-gray-400">({person.personType})</span></span>
                     </label>;
                   })}
-                  {!employeesList.length && <p className="p-2 text-xs text-gray-400">No active users found.</p>}
+                  {!projectAssignedPeople.length && <p className="p-2 text-xs text-gray-400">No assigned people found for this project.</p>}
                 </div>
                 {!!selectedAssigneeIds.length && <p className="mt-1 text-[10px] text-indigo-600">{selectedAssigneeIds.length} assignee(s) selected</p>}
               </div>
@@ -481,6 +584,7 @@ function Assignedprojectboard() {
               <select 
                 value={activeTask.status}
                 onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={!canCreateTasks}
                 className="text-xs font-bold border rounded px-2 py-1 bg-white text-gray-700 focus:outline-none"
               >
                 <option value="TODO">To Do</option>

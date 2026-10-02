@@ -5,6 +5,7 @@ import leadService from "../../services/lead.service";
 import employeeService from "../../services/employee.service";
 import userManagementService from "../../services/userManagement.service";
 import projectOnboardService from "../../services/projectOnboard.service";
+import vendorService from "../../services/vendor.service";
 import { canDeleteRecords } from "../../utils/auth";
 import { filterEmployeeOptions } from "../../utils/employeeOptions";
 
@@ -104,6 +105,9 @@ const normalizeProject = (project) => ({
   assignedToIds: getArrayValue(project?.assignedToIds)
     .map((value) => getValueId(value))
     .filter((value) => value !== null && value !== undefined),
+  assignedVendorIds: getArrayValue(project?.assignedVendorIds)
+    .map((value) => getValueId(value))
+    .filter((value) => value !== null && value !== undefined),
   serviceDetails: parseStoredValue(project?.serviceDetails, {})
 });
 
@@ -178,11 +182,12 @@ const EMPTY_EDIT_FORM = {
 
 const EMPTY_ASSIGN_FORM = {
   assignedToIds: [],
+  assignedVendorIds: [],
   reportingHeadId: ""
 };
 
 function formatUserName(user) {
-  return `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.fullName || user?.email || "-";
+  return `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.fullName || user?.vendor_name || user?.name || user?.email || user?.vendor_email || "-";
 }
 
 function formatDate(dateValue) {
@@ -194,8 +199,9 @@ function formatDate(dateValue) {
 
 const MultiUserSelect = ({ users, selectedIds, onChange, placeholder, tone = "blue" }) => {
   const [open, setOpen] = useState(false);
+  const getOptionId = (option) => Number(option?.id ?? option?.vendorId);
 
-  const selectedUsers = users.filter((u) => selectedIds.includes(Number(u.id)));
+  const selectedUsers = users.filter((u) => selectedIds.includes(getOptionId(u)));
 
   const removeUser = (id) => {
     onChange(selectedIds.filter((item) => Number(item) !== Number(id)));
@@ -219,7 +225,7 @@ const MultiUserSelect = ({ users, selectedIds, onChange, placeholder, tone = "bl
           {selectedUsers.length > 0 ? (
             selectedUsers.map((u) => (
               <span
-                key={u.id}
+                key={getOptionId(u)}
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${
                   tone === "blue" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
                 }`}
@@ -229,7 +235,7 @@ const MultiUserSelect = ({ users, selectedIds, onChange, placeholder, tone = "bl
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    removeUser(u.id);
+                    removeUser(getOptionId(u));
                   }}
                 >
                   x
@@ -246,12 +252,13 @@ const MultiUserSelect = ({ users, selectedIds, onChange, placeholder, tone = "bl
       {open && (
         <div className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-300 bg-white shadow-lg">
           {users.map((u) => {
-            const checked = selectedIds.includes(Number(u.id));
+            const optionId = getOptionId(u);
+            const checked = selectedIds.includes(optionId);
             return (
               <label
-                key={u.id}
+                key={optionId}
                 className={`flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-gray-50 ${checked ? "bg-blue-50" : ""}`}
-                onClick={() => toggleUser(u.id)}
+                onClick={() => toggleUser(optionId)}
               >
                 <input type="checkbox" checked={checked} readOnly />
                 <div>
@@ -278,6 +285,8 @@ const ProjectManagement = () => {
   const canDelete = canDeleteRecords();
   const [users, setUsers] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [vendors, setVendors] = useState([]);
+  const [assignmentType, setAssignmentType] = useState("employee");
   const [categories, setCategories] = useState([]);
 
   const [showViewModal, setShowViewModal] = useState(false);
@@ -334,11 +343,12 @@ const ProjectManagement = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [projectRes, userRes, employeeRes, categoryRes] = await Promise.allSettled([
+      const [projectRes, userRes, employeeRes, categoryRes, vendorRes] = await Promise.allSettled([
         projectOnboardService.list(),
         userManagementService.getUsers(),
         employeeService.list(),
-        leadService.getCategoriesWithServices()
+        leadService.getCategoriesWithServices(),
+        vendorService.getAll()
       ]);
 
       if (projectRes.status === "fulfilled") {
@@ -366,6 +376,21 @@ const ProjectManagement = () => {
       } else {
         setCategories([]);
       }
+
+      if (vendorRes.status === "fulfilled") {
+        const vendorRecords = getArrayValue(vendorRes.value?.data || vendorRes.value)
+          .filter((vendor) => String(vendor.status || "active").toLowerCase() === "active")
+          .map((vendor) => ({
+            ...vendor,
+            id: vendor.id ?? vendor.vendorId,
+            fullName: vendor.fullName || vendor.vendor_name || vendor.name,
+            email: vendor.email || vendor.vendor_email
+          }))
+          .filter((vendor) => vendor.id !== undefined && vendor.id !== null);
+        setVendors(vendorRecords);
+      } else {
+        setVendors([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -381,17 +406,17 @@ const ProjectManagement = () => {
   }, [refreshAt, fetchData]);
 
   const getUserNames = (ids = []) =>
-    (Array.isArray(ids) ? ids : [])
+    getArrayValue(ids)
       .map((id) => typeof id === "object" ? id : userMap.get(Number(id)) || employeeMap.get(Number(id)) || id)
       .filter(Boolean)
       .map((user) => typeof user === "object" ? formatUserName(user) : String(user));
 
   const managerUsers = useMemo(() => users.filter(isManagerUser), [users]);
   const spocUsers = useMemo(() => users.filter((user) => !isManagerUser(user)), [users]);
-  const assignableEmployees = useMemo(() => employees, [employees]);
+  const assignableOptions = assignmentType === "vendor" ? vendors : users;
 
   const getEmployeeNames = (ids = []) =>
-    (Array.isArray(ids) ? ids : [])
+    getArrayValue(ids)
       .map((id) => userMap.get(Number(id)) || employeeMap.get(Number(id)))
       .filter(Boolean)
       .map((person) => formatUserName(person));
@@ -451,10 +476,12 @@ const ProjectManagement = () => {
 
     setSelectedProject(project);
     setAssignForm({
-      assignedToIds: Array.isArray(project.assignedToIds) ? project.assignedToIds.map(Number) : [],
+      assignedToIds: getArrayValue(project.assignedToIds).map(Number),
+      assignedVendorIds: getArrayValue(project.assignedVendorIds).map(Number),
       reportingHeadId: project.reportingHeadId ? Number(project.reportingHeadId) : fallbackReportingHeadId
     });
     setShowAssignModal(true);
+    setAssignmentType("employee");
     hydrateSelectedProject(project);
   };
 
@@ -465,6 +492,7 @@ const ProjectManagement = () => {
     setSelectedProject(null);
     setEditForm(EMPTY_EDIT_FORM);
     setAssignForm(EMPTY_ASSIGN_FORM);
+    setAssignmentType("employee");
   };
 
   const saveProjectUpdate = async (e) => {
@@ -501,14 +529,18 @@ const ProjectManagement = () => {
 
     const validAssignedToIds = (assignForm.assignedToIds || [])
       .map((id) => Number(id))
-      .filter((id) => Number.isFinite(id) && employeeMap.has(id));
+      .filter((id) => Number.isFinite(id) && userMap.has(id));
+    const validAssignedVendorIds = (assignForm.assignedVendorIds || [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && vendors.some((vendor) => Number(vendor.vendorId ?? vendor.id) === id));
 
-    if (!validAssignedToIds.length) return toast.error("Select at least one valid assignee.");
+    if (!validAssignedToIds.length && !validAssignedVendorIds.length) return toast.error("Select at least one valid employee or vendor.");
 
     try {
       setSaving(true);
       await projectOnboardService.assign(selectedProject.id, {
         assignedToIds: validAssignedToIds,
+        assignedVendorIds: validAssignedVendorIds,
         reportingHeadId: assignForm.reportingHeadId ? Number(assignForm.reportingHeadId) : null
       });
 
@@ -536,6 +568,10 @@ const ProjectManagement = () => {
     return list.map((project) => {
       const managerNames = getUserNames(project.projectManagerIds);
       const assignedNames = getEmployeeNames(project.assignedToIds);
+      const assignedVendorNames = (project.assignedVendorUsers || [])
+        .map((vendor) => vendor.vendor_name || vendor.name || vendor.vendor_email)
+        .filter(Boolean);
+      const allAssignedNames = [...new Set([...assignedNames, ...assignedVendorNames])];
       const serviceNames = getServiceNames(project.serviceIds);
       const spocNames = getUserNames(project.spocIds);
 
@@ -562,8 +598,8 @@ const ProjectManagement = () => {
           </td>
           <td className="px-4 py-3">
             <div className="flex flex-wrap gap-1">
-              {assignedNames.length ? (
-                assignedNames.map((name) => (
+              {allAssignedNames.length ? (
+                allAssignedNames.map((name) => (
                   <span key={`${project.id}-assigned-${name}`} className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">
                     {name}
                   </span>
@@ -652,7 +688,7 @@ const ProjectManagement = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Project</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Company</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Reporting Head</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Assigned</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Assigned To</th>
                
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Required Services</th>
                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">SPOC</th>
@@ -942,15 +978,31 @@ const ProjectManagement = () => {
                       )}
                       </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Assign To</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Assigned To</label>
+                      <div className="mb-2 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+                        {[{ value: "employee", label: "Employee" }, { value: "vendor", label: "Vendor" }].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              setAssignmentType(option.value);
+                            }}
+                            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${assignmentType === option.value ? "bg-violet-600 text-white shadow-sm" : "text-gray-600 hover:bg-white"}`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                       <MultiUserSelect
-                        users={assignableEmployees}
-                        selectedIds={assignForm.assignedToIds}
-                        onChange={(ids) => setAssignForm((prev) => ({ ...prev, assignedToIds: ids }))}
-                        placeholder="Select Users"
+                        users={assignableOptions}
+                        selectedIds={assignmentType === "vendor" ? assignForm.assignedVendorIds : assignForm.assignedToIds}
+                        onChange={(ids) => setAssignForm((prev) => assignmentType === "vendor"
+                          ? { ...prev, assignedVendorIds: ids }
+                          : { ...prev, assignedToIds: ids })}
+                        placeholder={assignmentType === "vendor" ? "Select Vendors" : "Select Employees"}
                         tone="green"
                       />
-                      {!users.length && <p className="mt-1 text-xs text-gray-500">No users available.</p>}
+                      {!assignableOptions.length && <p className="mt-1 text-xs text-gray-500">No {assignmentType === "vendor" ? "vendors" : "employees"} available.</p>}
                     </div>
                   </div>
 

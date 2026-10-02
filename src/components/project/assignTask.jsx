@@ -65,6 +65,7 @@ const Badge = ({ meta }) => (
 export default function AssignTask() {
   const currentUser = getCurrentUser();
   const superAdmin = isSuperAdmin();
+  const canCreateTasks = superAdmin || isManagerUser(currentUser);
   const canDelete = canDeleteRecords();
 
   const [loading, setLoading] = useState(true);
@@ -448,13 +449,15 @@ function getProjectPeople(project, key) {
             {superAdmin ? "All projects & tasks across company" : "Tasks you assign or report on"}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => openCreate()}
-          className="inline-flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 transition-colors"
-        >
-          <Plus size={16} /> Assign Task
-        </button>
+        {canCreateTasks && (
+          <button
+            type="button"
+            onClick={() => openCreate()}
+            className="inline-flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 transition-colors"
+          >
+            <Plus size={16} /> Assign Task
+          </button>
+        )}
       </div>
 
       {/* ========================================================= */}
@@ -509,17 +512,19 @@ function getProjectPeople(project, key) {
                     <h3 className="truncate text-base font-bold text-gray-900">{project.projectName}</h3>
                     <p className="truncate text-xs font-medium text-gray-500">{project.companyName}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openCreate(String(project.id));
-                    }}
-                    title="Quick Assign Task"
-                    className="rounded-md bg-gray-100 p-1.5 text-gray-700 hover:bg-blue-600 hover:text-white transition-colors"
-                  >
-                    <Plus size={14} />
-                  </button>
+                  {canCreateTasks && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCreate(String(project.id));
+                      }}
+                      title="Quick Assign Task"
+                      className="rounded-md bg-gray-100 p-1.5 text-gray-700 hover:bg-blue-600 hover:text-white transition-colors"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  )}
                 </div>
 
                 <div className="space-y-2.5 text-xs">
@@ -595,9 +600,9 @@ function getProjectPeople(project, key) {
                               <p className="text-sm font-bold text-gray-800">{service?.name || `Service #${serviceId}`}</p>
                               {details.map((detail) => <p key={detail} className="mt-1 text-[11px] text-gray-500">{detail}</p>)}
                             </div>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); openCreate(String(project.id), String(serviceId)); }} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-gray-800 px-2 py-1 text-[11px] font-semibold text-white hover:bg-gray-900" title={`Assign task for ${service?.name || "service"}`}>
+                            {canCreateTasks && <button type="button" onClick={(e) => { e.stopPropagation(); openCreate(String(project.id), String(serviceId)); }} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-gray-800 px-2 py-1 text-[11px] font-semibold text-white hover:bg-gray-900" title={`Assign task for ${service?.name || "service"}`}>
                               <Plus size={12} /> Assign Task
-                            </button>
+                            </button>}
                           </div>
                           <div className="space-y-1.5">
                             {serviceTasks.length ? serviceTasks.map((task) => (
@@ -716,7 +721,7 @@ function getProjectPeople(project, key) {
                       <td className="px-4 py-3">
                         <select
                           value={task.status}
-                          disabled={busyId === task.id}
+                          disabled={!canCreateTasks || busyId === task.id}
                           onChange={(e) => handleStatusChange(task, e.target.value)}
                           className={`rounded-full border-0 px-2 py-1 text-xs font-medium outline-none ${getStatusMeta(task.status).badge}`}
                         >
