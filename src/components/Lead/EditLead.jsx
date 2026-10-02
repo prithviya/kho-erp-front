@@ -85,12 +85,6 @@ function validate(form) {
     if (!form.companyName.trim()) errors.companyName = "Company name is required.";
     if (!form.salutation) errors.salutation = "Please select a salutation.";
     if (!form.contactPerson.trim()) errors.contactPerson = "Contact person is required.";
-    if (!form.phoneCountryCode) errors.phoneCountryCode = "Country code is required.";
-    
-    if (!form.phone || !String(form.phone).trim()) {
-        errors.phone = "Phone number is required.";
-    }
-
     if (!form.email.trim()) errors.email = "Email is required.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email address.";
     if (!form.leadSourceId) errors.leadSourceId = "Lead source is required.";
@@ -135,7 +129,6 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
     const leadId = leadIdProp ?? leadProp?.id ?? null;
 
     const [form, setForm] = useState(EMPTY_FORM);
-    const [originalLeadStatusId, setOriginalLeadStatusId] = useState("");
     const [fieldErrors, setFieldErrors] = useState({});
     const [serverError, setServerError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
@@ -178,7 +171,6 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                 const l = response?.data;
                 if (l) {
                     const loadedStatusId = l.leadStatusId ?? l.leadStatus?.id ?? "";
-                    setOriginalLeadStatusId(loadedStatusId);
                     setForm({
                         companyName: l.companyName || "",
                         salutation: l.salutation || "",
@@ -210,7 +202,6 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
     useEffect(() => {
         if (!open) {
             setForm(EMPTY_FORM);
-            setOriginalLeadStatusId("");
             setFieldErrors({});
             setServerError(null);
         }
@@ -241,9 +232,8 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
             return;
         }
 
-        const { phone: _phone, phoneCountryCode: _phoneCountryCode, ...leadFields } = form;
         const payload = {
-            ...leadFields,
+            ...form,
             leadSourceId: Number(form.leadSourceId),
             leadStatusId: form.leadStatusId ? Number(form.leadStatusId) : undefined,
             assignedTo: form.assignedTo ? Number(form.assignedTo) : undefined,
@@ -256,10 +246,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
         setSubmitting(true);
         try {
             const result = await leadService.updateLead(leadId, payload);
-            const savedStatusId = payload.leadStatusId ?? "";
-            if (String(savedStatusId) !== String(originalLeadStatusId ?? "")) {
-                toast.success("Lead status updated successfully!");
-            }
+            toast.success("Lead updated successfully!");
             onUpdated?.(result.data);
             onClose();
         } catch (err) {

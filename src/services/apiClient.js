@@ -1,6 +1,7 @@
 import { clearSession, getSession } from "../utils/session";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
+let refreshPromise = null;
 
 async function parseJsonSafe(response) {
   const text = await response.text();
@@ -14,23 +15,31 @@ async function parseJsonSafe(response) {
 }
 
 export async function refreshSession() {
-  try {
-    const response = await fetch(`${BASE_URL}/auth/refresh-token`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+  if (refreshPromise) return refreshPromise;
 
-    const result = await parseJsonSafe(response);
-    return {
-      ok: response.ok && Boolean(result?.success),
-      result,
-    };
-  } catch {
-    return { ok: false, result: null };
-  }
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/auth/refresh-token`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const result = await parseJsonSafe(response);
+      return {
+        ok: response.ok && Boolean(result?.success),
+        result,
+      };
+    } catch {
+      return { ok: false, result: null };
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 export async function request(url, options = {}, retry = true) {

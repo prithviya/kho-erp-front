@@ -33,11 +33,16 @@ const EmployeeOnboarding = () => {
 
   const hasText = (value) => Boolean(String(value || '').trim());
   const sanitizePhoneNumber = (value) => String(value ?? '').replace(/\D/g, '').slice(0, 10);
+  const sanitizeCountryCode = (value) => {
+    const digits = String(value ?? '').replace(/\D/g, '').slice(0, 4);
+    return digits ? `+${digits}` : '';
+  };
   const sanitizeNumericOnly = (value) => String(value ?? '').replace(/\D/g, '');
   const isValidPhoneNumber = (value) => {
     const digits = sanitizePhoneNumber(value);
     return digits.length === 10;
   };
+  const isValidCountryCode = (value) => /^\+\d{1,4}$/.test(String(value || '').trim());
   const isValidNumericOnly = (value) => sanitizeNumericOnly(value).length > 0 && sanitizeNumericOnly(value) === String(value ?? '').replace(/\s+/g, '');
 
   const addressFieldKeys = ['line1', 'city', 'state', 'pincode'];
@@ -90,7 +95,9 @@ const EmployeeOnboarding = () => {
     employeeId: generatedEmployeeId,
     officialEmail: '',
     personalEmail: '',
+    personalPhoneCountryCode: '+91',
     personalPhone: '',
+    officePhoneCountryCode: '+91',
     officePhone: '',
     gender: '',
     maritalStatus: '',
@@ -133,6 +140,7 @@ const EmployeeOnboarding = () => {
       medicalAssistance: '',
       emergencyContact: '',
       emergencyName: '',
+      emergencyPhoneCountryCode: '+91',
       emergencyNumber: '',
     },
     documents: [],
@@ -190,23 +198,30 @@ const EmployeeOnboarding = () => {
     });
 
     const phoneFields = [
-      ['personalPhone', true],
-      ['officePhone', false],
+      ['personalPhone', 'personalPhoneCountryCode', true],
+      ['officePhone', 'officePhoneCountryCode', false],
     ];
 
-    phoneFields.forEach(([fieldKey, isRequired]) => {
+    phoneFields.forEach(([fieldKey, countryCodeKey, isRequired]) => {
       const value = fieldKey.includes('.')
         ? fieldKey.split('.').reduce((acc, key) => acc?.[key], formData)
         : formData[fieldKey];
+      const countryCode = formData[countryCodeKey];
 
       if (isRequired && !hasText(value)) {
         errors.push(fieldKey);
         return;
       }
 
-      if (hasText(value) && !isValidPhoneNumber(value)) {
+      if (!hasText(value)) {
+        if (hasText(countryCode) && !isValidCountryCode(countryCode)) errors.push(countryCodeKey);
+        return;
+      }
+
+      if (!isValidPhoneNumber(value)) {
         errors.push(fieldKey);
       }
+      if (!isValidCountryCode(countryCode)) errors.push(countryCodeKey);
     });
 
     const requiredEmploymentFields = [
@@ -302,7 +317,9 @@ const EmployeeOnboarding = () => {
         const [section, key] = fieldKey.split('.');
         const value = formData?.[section]?.[key];
         if (!hasText(value)) return true;
-        if (key === 'emergencyNumber') return !isValidPhoneNumber(value);
+        if (key === 'emergencyNumber') {
+          return !isValidPhoneNumber(value) || !isValidCountryCode(formData.health.emergencyPhoneCountryCode);
+        }
         return false;
       });
 
@@ -505,7 +522,9 @@ const EmployeeOnboarding = () => {
     employeeId,
     officialEmail: '',
     personalEmail: '',
+    personalPhoneCountryCode: '+91',
     personalPhone: '',
+    officePhoneCountryCode: '+91',
     officePhone: '',
     gender: '',
     maritalStatus: '',
@@ -548,6 +567,7 @@ const EmployeeOnboarding = () => {
       medicalAssistance: '',
       emergencyContact: '',
       emergencyName: '',
+      emergencyPhoneCountryCode: '+91',
       emergencyNumber: '',
     },
     documents: [],
@@ -931,9 +951,12 @@ const EmployeeOnboarding = () => {
     if (isViewMode) return;
     const { name, value, type, checked } = e.target;
     const shouldRestrictPhone = ['personalPhone', 'officePhone'].includes(name) || (section === 'health' && name === 'emergencyNumber');
+    const shouldRestrictCountryCode = ['personalPhoneCountryCode', 'officePhoneCountryCode'].includes(name) || (section === 'health' && name === 'emergencyPhoneCountryCode');
     const shouldRestrictNumeric = ['accountNumber', 'currentSalary'].includes(name);
     const shouldAutoFillNextEmployeeId = name === 'employeeId';
-    const sanitizedValue = shouldRestrictPhone
+    const sanitizedValue = shouldRestrictCountryCode
+      ? sanitizeCountryCode(value)
+      : shouldRestrictPhone
       ? sanitizePhoneNumber(value)
       : shouldRestrictNumeric
         ? sanitizeNumericOnly(value)
@@ -1323,27 +1346,53 @@ const EmployeeOnboarding = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Personal Phone <RequiredAsterisk />
             </label>
-            <input
-              type="tel"
-              name="personalPhone"
-              value={formData.personalPhone}
-              onChange={handleInputChange}
-              disabled={isViewMode}
-              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'personalPhone')}
-              placeholder="Enter phone number"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                name="personalPhoneCountryCode"
+                value={formData.personalPhoneCountryCode}
+                onChange={handleInputChange}
+                disabled={isViewMode}
+                maxLength={5}
+                className={getFieldClassName(`w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'personalPhoneCountryCode')}
+                placeholder="+91"
+                aria-label="Personal phone country code"
+              />
+              <input
+                type="tel"
+                name="personalPhone"
+                value={formData.personalPhone}
+                onChange={handleInputChange}
+                disabled={isViewMode}
+                className={getFieldClassName(`min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'personalPhone')}
+                placeholder="10 digit mobile number"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Office Phone</label>
-            <input
-              type="tel"
-              name="officePhone"
-              value={formData.officePhone}
-              onChange={handleInputChange}
-              disabled={isViewMode}
-              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'officePhone')}
-              placeholder="Enter office phone"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                name="officePhoneCountryCode"
+                value={formData.officePhoneCountryCode}
+                onChange={handleInputChange}
+                disabled={isViewMode}
+                maxLength={5}
+                className={getFieldClassName(`w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'officePhoneCountryCode')}
+                placeholder="+91"
+                aria-label="Office phone country code"
+              />
+              <input
+                type="tel"
+                name="officePhone"
+                value={formData.officePhone}
+                onChange={handleInputChange}
+                disabled={isViewMode}
+                className={getFieldClassName(`min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'officePhone')}
+                placeholder="10 digit mobile number"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Gender <span className="text-red-500">*</span></label>
@@ -2112,15 +2161,28 @@ const EmployeeOnboarding = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Emergency Contact Number <RequiredAsterisk />
             </label>
-            <input
-              type="tel"
-              name="emergencyNumber"
-              value={formData.health.emergencyNumber}
-              onChange={(e) => handleInputChange(e, 'health')}
-              disabled={isViewMode}
-              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.emergencyNumber')}
-              placeholder="Emergency contact number"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                name="emergencyPhoneCountryCode"
+                value={formData.health.emergencyPhoneCountryCode}
+                onChange={(e) => handleInputChange(e, 'health')}
+                disabled={isViewMode}
+                maxLength={5}
+                className={getFieldClassName(`w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.emergencyPhoneCountryCode')}
+                placeholder="+91"
+                aria-label="Emergency phone country code"
+              />
+              <input
+                type="tel"
+                name="emergencyNumber"
+                value={formData.health.emergencyNumber}
+                onChange={(e) => handleInputChange(e, 'health')}
+                disabled={isViewMode}
+                className={getFieldClassName(`min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.emergencyNumber')}
+                placeholder="10 digit mobile number"
+              />
+            </div>
           </div>
         </div>
       </div>

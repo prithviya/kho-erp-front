@@ -79,12 +79,6 @@ function validate(form) {
     if (!form.companyName.trim()) errors.companyName = "Company name is required.";
     if (!form.salutation) errors.salutation = "Please select a salutation.";
     if (!form.contactPerson.trim()) errors.contactPerson = "Contact person is required.";
-    if (!form.phoneCountryCode) errors.phoneCountryCode = "Country code is required.";
-    
-    if (!form.phone || !String(form.phone).trim()) {
-        errors.phone = "Phone number is required.";
-    }
-
     if (!form.email.trim()) errors.email = "Email is required.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email address.";
     if (!form.leadSourceId) errors.leadSourceId = "Lead source is required.";

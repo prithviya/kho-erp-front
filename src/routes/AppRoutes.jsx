@@ -14,6 +14,7 @@ import Applied from "../components/Career/applied";
 import JobOpening from "../components/Career/JobOpenings";
 import RecruitmentProcess from "../components/Career/recruitmentProcess";
 import Onboarding from "../components/Career/onBoarding";
+import Assignedprojectboard from "../components/project/Assignedprojectboard";
 import Employee from "../components/Career/employee";
 import Salary from "../components/SalaryPay/Salary";
 import Leave from "../components/SalaryPay/leave";
@@ -64,6 +65,7 @@ export default function AppRoutes() {
                 <Route path="/vendor-overview" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER"]}><Vendor /></RoleRoute>} />
                 <Route path="/applied" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Applied /></RoleRoute>} />
                 <Route path="/job" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><JobOpening /></RoleRoute>} />
+                <Route path="/assign-board" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]}><Assignedprojectboard /></RoleRoute>} />
                 <Route path="/recruitment-process" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><RecruitmentProcess /></RoleRoute>} />
                 <Route path="/onboarding" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Onboarding /></RoleRoute>} />
                 <Route path="/employee" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]}><Employee /></RoleRoute>} />

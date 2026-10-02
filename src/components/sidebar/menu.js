@@ -76,7 +76,14 @@ const menu = [
                 icon: ClipboardCheck,
                 path: "/task-board",
                 roles: ["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]
-            }
+            },
+            {
+                name: "Assign board",
+                title: "My Tasks Assign board",
+                icon: ClipboardCheck,
+                path: "/assign-board",
+                roles: ["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]
+            },
         ]
     },
     
