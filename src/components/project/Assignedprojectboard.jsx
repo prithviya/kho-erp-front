@@ -73,6 +73,8 @@ function Assignedprojectboard() {
   // Assignment sub-menu state inside modal
   const [assigneeType, setAssigneeType] = useState('employee'); // 'employee' or 'vendor'
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState([]);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
+  const [selectedVendorIds, setSelectedVendorIds] = useState([]);
   const [showAssignDropdown, setShowAssignDropdown] = useState(false);
 
   // Active Task Detail Drawer State (Chat/Comments view)
@@ -172,7 +174,9 @@ function Assignedprojectboard() {
   }, [employeesList, selectedProject]);
 
   const projectAssignedPeople = useMemo(() => [
-    ...projectAssignees.map((person) => ({ ...person, personType: 'Employee' })),
+    ...projectAssignees
+      .filter((person) => !(person.roles || []).some((role) => /super.?admin/i.test(`${role.code || ''} ${role.name || ''}`)))
+      .map((person) => ({ ...person, personType: 'Employee' })),
     ...(selectedProject?.assignedVendorUsers || []).map((vendor) => ({ ...vendor, personType: 'Vendor' }))
   ], [projectAssignees, selectedProject]);
 
@@ -186,6 +190,8 @@ function Assignedprojectboard() {
     setTaskImage(null);
     setAssigneeType('employee');
     setSelectedAssigneeIds([]);
+    setSelectedEmployeeIds([]);
+    setSelectedVendorIds([]);
     setIsModalOpen(true);
   };
 
@@ -200,12 +206,18 @@ function Assignedprojectboard() {
   const handleSaveTask = async (e) => {
     e.preventDefault();
     if (!taskName.trim()) return;
-    if (!projectId || !selectedAssigneeIds.length) return;
+    if (!projectId || (!selectedEmployeeIds.length && !selectedVendorIds.length)) return;
     try {
-      await Promise.all(selectedAssigneeIds.map((assignedToId) => taskService.createTask({
-        projectOnboardId: Number(projectId), serviceId: Number(activeColumnId), title: taskName.trim(), assignedToId: Number(assignedToId), dueDate: dueDate || null
-      })));
-      toast.success(`${selectedAssigneeIds.length} task${selectedAssigneeIds.length > 1 ? 's' : ''} created.`);
+      await Promise.all([
+        ...selectedEmployeeIds.map((assignedToId) => taskService.createTask({
+          projectOnboardId: Number(projectId), serviceId: Number(activeColumnId), title: taskName.trim(), assignedToId: Number(assignedToId), dueDate: dueDate || null
+        })),
+        ...selectedVendorIds.map((assignedVendorId) => taskService.createTask({
+          projectOnboardId: Number(projectId), serviceId: Number(activeColumnId), title: taskName.trim(), assignedVendorId: Number(assignedVendorId), dueDate: dueDate || null
+        }))
+      ]);
+      const assigneeCount = selectedEmployeeIds.length + selectedVendorIds.length;
+      toast.success(`${assigneeCount} task${assigneeCount > 1 ? 's' : ''} created.`);
       setIsModalOpen(false);
       const response = await taskService.getTasks();
       const records = response?.data || [];
@@ -507,16 +519,18 @@ function Assignedprojectboard() {
                     const name = isVendor
                       ? person.vendor_name || person.vendor_company_name || person.vendor_email
                       : `${person.firstName || ''} ${person.lastName || ''}`.trim() || person.fullName || person.email;
-                    const selected = !isVendor && selectedAssigneeIds.includes(personId);
-                    return <label key={`${person.personType}-${personId}`} className={`flex items-center gap-2 rounded px-2 py-1.5 text-xs ${isVendor ? 'text-gray-500' : `cursor-pointer ${selected ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50 text-gray-700'}`}`}>
-                      <input type="checkbox" checked={selected} disabled={isVendor} onChange={() => setSelectedAssigneeIds((current) => selected ? current.filter((id) => id !== personId) : [...current, personId])} />
+                    const selected = isVendor ? selectedVendorIds.includes(personId) : selectedEmployeeIds.includes(personId);
+                    return <label key={`${person.personType}-${personId}`} className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs ${selected ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <input type="checkbox" checked={selected} onChange={() => (isVendor
+                        ? setSelectedVendorIds((current) => selected ? current.filter((id) => id !== personId) : [...current, personId])
+                        : setSelectedEmployeeIds((current) => selected ? current.filter((id) => id !== personId) : [...current, personId]))} />
                       <User size={14} />
                       <span>{name} <span className="text-[10px] text-gray-400">({person.personType})</span></span>
                     </label>;
                   })}
                   {!projectAssignedPeople.length && <p className="p-2 text-xs text-gray-400">No assigned people found for this project.</p>}
                 </div>
-                {!!selectedAssigneeIds.length && <p className="mt-1 text-[10px] text-indigo-600">{selectedAssigneeIds.length} assignee(s) selected</p>}
+                {(selectedEmployeeIds.length + selectedVendorIds.length) > 0 && <p className="mt-1 text-[10px] text-indigo-600">{selectedEmployeeIds.length + selectedVendorIds.length} assignee(s) selected</p>}
               </div>
 
               {/* Due Date & Due Time */}

@@ -54,7 +54,7 @@ const menu = [
                 title: "Project Onboarding",
                 icon: KanbanSquare,
                 path: "/onboard-prjt",
-                roles: ["SUPER_ADMIN", "MANAGER"]
+                roles: ["SUPER_ADMIN"]
             },
             {
                 name: "Project details",
@@ -63,20 +63,20 @@ const menu = [
                 path: "/prjt-details",
                 roles: ["SUPER_ADMIN", "MANAGER"]
             },
-            {
-                name: "Work Allocation",
-                title: "Assign Task",
-                icon: ClipboardCheck,
-                path: "/tasks",
-                roles: ["SUPER_ADMIN", "MANAGER"]
-            },
-            {
-                name: "Task Board",
-                title: "My Tasks",
-                icon: ClipboardCheck,
-                path: "/task-board",
-                roles: ["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]
-            },
+            // {
+            //     name: "Work Allocation",
+            //     title: "Assign Task",
+            //     icon: ClipboardCheck,
+            //     path: "/tasks",
+            //     roles: ["SUPER_ADMIN", "MANAGER"]
+            // },
+            // {
+            //     name: "Task Board",
+            //     title: "My Tasks",
+            //     icon: ClipboardCheck,
+            //     path: "/task-board",
+            //     roles: ["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]
+            // },
             {
                 name: "Assign board",
                 title: "My Tasks Assign board",
@@ -123,7 +123,7 @@ const menu = [
                 title: "Employee",
                 icon: Puzzle,
                 path: "/employee",
-                roles: ["SUPER_ADMIN", "HR"]
+                roles: ["SUPER_ADMIN", "HR" ]
             }
         ]
     },
@@ -142,7 +142,7 @@ const menu = [
                 title: "Leave",
                 icon: Users,
                 path: "/leave",
-                roles: ["SUPER_ADMIN", "HR", "MANAGER", "CRM_EXECUTIVE", "CEO", "TEAM_MEMBER"]
+                roles: ["SUPER_ADMIN", "HR", "CRM_EXECUTIVE", "CEO", "TEAM_MEMBER","MANAGER"]
             }
         ]
     },
@@ -168,14 +168,14 @@ const menu = [
                 title: "Ventor Management",
                 icon: RotateCwSquare,
                 path: "/vendor-overview",
-                roles: ["SUPER_ADMIN", "MANAGER"]
+                roles: ["SUPER_ADMIN"]
             },
             // {
             //     name: "Ventor Assigned",
             //     title: "Ventor Assigned",
             //     icon: RotateCwSquare,   
             //     path: "/ventor-assigned",
-            //     roles: ["SUPER_ADMIN", "MANAGER"]
+            //     roles: ["SUPER_ADMIN"]
             // },
             {
                 name: "CIF Form",

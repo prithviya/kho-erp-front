@@ -566,14 +566,20 @@ const ProjectManagement = () => {
     }
 
     return list.map((project) => {
-      const managerNames = getUserNames(project.projectManagerIds);
-      const assignedNames = getEmployeeNames(project.assignedToIds);
+      const managerNames = project.reportingHeadUser
+        ? [formatUserName(project.reportingHeadUser)]
+        : getUserNames(project.projectManagerIds);
+      const assignedNames = project.assignedUsers?.length
+        ? project.assignedUsers.map(formatUserName).filter(Boolean)
+        : getEmployeeNames(project.assignedToIds);
       const assignedVendorNames = (project.assignedVendorUsers || [])
         .map((vendor) => vendor.vendor_name || vendor.name || vendor.vendor_email)
         .filter(Boolean);
       const allAssignedNames = [...new Set([...assignedNames, ...assignedVendorNames])];
       const serviceNames = getServiceNames(project.serviceIds);
-      const spocNames = getUserNames(project.spocIds);
+      const spocNames = project.spocUsers?.length
+        ? project.spocUsers.map(formatUserName).filter(Boolean)
+        : getUserNames(project.spocIds);
 
       return (
         <tr key={project.id} className="transition-colors hover:bg-gray-50">
