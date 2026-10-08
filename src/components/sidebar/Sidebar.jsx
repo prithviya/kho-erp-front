@@ -43,7 +43,8 @@ export default function Sidebar() {
             {/* Mobile Hamburger */}
             <button
                 onClick={() => setMobileOpen(true)}
-                className="fixed top-4 left-4 z-50 lg:hidden bg-white rounded-lg shadow-md p-2"
+                aria-label="Open navigation"
+                className="fixed left-4 top-4 z-50 rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-lg lg:hidden"
             >
                 <Menu size={22} />
             </button>
@@ -52,7 +53,7 @@ export default function Sidebar() {
                 mobileOpen && (
                     <div
                         onClick={() => setMobileOpen(false)}
-                        className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+                        className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] lg:hidden"
                     />
                 )
             }
@@ -60,7 +61,7 @@ export default function Sidebar() {
                 className={`
                 fixed
                 lg:relative
-                z-5
+                z-50
                 top-0
                 left-0
                 h-screen

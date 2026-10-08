@@ -9,7 +9,7 @@ import {
     UserPlus,
     BadgeCheck,
     Puzzle,
-    HandCoins,
+    WalletCards,
     FileUser,
     Network,
     RotateCwSquare
@@ -133,7 +133,7 @@ const menu = [
             {
                 name: "Payroll",
                 title: "Payroll",
-                icon: HandCoins,
+                icon: WalletCards,
                 path: "/payroll",
                 roles: ["SUPER_ADMIN", "HR"]
             },

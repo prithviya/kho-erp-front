@@ -40,8 +40,8 @@ export default function SidebarItem({
             transition-all
             duration-200
             ${active
-                    ? "bg-orange-100 text-orange-600 border-l-4 border-orange-500 shadow-sm"
-                    : "hover:bg-slate-100 text-slate-700"}
+                    ? "bg-emerald-50 text-emerald-700 border-l-4 border-emerald-500 shadow-sm"
+                    : "text-slate-600 hover:bg-emerald-50/70 hover:text-emerald-700"}
             `}
         >
             <Icon

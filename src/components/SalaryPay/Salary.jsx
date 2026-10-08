@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { Banknote, Eye } from 'lucide-react';
 import { request } from '../../services/apiClient';
 import employeeService from '../../services/employee.service';
 
@@ -327,17 +328,25 @@ function Salary() {
                       <td className="px-4 py-3">
                         <div className="flex gap-2 flex-wrap">
                           <button
+                            type="button"
                             onClick={() => handleViewSalary(employee)}
-                            className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-md hover:bg-gray-200 transition-colors"
+                            title="View salary details"
+                            aria-label={`View salary details for ${employee.name}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200"
                           >
-                            View
+                            <Eye size={14} strokeWidth={2.2} />
+                            
                           </button>
                           {!employee.salaryPaid && (
                             <button
+                              type="button"
                               onClick={() => handleOpenPaymentModal(employee)}
-                              className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors"
+                              title="Pay salary"
+                              aria-label={`Pay salary for ${employee.name}`}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
                             >
-                              Pay Salary
+                              <Banknote size={14} strokeWidth={2.2} />
+                            
                             </button>
                           )}
                         </div>

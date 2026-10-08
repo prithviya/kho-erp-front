@@ -3,8 +3,8 @@ export default function SidebarFooter({ collapsed }) {
     return (
         <div className="border-t border-slate-200 p-4">
             <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
-                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                    <Shield size={18} className="text-orange-600"/>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+                    <Shield size={18} className="text-emerald-600"/>
                 </div>
                 {
                     !collapsed && (

@@ -1,14 +1,16 @@
 import { Menu, ChevronLeft } from "lucide-react";
-import { BsCpuFill } from "react-icons/bs";
+import { Building2 } from "lucide-react";
 
 export default function SidebarHeader({ collapsed, toggleSidebar, mobileOpen, setMobileOpen }) {
     return (
         <div className="h-16 border-b border-slate-200 flex items-center justify-between px-4 p-2">
             <div className="flex items-center gap-3 overflow-hidden">
-                <BsCpuFill className="w-10 h-10 text-blue-500"/>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                    <Building2 size={21} strokeWidth={2.2} />
+                </div>
                 {!collapsed && (
                     <div>
-                        <h2 className="font-bold text-slate-800 text-lg">
+                        <h2 className="text-lg font-bold tracking-tight text-slate-800">
                             Kho ERP
                         </h2>
                         <p className="text-xs text-slate-500">
