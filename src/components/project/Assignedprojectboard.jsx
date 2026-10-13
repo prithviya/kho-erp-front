@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Plus, 
   MessageSquare, 
@@ -19,7 +20,9 @@ import {
   Send,
   AtSign,
   Bell,
-  UserCircle2
+  UserCircle2,
+  Play,
+  FileText
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import taskService from '../../services/task.service';
@@ -27,6 +30,8 @@ import projectOnboardService from '../../services/projectOnboard.service';
 import userManagementService from '../../services/userManagement.service';
 import leadService from '../../services/lead.service';
 import projectChatService from '../../services/projectChat.service';
+import taskChatService from '../../services/taskChat.service';
+import { subscribe } from '../../services/realtime.service';
 import { getCanonicalRoles, getCurrentUser, isSuperAdmin } from '../../utils/auth';
 
 function parseIds(value) {
@@ -44,10 +49,28 @@ function getId(value) {
   return value && typeof value === 'object' ? value.id ?? value.userId ?? value.serviceId : value;
 }
 
+function getAttachmentUrl(url) {
+  if (!url || /^https?:\/\//i.test(url)) return url;
+  const apiOrigin = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
+  return `${apiOrigin}${url}`;
+}
+
+function getAttachmentKind(attachment) {
+  const mimeType = String(attachment?.mimeType || '').toLowerCase();
+  const name = String(attachment?.name || '').toLowerCase();
+  if (mimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(name)) return 'image';
+  if (mimeType.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(name)) return 'video';
+  return 'document';
+}
+
 function Assignedprojectboard() {
   const currentUser = getCurrentUser();
   const superAdmin = isSuperAdmin();
   const isManager = getCanonicalRoles(currentUser).includes('MANAGER');
+  const getMessageSender = (senderId, sender) => {
+    if (Number(senderId) === Number(currentUser?.id)) return 'Me';
+    return sender ? `${sender.firstName || ''} ${sender.lastName || ''}`.trim() || sender.email : 'User';
+  };
   const normalizeTask = (task) => ({
     ...task,
     status: task.status || 'TODO',
@@ -86,14 +109,42 @@ function Assignedprojectboard() {
 
   // Active Task Detail Drawer State (Chat/Comments view)
   const [activeTask, setActiveTask] = useState(null);
+  const [taskViewTab, setTaskViewTab] = useState('activities');
+  const [taskChatText, setTaskChatText] = useState('');
+  const [taskMentionQuery, setTaskMentionQuery] = useState('');
+  const [taskMentionActive, setTaskMentionActive] = useState(false);
+  const [taskChatMessages, setTaskChatMessages] = useState({});
+  const [taskUnreadCounts, setTaskUnreadCounts] = useState({});
+  const [taskProjectIds, setTaskProjectIds] = useState({});
+  const [taskChatAttachments, setTaskChatAttachments] = useState([]);
+  const [attachmentViewer, setAttachmentViewer] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [commentImage, setCommentImage] = useState(null);
   const [showProjectChat, setShowProjectChat] = useState(false);
   const [showProjectMembers, setShowProjectMembers] = useState(false);
   const [projectChatText, setProjectChatText] = useState('');
   const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionActive, setMentionActive] = useState(false);
   const [chatMessages, setChatMessages] = useState({});
+  const [projectUnreadCounts, setProjectUnreadCounts] = useState({});
+  const [projectLastMessageAt, setProjectLastMessageAt] = useState({});
   const [unreadMentionCount, setUnreadMentionCount] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const requestedProjectId = searchParams.get('projectId');
+    if (!requestedProjectId || !projects.length) return;
+
+    const project = projects.find((item) => String(item.id) === String(requestedProjectId));
+    if (!project) return;
+
+    setSelectedProjectId(String(project.id));
+    if (searchParams.get('chat') === '1') {
+      setShowProjectChat(true);
+      setProjectUnreadCounts((current) => ({ ...current, [project.id]: 0 }));
+    }
+    setSearchParams({}, { replace: true });
+  }, [projects, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!selectedProjectId) return;
@@ -103,16 +154,92 @@ function Assignedprojectboard() {
         if (!mounted) return;
         const messages = (response?.data || []).map((item) => ({
           id: item.id,
+          senderId: item.senderId,
           sender: item.sender ? `${item.sender.firstName || ''} ${item.sender.lastName || ''}`.trim() || item.sender.email : 'User',
           text: item.message,
           time: new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           mentionedUserIds: item.mentionedUserIds || []
         }));
         setChatMessages((current) => ({ ...current, [selectedProjectId]: messages }));
+        const lastMessage = response?.data?.[response.data.length - 1];
+        if (lastMessage?.createdAt) {
+          setProjectLastMessageAt((current) => ({ ...current, [selectedProjectId]: lastMessage.createdAt }));
+        }
       })
       .catch((error) => toast.error(error.message || 'Failed to load project chat.'));
     return () => { mounted = false; };
   }, [selectedProjectId]);
+
+  useEffect(() => {
+    return subscribe('project-message', (payload) => {
+      if (!payload?.projectId || !payload?.message) return;
+      const projectId = String(payload.projectId);
+      const item = payload.message;
+      const message = {
+        id: item.id,
+        senderId: item.senderId,
+        sender: item.sender ? `${item.sender.firstName || ''} ${item.sender.lastName || ''}`.trim() || item.sender.email : 'User',
+        text: item.message,
+        time: new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        mentionedUserIds: item.mentionedUserIds || []
+      };
+      setChatMessages((current) => {
+        const existing = current[projectId] || [];
+        if (existing.some((entry) => Number(entry.id) === Number(message.id))) return current;
+        return { ...current, [projectId]: [...existing, message] };
+      });
+      setProjectLastMessageAt((current) => ({ ...current, [projectId]: item.createdAt || new Date().toISOString() }));
+      if (projectId !== String(selectedProjectId) || !showProjectChat) {
+        setProjectUnreadCounts((current) => ({ ...current, [projectId]: (current[projectId] || 0) + 1 }));
+      }
+    });
+  }, [selectedProjectId, showProjectChat]);
+
+  useEffect(() => {
+    if (!activeTask?.id) return undefined;
+    let mounted = true;
+    taskChatService.list(activeTask.id)
+      .then((response) => {
+        if (!mounted) return;
+        const messages = (response?.data || []).map((item) => ({
+          id: item.id,
+          senderId: item.senderId,
+          sender: getMessageSender(item.senderId, item.sender),
+          text: item.message,
+          time: new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          mentionedUserIds: item.mentionedUserIds || [],
+          attachments: item.attachments || []
+        }));
+        setTaskChatMessages((current) => ({ ...current, [activeTask.id]: messages }));
+        setTaskProjectIds((current) => ({ ...current, [activeTask.id]: activeTask.projectOnboardId }));
+      })
+      .catch((error) => toast.error(error.message || 'Failed to load task chat.'));
+    return () => { mounted = false; };
+  }, [activeTask?.id]);
+
+  useEffect(() => subscribe('task-message', (payload) => {
+    if (!payload?.taskId || !payload?.message) return;
+    const taskId = String(payload.taskId);
+    const item = payload.message;
+    const message = {
+      id: item.id,
+      senderId: item.senderId,
+      sender: getMessageSender(item.senderId, item.sender),
+      text: item.message,
+      time: new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      mentionedUserIds: item.mentionedUserIds || [],
+      attachments: item.attachments || []
+    };
+    setTaskProjectIds((current) => ({ ...current, [taskId]: payload.projectOnboardId || current[taskId] }));
+    setTaskChatMessages((current) => {
+      const existing = current[taskId] || [];
+      if (existing.some((entry) => Number(entry.id) === Number(message.id))) return current;
+      return { ...current, [taskId]: [...existing, message] };
+    });
+    if (Number(item.senderId) !== Number(currentUser?.id) && Number(activeTask?.id) !== Number(payload.taskId)) {
+      setTaskUnreadCounts((current) => ({ ...current, [taskId]: (current[taskId] || 0) + 1 }));
+    }
+  }), [activeTask?.id, currentUser?.id]);
 
   useEffect(() => {
     let mounted = true;
@@ -199,6 +326,33 @@ function Assignedprojectboard() {
     [projects, spocProjects]
   );
 
+  const sortProjects = (items) => [...items].sort((left, right) => {
+    const unreadDifference = (combinedProjectUnreadCounts[right.id] || 0) - (combinedProjectUnreadCounts[left.id] || 0);
+    if (unreadDifference) return unreadDifference;
+    return new Date(projectLastMessageAt[right.id] || 0) - new Date(projectLastMessageAt[left.id] || 0);
+  });
+  const combinedProjectUnreadCounts = useMemo(() => {
+    const counts = { ...projectUnreadCounts };
+    Object.entries(taskUnreadCounts).forEach(([taskId, count]) => {
+      const projectId = taskProjectIds[taskId];
+      if (projectId) counts[projectId] = (counts[projectId] || 0) + count;
+    });
+    return counts;
+  }, [projectUnreadCounts, taskProjectIds, taskUnreadCounts]);
+  const unreadProjects = useMemo(
+    () => sortProjects(projects.filter((project) => combinedProjectUnreadCounts[project.id] > 0)),
+    [projects, projectLastMessageAt, combinedProjectUnreadCounts]
+  );
+  const unreadProjectIds = useMemo(() => new Set(unreadProjects.map((project) => Number(project.id))), [unreadProjects]);
+  const sortedSpocProjects = useMemo(() => sortProjects(spocProjects.filter((project) => !unreadProjectIds.has(Number(project.id)))), [spocProjects, unreadProjectIds, projectLastMessageAt, combinedProjectUnreadCounts]);
+  const sortedAssignedProjects = useMemo(() => sortProjects(assignedProjects.filter((project) => !unreadProjectIds.has(Number(project.id)))), [assignedProjects, unreadProjectIds, projectLastMessageAt, combinedProjectUnreadCounts]);
+
+  const openProjectChat = (projectId = selectedProjectId) => {
+    setSelectedProjectId(String(projectId));
+    setShowProjectChat(true);
+    setProjectUnreadCounts((current) => ({ ...current, [projectId]: 0 }));
+  };
+
   const projectAssignees = useMemo(() => {
     if (selectedProject?.assignedUsers?.length) return selectedProject.assignedUsers;
     const assignedIds = new Set(parseIds(selectedProject?.assignedToIds).map(getId).map((id) => Number(id)));
@@ -221,6 +375,79 @@ function Assignedprojectboard() {
     return people.filter((person, index, list) => person?.id && list.findIndex((item) => Number(item.id) === Number(person.id)) === index);
   }, [projectAssignedPeople, selectedProjectPeople]);
 
+  const taskMentionOptions = projectMembers.filter((member) => {
+    const name = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.fullName || member.email || '';
+    return !taskMentionQuery || name.toLowerCase().includes(taskMentionQuery.toLowerCase());
+  });
+
+  const insertTaskMention = (member) => {
+    const name = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.fullName || member.email;
+    setTaskChatText((current) => current.replace(/@[\w ]*$/, `@${name} `));
+    setTaskMentionQuery('');
+    setTaskMentionActive(false);
+  };
+
+  const handleTaskChatSubmit = () => {
+    if (!activeTask?.id || (!taskChatText.trim() && !taskChatAttachments.length)) return;
+    const mentionedUserIds = projectMembers
+      .filter((member) => {
+        const name = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.fullName || member.email || '';
+        return taskChatText.includes(`@${name}`);
+      })
+      .map((member) => Number(member.id));
+    const formData = new FormData();
+    formData.append('message', taskChatText.trim());
+    formData.append('mentionedUserIds', JSON.stringify(mentionedUserIds));
+    taskChatAttachments.forEach(({ file }) => formData.append('attachments', file));
+    taskChatService.send(activeTask.id, formData)
+      .then((response) => {
+        const item = response?.data;
+        if (item?.id) {
+          setTaskChatMessages((current) => {
+            const existing = current[activeTask.id] || [];
+            if (existing.some((entry) => Number(entry.id) === Number(item.id))) return current;
+            const message = {
+              id: item.id,
+              senderId: item.senderId || currentUser?.id,
+              sender: getMessageSender(item.senderId || currentUser?.id, item.sender),
+              text: item.message || taskChatText.trim(),
+              time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              mentionedUserIds: item.mentionedUserIds || mentionedUserIds,
+              attachments: item.attachments || []
+            };
+            return { ...current, [activeTask.id]: [...existing, message] };
+          });
+        }
+        setTaskChatText('');
+        taskChatAttachments.forEach(({ preview }) => preview && URL.revokeObjectURL(preview));
+        setTaskChatAttachments([]);
+        setTaskMentionQuery('');
+        setTaskMentionActive(false);
+      })
+      .catch((error) => toast.error(error.message || 'Failed to send task message.'));
+  };
+
+  const handleTaskAttachmentChange = (event) => {
+    const files = Array.from(event.target.files || []).map((file) => ({
+      file,
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+    }));
+    setTaskChatAttachments((current) => {
+      const next = [...current, ...files];
+      next.slice(5).forEach(({ preview }) => preview && URL.revokeObjectURL(preview));
+      return next.slice(0, 5);
+    });
+    event.target.value = '';
+  };
+
+  const removeTaskAttachment = (index) => {
+    setTaskChatAttachments((current) => {
+      const removed = current[index];
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return current.filter((_item, itemIndex) => itemIndex !== index);
+    });
+  };
+
   const activeProjectMessages = chatMessages[selectedProjectId] || [
     { id: 'sample-system', sender: 'System', text: 'Project chat started for this team.', time: '09:58 AM', system: true },
     { id: 'sample-welcome', sender: 'Gopi Kannan', text: 'Welcome to the project discussion. Share updates here.', time: '10:02 AM' }
@@ -235,6 +462,7 @@ function Assignedprojectboard() {
     const name = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.fullName || member.email;
     setProjectChatText((current) => current.replace(/@[\w ]*$/, `@${name} `));
     setMentionQuery('');
+    setMentionActive(false);
   };
 
   const handleProjectChatSubmit = () => {
@@ -250,6 +478,7 @@ function Assignedprojectboard() {
         const item = response?.data;
         const message = {
           id: item?.id || Date.now(),
+          senderId: item?.senderId || currentUser?.id,
           sender: item?.sender ? `${item.sender.firstName || ''} ${item.sender.lastName || ''}`.trim() || item.sender.email : `${currentUser?.firstName || 'You'} ${currentUser?.lastName || ''}`.trim(),
           text: item?.message || projectChatText.trim(),
           time: item?.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -258,6 +487,7 @@ function Assignedprojectboard() {
         setChatMessages((current) => ({ ...current, [selectedProjectId]: [...activeProjectMessages, message] }));
         setProjectChatText('');
         setMentionQuery('');
+        setMentionActive(false);
       })
       .catch((error) => toast.error(error.message || 'Failed to send project message.'));
   };
@@ -320,6 +550,10 @@ function Assignedprojectboard() {
         { id: Date.now(), sender: 'System', text: 'Communication started. Status changed to Started.', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
       ];
     }
+    setTaskViewTab('activities');
+    setTaskUnreadCounts((current) => ({ ...current, [task.id]: 0 }));
+    taskChatAttachments.forEach(({ preview }) => preview && URL.revokeObjectURL(preview));
+    setTaskChatAttachments([]);
     setActiveTask({ ...updatedTask, columnId: colId });
   };
 
@@ -381,8 +615,12 @@ function Assignedprojectboard() {
     return new Date() > dueDateTime;
   };
 
+  const activeTaskMessages = activeTask
+    ? taskChatMessages[activeTask.id] ?? activeTask.commentsList
+    : [];
+
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#f5f7f5] font-sans text-slate-800">
+    <div className="flex h-full min-h-0 flex-col overflow-x-hidden bg-[#f5f7f5] font-sans text-slate-800">
       
       
       {/* Assigned Projects + Kanban Board Workspace */}
@@ -403,27 +641,48 @@ function Assignedprojectboard() {
             >
               All assigned projects
             </button>
+            {!!unreadProjects.length && <p className="mt-4 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-rose-300">New messages</p>}
+            {unreadProjects.map((project) => (
+              <button
+                type="button"
+                key={`unread-${project.id}`}
+                onClick={() => setSelectedProjectId(String(project.id))}
+                className={`min-w-44 rounded-lg border px-3 py-2 text-left transition md:w-full ${String(selectedProjectId) === String(project.id) ? 'border-emerald-300 bg-emerald-400/15' : 'border-white/10 hover:border-emerald-300/60 hover:bg-white/5'}`}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="block min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">{project.projectName}</span>
+                  <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{combinedProjectUnreadCounts[project.id]}</span>
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-slate-400">{project.companyName}</span>
+              </button>
+            ))}
             {!!spocProjects.length && <p className="mt-4 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-300">SPOC Projects</p>}
-            {spocProjects.map((project) => (
+            {sortedSpocProjects.map((project) => (
               <button
                 type="button"
                 key={project.id}
                 onClick={() => setSelectedProjectId(String(project.id))}
                 className={`min-w-44 rounded-lg border px-3 py-2 text-left transition md:w-full ${String(selectedProjectId) === String(project.id) ? 'border-emerald-300 bg-emerald-400/15' : 'border-white/10 hover:border-emerald-300/60 hover:bg-white/5'}`}
               >
-                <span className="block truncate text-sm font-semibold text-slate-100">{project.projectName}</span>
+                <span className="flex items-center gap-2">
+                  <span className="block min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">{project.projectName}</span>
+                  {!!combinedProjectUnreadCounts[project.id] && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{combinedProjectUnreadCounts[project.id]}</span>}
+                </span>
                 <span className="mt-0.5 block truncate text-xs text-slate-400">{project.companyName}</span>
               </button>
             ))}
             {!!assignedProjects.length && <p className="mt-4 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Assigned Projects</p>}
-            {assignedProjects.map((project) => (
+            {sortedAssignedProjects.map((project) => (
               <button
                 type="button"
                 key={project.id}
                 onClick={() => setSelectedProjectId(String(project.id))}
                 className={`min-w-44 rounded-lg border px-3 py-2 text-left transition md:w-full ${String(selectedProjectId) === String(project.id) ? 'border-emerald-300 bg-emerald-400/15' : 'border-white/10 hover:border-emerald-300/60 hover:bg-white/5'}`}
               >
-                <span className="block truncate text-sm font-semibold text-slate-100">{project.projectName}</span>
+                <span className="flex items-center gap-2">
+                  <span className="block min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">{project.projectName}</span>
+                  {!!combinedProjectUnreadCounts[project.id] && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{combinedProjectUnreadCounts[project.id]}</span>}
+                </span>
                 <span className="mt-0.5 block truncate text-xs text-slate-400">{project.companyName}</span>
               </button>
             ))}
@@ -472,23 +731,15 @@ function Assignedprojectboard() {
                   >
                     <UsersRound size={15} /> Members
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowProjectChat(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 font-semibold text-white shadow-sm hover:bg-emerald-700"
-                  >
-                    <MessageCircle size={15} /> Project Chat
-                    {unreadMentionCount > 0 && <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">{unreadMentionCount}</span>}
-                  </button>
                 </div>
               </div>
             </div>
           </div>
         )}
-        <div className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden pb-3">
-        <div className="flex min-w-max space-x-3 sm:space-x-4">
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {columns.map((col) => (
-            <div key={col.id}  className="w-[calc(100vw-2rem)] max-w-72 shrink-0 rounded-2xl border border-slate-200 bg-slate-100/80 flex max-h-[calc(100vh-12rem)] flex-col shadow-sm sm:w-72" >
+            <div key={col.id}  className="flex min-w-0 max-h-[calc(100vh-12rem)] w-full flex-col rounded-2xl border border-slate-200 bg-slate-100/80 shadow-sm" >
               
               {/* Column Header */}
               <div className="flex items-center justify-between rounded-t-2xl border-b border-slate-200 bg-white p-3.5">
@@ -533,9 +784,12 @@ function Assignedprojectboard() {
                           <h4 className={`text-sm font-bold leading-5 text-slate-800 ${isCompleted ? 'line-through text-gray-400' : ''}`}>
                             {task.title}
                           </h4>
-                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                            {task.assignee !== 'Unassigned' ? task.assignee.split(' ')[0] : 'Unassigned'}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {taskUnreadCounts[task.id] > 0 && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{taskUnreadCounts[task.id]}</span>}
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                              {task.assignee !== 'Unassigned' ? task.assignee.split(' ')[0] : 'Unassigned'}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Task Thumbnail if uploaded */}
@@ -708,17 +962,29 @@ function Assignedprojectboard() {
             <div className="flex-1 space-y-3 overflow-y-auto p-5">
               <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400"><MessageCircle size={14} /> Project Chat</div>
               {activeProjectMessages.map((message) => (
-                <div key={message.id} className={`rounded-xl border p-3.5 shadow-sm ${message.system ? 'border-emerald-100 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="flex items-center gap-2 font-semibold text-emerald-700"><UserCircle2 size={16} /> {message.sender}</span>
-                    <span className="text-slate-400">{message.time}</span>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">{message.text}</p>
-                </div>
+                (() => {
+                  const isOwnMessage = Number(message.senderId) === Number(currentUser?.id);
+                  if (message.system) {
+                    return <div key={message.id} className="rounded-xl border border-emerald-100 bg-emerald-50 p-3.5 text-center shadow-sm"><p className="text-sm leading-6 text-emerald-800">{message.text}</p></div>;
+                  }
+                  return (
+                    <div key={message.id} className={`flex items-end gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+                      {!isOwnMessage && <UserCircle2 size={28} className="shrink-0 text-emerald-600" />}
+                      <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 shadow-sm ${isOwnMessage ? 'rounded-br-md bg-emerald-600 text-white' : 'rounded-bl-md border border-slate-200 bg-white text-slate-700'}`}>
+                        <div className="flex items-center justify-between gap-4 text-[11px]">
+                          <span className={`font-semibold ${isOwnMessage ? 'text-emerald-50' : 'text-emerald-700'}`}>{isOwnMessage ? 'You' : message.sender}</span>
+                          <span className={isOwnMessage ? 'text-emerald-100' : 'text-slate-400'}>{message.time}</span>
+                        </div>
+                        <p className="mt-1.5 text-sm leading-6">{message.text}</p>
+                      </div>
+                      {isOwnMessage && <UserCircle2 size={28} className="shrink-0 text-emerald-600" />}
+                    </div>
+                  );
+                })()
               ))}
             </div>
             <div className="relative border-t border-slate-200 bg-white p-4">
-              {mentionQuery && mentionOptions.length > 0 && (
+              {mentionActive && mentionOptions.length > 0 && (
                 <div className="absolute bottom-full left-4 right-4 mb-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
                   {mentionOptions.map((member) => {
                     const name = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.fullName || member.email;
@@ -734,6 +1000,7 @@ function Assignedprojectboard() {
                   setProjectChatText(value);
                   const match = value.match(/@([\w ]*)$/);
                   setMentionQuery(match ? match[1] : '');
+                  setMentionActive(Boolean(match));
                 }}
                 placeholder="Write a project update or use @ to mention someone..."
                 className="w-full resize-none rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
@@ -758,109 +1025,169 @@ function Assignedprojectboard() {
 
       {/* --- TASK DETAILS & CHAT DRAWER (Communication & Comments View) --- */}
       {activeTask && (
-        <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-slate-200 bg-[#fbfcfb] shadow-2xl">
-          
-          {/* Header Drawer */}
-          <div className="flex items-center justify-between border-b border-slate-200 bg-white p-4">
-            <div className="flex items-center space-x-3">
-              {/* SPOC Status Dropdown */}
-              <select 
-                value={activeTask.status}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                disabled={!canCreateTasks}
-                className="text-xs font-bold border rounded px-2 py-1 bg-white text-gray-700 focus:outline-none"
-              >
-                <option value="TODO">To Do</option>
-                <option value="IN_PROGRESS">In Progress</option>
-                <option value="REVIEW">Review</option>
-                <option value="COMPLETED">Completed</option>
-              </select>
-
-              <span className="text-xs text-gray-500 font-medium">Assigned: {activeTask.assignee}</span>
-            </div>
-
-            <button onClick={() => setActiveTask(null)} className="text-gray-400 hover:text-gray-600">
-              <X size={20} />
-            </button>
-          </div>
-
-          {/* Task Info Header */}
-          <div className="space-y-3 border-b border-slate-200 bg-white p-6">
-            <h2 className={`text-2xl font-bold tracking-tight text-slate-900 ${activeTask.status === 'COMPLETED' ? 'line-through text-gray-400' : ''}`}>
-              {activeTask.title}
-            </h2>
-
-            {/* Overdue alert warning */}
-            {isOverdue(activeTask.dueDate, activeTask.dueTime) && activeTask.status !== 'COMPLETED' && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-1.5 rounded font-semibold flex items-center space-x-2">
-                <Clock size={14} />
-                <span>Task is Overdue! Due date & time has crossed.</span>
-              </div>
-            )}
-
-            {activeTask.images && activeTask.images.length > 0 && (
-              <div className="w-32 h-32 rounded border overflow-hidden">
-                <img src={activeTask.images[0]} alt="attachment" className="w-full h-full object-cover" />
-              </div>
-            )}
-          </div>
-
-          {/* Communication / Comments Stream */}
-          <div className="flex-1 space-y-4 overflow-y-auto bg-[#f6f8f7] p-6">
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Communication & Comments Log</h3>
-            
-            {activeTask.commentsList.map((comm) => (
-              <div key={comm.id} className="space-y-2 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
-                <div className="flex justify-between items-center text-xs text-gray-400">
-                  <span className="font-semibold text-emerald-700">{comm.sender}</span>
-                  <span>{comm.time}</span>
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/35 backdrop-blur-[2px]">
+          <div className="flex h-full w-full max-w-5xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-3">
+              <div className="flex items-center gap-2">
+                <select
+                  value={activeTask.status}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  disabled={!canCreateTasks}
+                  className="rounded-md bg-slate-600 px-3 py-2 text-xs font-semibold text-white outline-none"
+                >
+                  <option value="TODO">Open</option>
+                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="REVIEW">Review</option>
+                  <option value="COMPLETED">Completed</option>
+                </select>
+                <button type="button" className="rounded-md border border-slate-200 p-2 text-slate-500 hover:bg-slate-50" title="Mark task complete">
+                  <Check size={17} />
+                </button>
+                <div className="flex items-center gap-2 border-l border-slate-200 pl-3 text-xs text-slate-500">
+                  <UsersRound size={18} className="text-amber-500" />
+                  <span>Assigned to<br /><strong className="text-slate-800">{activeTask.assignee || 'Unassigned'}</strong></span>
                 </div>
-                <p className="text-sm text-gray-700">{comm.text}</p>
-                {comm.image && (
-                  <div className="h-28 w-28 rounded overflow-hidden border">
-                    <img src={comm.image} alt="comment attachment" className="w-full h-full object-cover" />
-                  </div>
-                )}
               </div>
-            ))}
-          </div>
-
-          {/* Comment & Image Upload Input Footer */}
-          <div className="space-y-2 border-t border-slate-200 bg-white p-4">
-            <textarea 
-              rows="2"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Type your comment, update or message here..."
-              className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-            ></textarea>
-
-            <div className="flex justify-between items-center">
-              <label className="cursor-pointer text-gray-500 hover:text-indigo-600 flex items-center space-x-1 text-xs font-medium">
-                <ImageIcon size={16} />
-                <span>Upload Image / File</span>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setCommentImage(URL.createObjectURL(e.target.files[0]));
-                    }
-                  }} 
-                />
-              </label>
-
-              <button 
-                onClick={handlePostComment}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700"
-              >
-                Post Comment
-              </button>
+              <div className="flex items-center gap-2 text-slate-400">
+                <button type="button" onClick={() => setActiveTask(null)} className="rounded-md p-2 hover:bg-slate-100" aria-label="Close task details"><X size={19} /></button>
+              </div>
             </div>
-            {commentImage && <span className="text-[10px] text-green-600 block">Image attached to comment.</span>}
-          </div>
 
+            <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_250px]">
+              <div className="flex min-h-0 flex-col border-r border-slate-200">
+                <div className="border-b border-slate-200 px-7 pb-4 pt-7">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Task</p>
+                  <h2 className={`max-w-2xl text-2xl font-medium leading-tight text-slate-900 ${activeTask.status === 'COMPLETED' ? 'line-through text-slate-400' : ''}`}>{activeTask.title}</h2>
+                  {isOverdue(activeTask.dueDate, activeTask.dueTime) && activeTask.status !== 'COMPLETED' && <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600"><Clock size={14} /> Task is overdue</p>}
+                </div>
+
+                <div className="flex items-center gap-5 border-b border-slate-200 px-7 pt-4">
+                  {['activities', 'comments'].map((tab) => <button key={tab} type="button" onClick={() => setTaskViewTab(tab)} className={`border-b-2 pb-3 text-sm font-medium capitalize ${taskViewTab === tab ? 'border-indigo-500 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>{tab}</button>)}
+                  <span className="ml-auto pb-3 text-xs text-slate-400">{activeTaskMessages.length} updates</span>
+                </div>
+
+                <div className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-white px-7 py-5">
+                  {activeTaskMessages.map((comm) => {
+                    const isOwnMessage = Number(comm.senderId) === Number(currentUser?.id);
+                    return (
+                    <div key={comm.id} className={`flex gap-3 pb-4 ${isOwnMessage ? 'flex-row-reverse justify-start' : 'justify-start'}`}>
+                      <UserCircle2 size={30} className={`mt-1 shrink-0 ${isOwnMessage ? 'text-emerald-500' : 'text-slate-400'}`} />
+                      <div className={`min-w-0 max-w-[78%] rounded-2xl border px-3.5 py-2.5 shadow-sm ${isOwnMessage ? 'border-emerald-100 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+                        <div className={`flex flex-wrap items-baseline gap-3 ${isOwnMessage ? 'justify-end' : 'justify-between'}`}>
+                          <p className={`text-sm font-semibold ${isOwnMessage ? 'text-emerald-700' : 'text-indigo-600'}`}>{comm.sender}</p>
+                          <p className="text-[11px] text-slate-400">{comm.time}</p>
+                        </div>
+                        {comm.text && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{comm.text}</p>}
+                        {comm.image && <div className="mt-3 max-w-sm overflow-hidden rounded-lg border border-slate-200"><img src={comm.image} alt="comment attachment" className="max-h-64 w-full object-cover" /></div>}
+                        {!!comm.attachments?.length && <div className="mt-3 flex flex-wrap gap-2">
+                          {comm.attachments.map((attachment) => {
+                            const kind = getAttachmentKind(attachment);
+                            const url = getAttachmentUrl(attachment.url);
+                            if (kind === 'image') {
+                              return <button type="button" key={attachment.url} onClick={() => setAttachmentViewer({ ...attachment, kind, url })} className="block max-w-xs overflow-hidden rounded-lg border border-slate-200 text-left">
+                                <img src={url} alt={attachment.name || 'Task attachment'} className="max-h-64 w-full object-cover" />
+                              </button>;
+                            }
+                            if (kind === 'video') {
+                              return <button type="button" key={attachment.url} onClick={() => setAttachmentViewer({ ...attachment, kind, url })} className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-indigo-600 hover:bg-indigo-50">
+                                <Play size={15} fill="currentColor" /> {attachment.name || 'Play video'}
+                              </button>;
+                            }
+                            return <button type="button" key={attachment.url} onClick={() => setAttachmentViewer({ ...attachment, kind, url })} className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-indigo-600 hover:bg-indigo-50">
+                              <FileText size={15} /> {attachment.name || 'Preview document'}
+                            </button>;
+                          })}
+                        </div>}
+                        <div className={`mt-2 text-xs text-slate-400 ${isOwnMessage ? 'text-right' : ''}`}>Reply</div>
+                      </div>
+                    </div>
+                    );
+                  })}
+                  {!activeTaskMessages.length && <div className="py-16 text-center text-sm text-slate-400">No activity yet. Start the task conversation below.</div>}
+                </div>
+
+                <div className="border-t border-slate-200 bg-slate-50 px-5 py-4">
+                  {taskMentionActive && taskMentionOptions.length > 0 && (
+                    <div className="relative mb-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                      {taskMentionOptions.map((member) => {
+                        const name = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.fullName || member.email;
+                        const displayName = Number(member.id) === Number(currentUser?.id) ? 'Me' : name;
+                        return <button type="button" key={member.id} onClick={() => insertTaskMention(member)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-indigo-50"><UserCircle2 size={17} className="text-indigo-500" /><span>{displayName}</span><span className="ml-auto text-[10px] text-slate-400">{member.memberRole}</span></button>;
+                      })}
+                    </div>
+                  )}
+                  {!!taskChatAttachments.length && <div className="mb-3 flex flex-wrap gap-2">
+                    {taskChatAttachments.map(({ file, preview }, index) => (
+                      <div key={`${file.name}-${index}`} className="relative rounded-lg border border-slate-200 bg-white p-1">
+                        {preview ? <img src={preview} alt={file.name} className="h-16 w-16 rounded object-cover" /> : <span className="block max-w-32 px-2 py-4 text-[10px] text-slate-600">{file.name}</span>}
+                        <button type="button" onClick={() => removeTaskAttachment(index)} className="absolute -right-2 -top-2 rounded-full bg-slate-700 p-0.5 text-white" aria-label={`Remove ${file.name}`}><X size={12} /></button>
+                      </div>
+                    ))}
+                  </div>}
+                  <textarea
+                    rows="3"
+                    value={taskChatText}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setTaskChatText(value);
+                      const match = value.match(/@([\w ]*)$/);
+                      setTaskMentionQuery(match ? match[1] : '');
+                      setTaskMentionActive(Boolean(match));
+                    }}
+                    placeholder="Write a task update or use @ to mention someone..."
+                    className="w-full resize-none rounded-lg border border-slate-300 bg-white p-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  />
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600">
+                        <Paperclip size={15} /> Attach
+                        <input type="file" multiple onChange={handleTaskAttachmentChange} className="hidden" />
+                      </label>
+                      <span className="flex items-center gap-1.5 text-xs text-slate-400"><AtSign size={15} /> Mention a member</span>
+                    </div>
+                    <button type="button" onClick={handleTaskChatSubmit} className="rounded-md bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700">Send Message</button>
+                  </div>
+                </div>
+              </div>
+
+              <aside className="hidden space-y-6 overflow-y-auto bg-slate-50/70 px-5 py-6 md:block">
+                <div className="space-y-5 text-sm">
+                  <div><p className="text-xs text-slate-500">Start date</p><p className="mt-1 font-medium text-slate-800">{activeTask.createdAt ? new Date(activeTask.createdAt).toLocaleDateString() : 'Not set'}</p></div>
+                  <div><p className="text-xs text-slate-500">Due on</p><p className="mt-1 font-medium text-slate-800">{activeTask.dueDate || 'Not set'}{activeTask.dueTime ? ` at ${activeTask.dueTime}` : ''}</p></div>
+                  <div><p className="text-xs text-slate-500">Reminder</p><p className="mt-1 font-medium text-slate-800">Not set</p></div>
+                  <div><p className="text-xs text-slate-500">Priority</p><p className="mt-1 font-medium text-slate-800">{activeTask.priority || 'None'}</p></div>
+                  <div><p className="text-xs text-slate-500">Category</p><p className="mt-1 font-medium text-slate-800">{activeTask.service?.name || 'Uncategorized'}</p></div>
+                </div>
+                <div className="border-t border-slate-200 pt-5">
+                  <p className="text-sm font-semibold text-slate-700">About the Task</p>
+                  <dl className="mt-4 space-y-3 text-xs">
+                    <div><dt className="text-slate-400">Project</dt><dd className="mt-1 text-slate-700">{selectedProject?.projectName || 'Not set'}</dd></div>
+                    <div><dt className="text-slate-400">Assigned to</dt><dd className="mt-1 text-slate-700">{activeTask.assignee || 'Unassigned'}</dd></div>
+                    <div><dt className="text-slate-400">Created by</dt><dd className="mt-1 text-slate-700">{activeTask.creator ? `${activeTask.creator.firstName || ''} ${activeTask.creator.lastName || ''}`.trim() : 'Not available'}</dd></div>
+                  </dl>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {attachmentViewer && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-label={`Preview ${attachmentViewer.name || 'attachment'}`} onClick={() => setAttachmentViewer(null)}>
+          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <p className="truncate text-sm font-semibold text-slate-800">{attachmentViewer.name || 'Attachment preview'}</p>
+              <button type="button" onClick={() => setAttachmentViewer(null)} className="rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Close attachment preview"><X size={18} /></button>
+            </div>
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-slate-100 p-4">
+              {attachmentViewer.kind === 'image' && <img src={attachmentViewer.url} alt={attachmentViewer.name || 'Attachment'} className="max-h-[75vh] max-w-full object-contain" />}
+              {attachmentViewer.kind === 'video' && <video src={attachmentViewer.url} controls autoPlay className="max-h-[75vh] max-w-full" />}
+              {attachmentViewer.kind === 'document' && <iframe src={attachmentViewer.url} title={attachmentViewer.name || 'Document preview'} className="h-[75vh] w-full rounded border border-slate-200 bg-white" />}
+            </div>
+            <div className="flex justify-end border-t border-slate-200 px-4 py-3">
+              <a href={attachmentViewer.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Open in new tab</a>
+            </div>
+          </div>
         </div>
       )}
 

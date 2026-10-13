@@ -104,7 +104,7 @@ export const getDefaultHomePath = (user = null) => {
     }
 
     // Team members (and any role without a dedicated landing page) go to their tasks.
-    return "/task-board";
+    return "/assign-board";
 };
 
 export const hasPermission = (permissionKey) => {
