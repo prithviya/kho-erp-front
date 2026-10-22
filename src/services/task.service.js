@@ -38,6 +38,9 @@ const taskService = {
     getTaskById(id) {
         return request(`/tasks/${id}`);
     },
+    getActivities(id) {
+        return request(`/tasks/${id}/activities`);
+    },
     createTask(payload) {
         return request("/tasks", {
             method: "POST",

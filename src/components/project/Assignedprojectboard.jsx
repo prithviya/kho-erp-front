@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { 
   Plus, 
@@ -53,6 +53,45 @@ function getAttachmentUrl(url) {
   if (!url || /^https?:\/\//i.test(url)) return url;
   const apiOrigin = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
   return `${apiOrigin}${url}`;
+}
+
+function normalizeAttachments(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : parsed && typeof parsed === 'object' ? [parsed] : [];
+    } catch {
+      return [];
+    }
+  }
+  return value && typeof value === 'object' ? [value] : [];
+}
+
+function getTimestampMillis(value) {
+  if (!value) return null;
+  if (!(value instanceof Date) && typeof value !== 'string' && typeof value !== 'number') return null;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function toDateTimeLocalValue(value) {
+  const timestamp = getTimestampMillis(value);
+  if (timestamp === null) return '';
+  const localDate = new Date(timestamp - new Date(timestamp).getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
+}
+
+function sortTaskTimeline(entries) {
+  return entries
+    .map((entry, index) => ({ entry, index, timestamp: getTimestampMillis(entry.createdAt) }))
+    .sort((left, right) => {
+      if (left.timestamp === null && right.timestamp === null) return left.index - right.index;
+      if (left.timestamp === null) return 1;
+      if (right.timestamp === null) return -1;
+      return left.timestamp - right.timestamp || left.index - right.index;
+    })
+    .map((item) => item.entry);
 }
 
 function getAttachmentKind(attachment) {
@@ -110,10 +149,16 @@ function Assignedprojectboard() {
   // Active Task Detail Drawer State (Chat/Comments view)
   const [activeTask, setActiveTask] = useState(null);
   const [taskViewTab, setTaskViewTab] = useState('activities');
+  const [isRemovingAssignee, setIsRemovingAssignee] = useState(false);
+  const [isReassigningTask, setIsReassigningTask] = useState(false);
+  const [taskDetailsDraft, setTaskDetailsDraft] = useState({ dueDate: '', priority: 'MEDIUM', reminderAt: '' });
+  const [isSavingTaskDetails, setIsSavingTaskDetails] = useState(false);
+  const [undoingActivityId, setUndoingActivityId] = useState(null);
   const [taskChatText, setTaskChatText] = useState('');
   const [taskMentionQuery, setTaskMentionQuery] = useState('');
   const [taskMentionActive, setTaskMentionActive] = useState(false);
   const [taskChatMessages, setTaskChatMessages] = useState({});
+  const [taskActivities, setTaskActivities] = useState({});
   const [taskUnreadCounts, setTaskUnreadCounts] = useState({});
   const [taskProjectIds, setTaskProjectIds] = useState({});
   const [taskChatAttachments, setTaskChatAttachments] = useState([]);
@@ -130,9 +175,10 @@ function Assignedprojectboard() {
   const [projectLastMessageAt, setProjectLastMessageAt] = useState({});
   const [unreadMentionCount, setUnreadMentionCount] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
+  const requestedProjectId = searchParams.get('projectId');
+  const hasInitializedProjectSelection = useRef(false);
 
   useEffect(() => {
-    const requestedProjectId = searchParams.get('projectId');
     if (!requestedProjectId || !projects.length) return;
 
     const project = projects.find((item) => String(item.id) === String(requestedProjectId));
@@ -207,13 +253,46 @@ function Assignedprojectboard() {
           sender: getMessageSender(item.senderId, item.sender),
           text: item.message,
           time: new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          createdAt: item.createdAt,
           mentionedUserIds: item.mentionedUserIds || [],
-          attachments: item.attachments || []
+          attachments: normalizeAttachments(item.attachments)
         }));
-        setTaskChatMessages((current) => ({ ...current, [activeTask.id]: messages }));
+        setTaskChatMessages((current) => {
+          const existing = current[activeTask.id] || [];
+          const mergedMessages = [...messages];
+          existing.forEach((message) => {
+            if (!mergedMessages.some((entry) => Number(entry.id) === Number(message.id))) {
+              mergedMessages.push(message);
+            }
+          });
+          return { ...current, [activeTask.id]: mergedMessages };
+        });
         setTaskProjectIds((current) => ({ ...current, [activeTask.id]: activeTask.projectOnboardId }));
       })
       .catch((error) => toast.error(error.message || 'Failed to load task chat.'));
+    return () => { mounted = false; };
+  }, [activeTask?.id]);
+
+  useEffect(() => {
+    if (!activeTask?.id) return undefined;
+    let mounted = true;
+    taskService.getActivities(activeTask.id)
+      .then((response) => {
+        if (mounted) {
+          setTaskActivities((current) => {
+            const existing = current[activeTask.id] || [];
+            const activities = [...(response?.data || [])];
+            existing.forEach((activity) => {
+              if (!activities.some((entry) => Number(entry.id) === Number(activity.id))) {
+                activities.push(activity);
+              }
+            });
+            const sortedActivities = sortTaskTimeline(activities);
+            return { ...current, [activeTask.id]: sortedActivities };
+          });
+        }
+      })
+      .catch((error) => toast.error(error.message || 'Failed to load task activity.'));
     return () => { mounted = false; };
   }, [activeTask?.id]);
 
@@ -227,8 +306,9 @@ function Assignedprojectboard() {
       sender: getMessageSender(item.senderId, item.sender),
       text: item.message,
       time: new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: item.createdAt,
       mentionedUserIds: item.mentionedUserIds || [],
-      attachments: item.attachments || []
+      attachments: normalizeAttachments(item.attachments)
     };
     setTaskProjectIds((current) => ({ ...current, [taskId]: payload.projectOnboardId || current[taskId] }));
     setTaskChatMessages((current) => {
@@ -240,6 +320,20 @@ function Assignedprojectboard() {
       setTaskUnreadCounts((current) => ({ ...current, [taskId]: (current[taskId] || 0) + 1 }));
     }
   }), [activeTask?.id, currentUser?.id]);
+
+  useEffect(() => subscribe('task-activity', (payload) => {
+    if (!payload?.taskId || !payload?.activity) return;
+    const taskId = String(payload.taskId);
+    const activity = payload.activity;
+    setTaskActivities((current) => {
+      const existing = current[taskId] || [];
+      if (existing.some((entry) => Number(entry.id) === Number(activity.id))) return current;
+      return {
+        ...current,
+        [taskId]: sortTaskTimeline([...existing, activity])
+      };
+    });
+  }), []);
 
   useEffect(() => {
     let mounted = true;
@@ -263,13 +357,22 @@ function Assignedprojectboard() {
           : availableProjects.filter((project) => visibleTaskProjectIds.has(Number(project.id)) || parseIds(project.spocIds).some((id) => Number(getId(id)) === Number(currentUser?.id)));
 
         setProjects(assignedProjects);
+        if (!hasInitializedProjectSelection.current) {
+          hasInitializedProjectSelection.current = true;
+          const initialProject = assignedProjects.find((project) => String(project.id) === String(requestedProjectId))
+            || assignedProjects[0];
+          if (initialProject) setSelectedProjectId(String(initialProject.id));
+        }
         if (userResult.status === 'fulfilled') {
           setEmployeesList((userResult.value?.data || []).filter((user) => user.isActive !== false));
         }
         const catalog = serviceResult.status === 'fulfilled' ? serviceResult.value?.data || [] : [];
         const services = catalog.flatMap((category) => category.services || category.Services || []);
         const selectedProject = assignedProjects.find((project) => String(project.id) === String(selectedProjectId));
-        const requiredServices = parseIds(selectedProject?.serviceIds).map((value) => {
+        const requiredServiceIds = selectedProject
+          ? parseIds(selectedProject.serviceIds)
+          : assignedProjects.flatMap((project) => parseIds(project.serviceIds));
+        const requiredServices = requiredServiceIds.map((value) => {
           const id = getId(value);
           return services.find((service) => Number(service.id) === Number(id) || String(service.name).toLowerCase() === String(id).toLowerCase()) || (typeof value === 'object' ? value : { id, name: `Service #${id}` });
         }).filter((service, index, list) => service && list.findIndex((item) => String(item.id) === String(service.id)) === index);
@@ -290,7 +393,7 @@ function Assignedprojectboard() {
       })
       .finally(() => mounted && setLoading(false));
     return () => { mounted = false; };
-  }, [currentUser?.id, selectedProjectId, superAdmin, isManager]);
+  }, [currentUser?.id, requestedProjectId, selectedProjectId, superAdmin, isManager]);
 
   const selectedProject = useMemo(
     () => projects.find((project) => String(project.id) === String(selectedProjectId)),
@@ -317,6 +420,12 @@ function Assignedprojectboard() {
   const isSelectedProjectSpoc = Boolean(selectedProject && parseIds(selectedProject.spocIds)
     .some((id) => Number(getId(id)) === Number(currentUser?.id)));
   const canCreateTasks = superAdmin || isManager || isSelectedProjectSpoc;
+  const canManageActiveTask = Boolean(activeTask && (superAdmin || (isManager
+    && (Number(activeTask.reportingHeadId) === Number(currentUser?.id)
+      || Number(activeTask.createdBy) === Number(currentUser?.id)))));
+  const canEditTaskDetails = Boolean(activeTask && (
+    superAdmin || isManager || Number(activeTask.createdBy) === Number(currentUser?.id)
+  ));
   const spocProjects = useMemo(
     () => projects.filter((project) => parseIds(project.spocIds).some((id) => Number(getId(id)) === Number(currentUser?.id))),
     [currentUser?.id, projects]
@@ -402,22 +511,22 @@ function Assignedprojectboard() {
     taskChatService.send(activeTask.id, formData)
       .then((response) => {
         const item = response?.data;
-        if (item?.id) {
-          setTaskChatMessages((current) => {
-            const existing = current[activeTask.id] || [];
-            if (existing.some((entry) => Number(entry.id) === Number(item.id))) return current;
-            const message = {
-              id: item.id,
-              senderId: item.senderId || currentUser?.id,
-              sender: getMessageSender(item.senderId || currentUser?.id, item.sender),
-              text: item.message || taskChatText.trim(),
-              time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              mentionedUserIds: item.mentionedUserIds || mentionedUserIds,
-              attachments: item.attachments || []
-            };
-            return { ...current, [activeTask.id]: [...existing, message] };
-          });
-        }
+        if (!item?.id) throw new Error('The server did not return the saved task message.');
+        setTaskChatMessages((current) => {
+          const existing = current[activeTask.id] || [];
+          if (existing.some((entry) => Number(entry.id) === Number(item.id))) return current;
+          const message = {
+            id: item.id,
+            senderId: item.senderId || currentUser?.id,
+            sender: getMessageSender(item.senderId || currentUser?.id, item.sender),
+            text: item.message || taskChatText.trim(),
+            time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            createdAt: item.createdAt || new Date().toISOString(),
+            mentionedUserIds: item.mentionedUserIds || mentionedUserIds,
+            attachments: normalizeAttachments(item.attachments)
+          };
+          return { ...current, [activeTask.id]: [...existing, message] };
+        });
         setTaskChatText('');
         taskChatAttachments.forEach(({ preview }) => preview && URL.revokeObjectURL(preview));
         setTaskChatAttachments([]);
@@ -541,20 +650,20 @@ function Assignedprojectboard() {
 
   // Open Task Details & Communication Chat Drawer
   const handleOpenTaskDetails = (task, colId) => {
-    // If task opens, auto-trigger status to 'Started' if it was 'Open'
-    let updatedTask = { ...task };
-    if (updatedTask.status === 'TODO') {
-      updatedTask.status = 'IN_PROGRESS';
-      updatedTask.commentsList = [
-        ...updatedTask.commentsList,
-        { id: Date.now(), sender: 'System', text: 'Communication started. Status changed to Started.', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-      ];
-    }
+    const updatedTask = { ...task, columnId: colId };
     setTaskViewTab('activities');
+    setTaskDetailsDraft({
+      dueDate: task.dueDate || '',
+      priority: String(task.priority || 'MEDIUM').toUpperCase(),
+      reminderAt: toDateTimeLocalValue(task.reminderAt)
+    });
     setTaskUnreadCounts((current) => ({ ...current, [task.id]: 0 }));
     taskChatAttachments.forEach(({ preview }) => preview && URL.revokeObjectURL(preview));
     setTaskChatAttachments([]);
-    setActiveTask({ ...updatedTask, columnId: colId });
+    setActiveTask(updatedTask);
+    if (updatedTask.status === 'TODO') {
+      void handleStatusChange('IN_PROGRESS', updatedTask);
+    }
   };
 
   // Post a comment with text/image inside task chat
@@ -593,18 +702,191 @@ function Assignedprojectboard() {
   };
 
   // Change Task Status (SPOC can set to Completed, etc.)
-  const handleStatusChange = async (newStatus) => {
-    const updatedTask = { ...activeTask, status: newStatus };
-    setActiveTask(updatedTask);
-
+  const handleStatusChange = async (newStatus, taskToUpdate = activeTask) => {
+    if (!taskToUpdate || taskToUpdate.status === newStatus) return;
+    const updatedTask = { ...taskToUpdate, status: newStatus };
+    setActiveTask((current) => current?.id === updatedTask.id ? updatedTask : current);
     try {
-      await taskService.updateStatus(activeTask.id, newStatus);
-      setColumns((previous) => previous.map((col) => col.id === activeTask.columnId
+      await taskService.updateStatus(taskToUpdate.id, newStatus);
+      setColumns((previous) => previous.map((col) => col.id === taskToUpdate.columnId
         ? { ...col, tasks: col.tasks.map((task) => task.id === updatedTask.id ? updatedTask : task) }
         : col));
     } catch (error) {
-      setActiveTask(activeTask);
+      setActiveTask((current) => current?.id === taskToUpdate.id
+        ? { ...current, status: taskToUpdate.status }
+        : current);
       toast.error(error.message || 'Failed to update task status.');
+      return;
+    }
+    try {
+      const response = await taskService.getActivities(taskToUpdate.id);
+      setTaskActivities((current) => {
+        const existing = current[taskToUpdate.id] || [];
+        const activities = [...(response?.data || [])];
+        existing.forEach((activity) => {
+          if (!activities.some((entry) => Number(entry.id) === Number(activity.id))) activities.push(activity);
+        });
+        return { ...current, [taskToUpdate.id]: sortTaskTimeline(activities) };
+      });
+    } catch (error) {
+      toast.error(error.message || 'Failed to refresh task activity.');
+    }
+  };
+
+  const handleSaveTaskDetails = async () => {
+    if (!activeTask?.id || !canEditTaskDetails || isSavingTaskDetails) return;
+    const reminderAt = taskDetailsDraft.reminderAt
+      ? new Date(taskDetailsDraft.reminderAt).toISOString()
+      : null;
+    setIsSavingTaskDetails(true);
+    try {
+      await taskService.updateTask(activeTask.id, {
+        dueDate: taskDetailsDraft.dueDate || null,
+        priority: taskDetailsDraft.priority,
+        reminderAt
+      });
+      const updatedTask = {
+        ...activeTask,
+        dueDate: taskDetailsDraft.dueDate || null,
+        priority: taskDetailsDraft.priority,
+        reminderAt
+      };
+      setActiveTask((current) => current?.id === updatedTask.id ? updatedTask : current);
+      setColumns((previous) => previous.map((column) => column.id === activeTask.columnId
+        ? { ...column, tasks: column.tasks.map((task) => task.id === updatedTask.id ? updatedTask : task) }
+        : column));
+      toast.success('Task details updated.');
+
+      try {
+        const response = await taskService.getActivities(activeTask.id);
+        setTaskActivities((current) => {
+          const existing = current[activeTask.id] || [];
+          const activities = [...(response?.data || [])];
+          existing.forEach((activity) => {
+            if (!activities.some((entry) => Number(entry.id) === Number(activity.id))) activities.push(activity);
+          });
+          return { ...current, [activeTask.id]: sortTaskTimeline(activities) };
+        });
+      } catch (error) {
+        toast.error(error.message || 'Task details updated, but failed to refresh task activity.');
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to update task details.');
+    } finally {
+      setIsSavingTaskDetails(false);
+    }
+  };
+
+  const handleRemoveTaskAssignee = async () => {
+    if (!activeTask?.id || !activeTask.assignedToId || !canManageActiveTask || isRemovingAssignee) return;
+    setIsRemovingAssignee(true);
+    try {
+      await taskService.updateTask(activeTask.id, { assignedToId: null });
+    } catch (error) {
+      toast.error(error.message || 'Failed to remove task assignee.');
+      setIsRemovingAssignee(false);
+      return;
+    }
+
+    const updatedTask = { ...activeTask, assignedToId: null, assignee: 'Unassigned' };
+    setActiveTask((current) => current?.id === updatedTask.id ? updatedTask : current);
+    setColumns((previous) => previous.map((column) => column.id === activeTask.columnId
+      ? { ...column, tasks: column.tasks.map((task) => task.id === updatedTask.id ? updatedTask : task) }
+      : column));
+
+    try {
+      const response = await taskService.getActivities(activeTask.id);
+      setTaskActivities((current) => {
+        const existing = current[activeTask.id] || [];
+        const activities = [...(response?.data || [])];
+        existing.forEach((activity) => {
+          if (!activities.some((entry) => Number(entry.id) === Number(activity.id))) {
+            activities.push(activity);
+          }
+        });
+        return { ...current, [activeTask.id]: sortTaskTimeline(activities) };
+      });
+    } catch (error) {
+      toast.error(error.message || 'Failed to refresh task activity.');
+    } finally {
+      setIsRemovingAssignee(false);
+    }
+  };
+
+  const handleReassignTaskAssignee = async (event) => {
+    const assigneeId = Number(event.target.value);
+    if (!activeTask?.id || !assigneeId || !canManageActiveTask || isReassigningTask) return;
+    setIsReassigningTask(true);
+    try {
+      await taskService.updateTask(activeTask.id, { assignedToId: assigneeId });
+    } catch (error) {
+      toast.error(error.message || 'Failed to reassign task.');
+      setIsReassigningTask(false);
+      return;
+    }
+
+    const assignee = projectMembers.find((member) => Number(member.id) === assigneeId);
+    const assigneeName = assignee
+      ? `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() || assignee.fullName || assignee.email
+      : 'Unknown user';
+    const updatedTask = { ...activeTask, assignedToId: assigneeId, assignee: assigneeName };
+    setActiveTask((current) => current?.id === updatedTask.id ? updatedTask : current);
+    setColumns((previous) => previous.map((column) => column.id === activeTask.columnId
+      ? { ...column, tasks: column.tasks.map((task) => task.id === updatedTask.id ? updatedTask : task) }
+      : column));
+
+    try {
+      const response = await taskService.getActivities(activeTask.id);
+      setTaskActivities((current) => {
+        const existing = current[activeTask.id] || [];
+        const activities = [...(response?.data || [])];
+        existing.forEach((entry) => {
+          if (!activities.some((item) => Number(item.id) === Number(entry.id))) activities.push(entry);
+        });
+        return { ...current, [activeTask.id]: sortTaskTimeline(activities) };
+      });
+    } catch (error) {
+      toast.error(error.message || 'Task reassigned, but failed to refresh task activity.');
+    } finally {
+      setIsReassigningTask(false);
+    }
+  };
+
+  const handleUndoAssigneeRemoval = async (activity, assigneeId) => {
+    if (!activeTask?.id || !canManageActiveTask || undoingActivityId !== null) return;
+    setUndoingActivityId(activity.id);
+    try {
+      await taskService.updateTask(activeTask.id, { assignedToId: assigneeId });
+    } catch (error) {
+      toast.error(error.message || 'Failed to restore the task assignee.');
+      setUndoingActivityId(null);
+      return;
+    }
+
+    const assignee = employeesList.find((employee) => Number(employee.id) === Number(assigneeId));
+    const assigneeName = assignee
+      ? `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() || assignee.email
+      : activity.newValue;
+    const updatedTask = { ...activeTask, assignedToId: assigneeId, assignee: assigneeName };
+    setActiveTask((current) => current?.id === updatedTask.id ? updatedTask : current);
+    setColumns((previous) => previous.map((column) => column.id === activeTask.columnId
+      ? { ...column, tasks: column.tasks.map((task) => task.id === updatedTask.id ? updatedTask : task) }
+      : column));
+
+    try {
+      const response = await taskService.getActivities(activeTask.id);
+      setTaskActivities((current) => {
+        const existing = current[activeTask.id] || [];
+        const activities = [...(response?.data || [])];
+        existing.forEach((entry) => {
+          if (!activities.some((item) => Number(item.id) === Number(entry.id))) activities.push(entry);
+        });
+        return { ...current, [activeTask.id]: sortTaskTimeline(activities) };
+      });
+    } catch (error) {
+      toast.error(error.message || 'Assignee restored, but failed to refresh task activity.');
+    } finally {
+      setUndoingActivityId(null);
     }
   };
 
@@ -618,6 +900,16 @@ function Assignedprojectboard() {
   const activeTaskMessages = activeTask
     ? taskChatMessages[activeTask.id] ?? activeTask.commentsList
     : [];
+  const activeTaskActivities = activeTask ? taskActivities[activeTask.id] || [] : [];
+  const activeTaskTimeline = sortTaskTimeline([
+    ...activeTaskActivities.map((activity) => ({ type: 'activity', id: `activity-${activity.id}`, createdAt: activity.createdAt, data: activity })),
+    ...activeTaskMessages.map((message) => ({ type: 'message', id: `message-${message.id}`, createdAt: message.createdAt, data: message }))
+  ]);
+  const taskDetailsChanged = Boolean(activeTask && (
+    taskDetailsDraft.dueDate !== (activeTask.dueDate || '')
+    || taskDetailsDraft.priority !== String(activeTask.priority || 'MEDIUM').toUpperCase()
+    || taskDetailsDraft.reminderAt !== toDateTimeLocalValue(activeTask.reminderAt)
+  ));
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-x-hidden bg-[#f5f7f5] font-sans text-slate-800">
@@ -757,7 +1049,7 @@ function Assignedprojectboard() {
                 
                 {/* Add Task Button */}
                 <div className="flex justify-center my-1">
-                  {canCreateTasks && (
+                  {canCreateTasks && selectedProject && (
                     <button 
                       onClick={() => handleOpenAddModal(col.id)}
                       className="bg-white hover:bg-gray-50 text-gray-500 p-1.5 rounded-full shadow-sm border border-gray-200"
@@ -791,6 +1083,9 @@ function Assignedprojectboard() {
                             </span>
                           </div>
                         </div>
+                        {!selectedProject && task.project?.projectName && (
+                          <p className="truncate text-[11px] text-slate-400">{task.project.projectName}</p>
+                        )}
 
                         {/* Task Thumbnail if uploaded */}
                         {task.images && task.images.length > 0 && (
@@ -1046,6 +1341,32 @@ function Assignedprojectboard() {
                 <div className="flex items-center gap-2 border-l border-slate-200 pl-3 text-xs text-slate-500">
                   <UsersRound size={18} className="text-amber-500" />
                   <span>Assigned to<br /><strong className="text-slate-800">{activeTask.assignee || 'Unassigned'}</strong></span>
+                  {canManageActiveTask && <select
+                    value=""
+                    onChange={handleReassignTaskAssignee}
+                    disabled={isReassigningTask || isRemovingAssignee}
+                    className="max-w-28 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none hover:border-indigo-300 focus:border-indigo-400 disabled:cursor-wait disabled:opacity-50"
+                    aria-label="Reassign task"
+                    title="Reassign task"
+                  >
+                    <option value="" disabled>{isReassigningTask ? 'Saving…' : 'Reassign'}</option>
+                    {projectMembers
+                      .filter((member) => member.memberRole !== 'Vendor'
+                        && member.isActive !== false
+                        && Number(member.id) !== Number(activeTask.assignedToId))
+                      .map((member) => {
+                        const name = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.fullName || member.email || `User ${member.id}`;
+                        return <option key={member.id} value={member.id}>{name}</option>;
+                      })}
+                  </select>}
+                  {activeTask.assignedToId && canManageActiveTask && <button
+                    type="button"
+                    onClick={handleRemoveTaskAssignee}
+                    disabled={isRemovingAssignee}
+                    className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"
+                    title="Remove assignee"
+                    aria-label="Remove assignee"
+                  ><X size={14} /></button>}
                 </div>
               </div>
               <div className="flex items-center gap-2 text-slate-400">
@@ -1063,14 +1384,79 @@ function Assignedprojectboard() {
 
                 <div className="flex items-center gap-5 border-b border-slate-200 px-7 pt-4">
                   {['activities', 'comments'].map((tab) => <button key={tab} type="button" onClick={() => setTaskViewTab(tab)} className={`border-b-2 pb-3 text-sm font-medium capitalize ${taskViewTab === tab ? 'border-indigo-500 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>{tab}</button>)}
-                  <span className="ml-auto pb-3 text-xs text-slate-400">{activeTaskMessages.length} updates</span>
+                  <span className="ml-auto pb-3 text-xs text-slate-400">{taskViewTab === 'activities' ? activeTaskActivities.length + activeTaskMessages.length : activeTaskMessages.length} updates</span>
                 </div>
 
                 <div className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-white px-7 py-5">
-                  {activeTaskMessages.map((comm) => {
+                  {(taskViewTab === 'activities'
+                    ? activeTaskTimeline
+                    : activeTaskMessages.map((message) => ({ type: 'message', id: `message-${message.id}`, data: message }))
+                  ).map((entry) => {
+                    if (entry.type === 'activity') {
+                      const activity = entry.data;
+                      const actorName = activity.actorName
+                        || `${activity.actor?.firstName || ''} ${activity.actor?.lastName || ''}`.trim()
+                        || 'A user';
+                      const activityTimestamp = getTimestampMillis(activity.createdAt);
+                      const formatActivityValue = (value, isDateTime = false) => {
+                        if (!value || value === 'Not set') return 'Not set';
+                        if (!isDateTime) return value;
+                        const timestamp = getTimestampMillis(value);
+                        return timestamp === null
+                          ? value
+                          : new Date(timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                      };
+                      const activityText = activity.action === 'STATUS_CHANGED'
+                        ? <>has changed the Task status from <strong className="font-semibold text-slate-700">{activity.previousValue}</strong> to <strong className="font-semibold text-slate-700">{activity.newValue}</strong>.</>
+                        : activity.action === 'ASSIGNEE_REMOVED'
+                          ? <>has removed the assignee <strong className="font-semibold text-indigo-600">{activity.newValue}</strong> from this Task.</>
+                          : activity.action === 'DUE_DATE_CHANGED'
+                            ? <>has rescheduled the Task due date from <strong className="font-semibold text-slate-700">{activity.previousValue}</strong> to <strong className="font-semibold text-slate-700">{activity.newValue}</strong>.</>
+                            : activity.action === 'PRIORITY_CHANGED'
+                              ? <>has changed the Task priority from <strong className="font-semibold text-slate-700">{activity.previousValue}</strong> to <strong className="font-semibold text-slate-700">{activity.newValue}</strong>.</>
+                              : activity.action === 'REMINDER_CHANGED'
+                                ? <>has changed the Task reminder from <strong className="font-semibold text-slate-700">{formatActivityValue(activity.previousValue, true)}</strong> to <strong className="font-semibold text-slate-700">{formatActivityValue(activity.newValue, true)}</strong>.</>
+                                : <>has assigned the Task to <strong className="font-semibold text-indigo-600">{activity.newValue}</strong>.</>;
+                      const matchingAssignees = activity.action === 'ASSIGNEE_REMOVED'
+                        ? employeesList.filter((employee) =>
+                          `${employee.firstName || ''} ${employee.lastName || ''}`.trim().toLowerCase()
+                            === String(activity.newValue || '').trim().toLowerCase())
+                        : [];
+                      const undoAssigneeId = Number(activity.previousAssigneeId)
+                        || (matchingAssignees.length === 1 ? matchingAssignees[0].id : null);
+                      return (
+                        <div key={entry.id} className="flex items-start gap-3 border-b border-slate-100 pb-4">
+                          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+                            {activity.action === 'STATUS_CHANGED' ? <CheckCircle2 size={17} />
+                              : activity.action === 'DUE_DATE_CHANGED' ? <Calendar size={17} />
+                                : activity.action === 'REMINDER_CHANGED' ? <Bell size={17} />
+                                  : activity.action === 'PRIORITY_CHANGED' ? <Activity size={17} />
+                                    : <UsersRound size={17} />}
+                          </span>
+                          <div className="min-w-0 pt-1">
+                            <p className="text-sm leading-6 text-slate-600">
+                              <strong className="font-semibold text-indigo-600">{actorName}</strong> {activityText}
+                            </p>
+                            <p className="mt-1 text-[11px] text-slate-400">
+                              {activityTimestamp !== null
+                                ? new Date(activityTimestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+                                : ''}
+                            </p>
+                            {activity.action === 'ASSIGNEE_REMOVED' && !activeTask.assignedToId && canManageActiveTask && undoAssigneeId && <button
+                              type="button"
+                              onClick={() => handleUndoAssigneeRemoval(activity, Number(undoAssigneeId))}
+                              disabled={undoingActivityId !== null}
+                              className="mt-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:cursor-wait disabled:opacity-50"
+                            >{Number(undoingActivityId) === Number(activity.id) ? 'Undoing…' : 'Undo'}</button>}
+                          </div>
+                        </div>
+                      );
+                    }
+                    const comm = entry.data;
                     const isOwnMessage = Number(comm.senderId) === Number(currentUser?.id);
+                    const attachments = normalizeAttachments(comm.attachments);
                     return (
-                    <div key={comm.id} className={`flex gap-3 pb-4 ${isOwnMessage ? 'flex-row-reverse justify-start' : 'justify-start'}`}>
+                    <div key={entry.id} className={`flex gap-3 pb-4 ${isOwnMessage ? 'flex-row-reverse justify-start' : 'justify-start'}`}>
                       <UserCircle2 size={30} className={`mt-1 shrink-0 ${isOwnMessage ? 'text-emerald-500' : 'text-slate-400'}`} />
                       <div className={`min-w-0 max-w-[78%] rounded-2xl border px-3.5 py-2.5 shadow-sm ${isOwnMessage ? 'border-emerald-100 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
                         <div className={`flex flex-wrap items-baseline gap-3 ${isOwnMessage ? 'justify-end' : 'justify-between'}`}>
@@ -1079,8 +1465,8 @@ function Assignedprojectboard() {
                         </div>
                         {comm.text && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{comm.text}</p>}
                         {comm.image && <div className="mt-3 max-w-sm overflow-hidden rounded-lg border border-slate-200"><img src={comm.image} alt="comment attachment" className="max-h-64 w-full object-cover" /></div>}
-                        {!!comm.attachments?.length && <div className="mt-3 flex flex-wrap gap-2">
-                          {comm.attachments.map((attachment) => {
+                        {!!attachments.length && <div className="mt-3 flex flex-wrap gap-2">
+                          {attachments.map((attachment) => {
                             const kind = getAttachmentKind(attachment);
                             const url = getAttachmentUrl(attachment.url);
                             if (kind === 'image') {
@@ -1103,7 +1489,8 @@ function Assignedprojectboard() {
                     </div>
                     );
                   })}
-                  {!activeTaskMessages.length && <div className="py-16 text-center text-sm text-slate-400">No activity yet. Start the task conversation below.</div>}
+                  {taskViewTab === 'activities' && !activeTaskTimeline.length && <div className="py-16 text-center text-sm text-slate-400">No activity recorded yet.</div>}
+                  {taskViewTab === 'comments' && !activeTaskMessages.length && <div className="py-16 text-center text-sm text-slate-400">No comments yet. Start the task conversation below.</div>}
                 </div>
 
                 <div className="border-t border-slate-200 bg-slate-50 px-5 py-4">
@@ -1153,9 +1540,47 @@ function Assignedprojectboard() {
               <aside className="hidden space-y-6 overflow-y-auto bg-slate-50/70 px-5 py-6 md:block">
                 <div className="space-y-5 text-sm">
                   <div><p className="text-xs text-slate-500">Start date</p><p className="mt-1 font-medium text-slate-800">{activeTask.createdAt ? new Date(activeTask.createdAt).toLocaleDateString() : 'Not set'}</p></div>
-                  <div><p className="text-xs text-slate-500">Due on</p><p className="mt-1 font-medium text-slate-800">{activeTask.dueDate || 'Not set'}{activeTask.dueTime ? ` at ${activeTask.dueTime}` : ''}</p></div>
-                  <div><p className="text-xs text-slate-500">Reminder</p><p className="mt-1 font-medium text-slate-800">Not set</p></div>
-                  <div><p className="text-xs text-slate-500">Priority</p><p className="mt-1 font-medium text-slate-800">{activeTask.priority || 'None'}</p></div>
+                  <label className="block">
+                    <span className="text-xs text-slate-500">Due on</span>
+                    <input
+                      type="date"
+                      value={taskDetailsDraft.dueDate}
+                      onChange={(event) => setTaskDetailsDraft((current) => ({ ...current, dueDate: event.target.value }))}
+                      disabled={!canEditTaskDetails || isSavingTaskDetails}
+                      className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-400 disabled:border-transparent disabled:bg-transparent disabled:px-0 disabled:py-0"
+                    />
+                    {!taskDetailsDraft.dueDate && <span className="mt-1 block text-xs text-slate-500">Not set</span>}
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-slate-500">Reminder</span>
+                    <input
+                      type="datetime-local"
+                      value={taskDetailsDraft.reminderAt}
+                      onChange={(event) => setTaskDetailsDraft((current) => ({ ...current, reminderAt: event.target.value }))}
+                      disabled={!canEditTaskDetails || isSavingTaskDetails}
+                      className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-400 disabled:border-transparent disabled:bg-transparent disabled:px-0 disabled:py-0"
+                    />
+                    {!taskDetailsDraft.reminderAt && <span className="mt-1 block text-xs text-slate-500">Not set</span>}
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-slate-500">Priority</span>
+                    <select
+                      value={taskDetailsDraft.priority}
+                      onChange={(event) => setTaskDetailsDraft((current) => ({ ...current, priority: event.target.value }))}
+                      disabled={!canEditTaskDetails || isSavingTaskDetails}
+                      className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-400 disabled:border-transparent disabled:bg-transparent disabled:px-0 disabled:py-0"
+                    >
+                      <option value="LOW">LOW</option>
+                      <option value="MEDIUM">MEDIUM</option>
+                      <option value="HIGH">HIGH</option>
+                    </select>
+                  </label>
+                  {canEditTaskDetails && taskDetailsChanged && <button
+                    type="button"
+                    onClick={handleSaveTaskDetails}
+                    disabled={isSavingTaskDetails}
+                    className="w-full rounded-md bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60"
+                  >{isSavingTaskDetails ? 'Saving…' : 'Save changes'}</button>}
                   <div><p className="text-xs text-slate-500">Category</p><p className="mt-1 font-medium text-slate-800">{activeTask.service?.name || 'Uncategorized'}</p></div>
                 </div>
                 <div className="border-t border-slate-200 pt-5">
