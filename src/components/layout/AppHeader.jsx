@@ -1,4 +1,4 @@
-import { Menu, Bell, ChevronDown, UserCircle2 } from "lucide-react";
+import { Menu, Bell, ChevronDown, UserCircle2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import ProfileMenu from "./ProfileMenu";
 import { getSession } from "../../utils/session";
@@ -98,6 +98,19 @@ export default function AppHeader({
         setUnreadCount(0);
     };
 
+    const clearNotification = async (event, notification) => {
+        event.stopPropagation();
+        try {
+            await notificationService.remove(notification.id);
+            setNotifications((current) => current.filter((item) => item.id !== notification.id));
+            if (!notification.readAt) {
+                setUnreadCount((current) => Math.max(0, current - 1));
+            }
+        } catch (error) {
+            toast.error(error?.message || "Unable to clear notification.");
+        }
+    };
+
     return (
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6">
             <div className="flex items-center gap-4">
@@ -138,21 +151,34 @@ export default function AppHeader({
                             {notifications.length === 0 ? (
                                 <p className="px-4 py-8 text-center text-sm text-slate-500">No notifications yet.</p>
                             ) : notifications.map((notification) => (
-                                <button
+                                <div
                                     key={notification.id}
-                                    onClick={() => markNotificationRead(notification)}
-                                    className={`block w-full border-b border-slate-100 px-4 py-3 text-left hover:bg-slate-50 ${notification.readAt ? "bg-white" : "bg-emerald-50/60"}`}
+                                    className={`flex items-start gap-2 border-b border-slate-100 px-3 py-2 ${notification.readAt ? "bg-white" : "bg-emerald-50/60"}`}
                                 >
-                                    {notification.metadata?.taskId ? (
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-600">{notification.metadata.category || "Task"}</p>
-                                            <p className="mt-1 text-sm font-semibold text-slate-800">{notification.metadata.taskName || "Task update"}</p>
-                                            <p className="mt-1 text-xs text-slate-600">{notification.message}</p>
-                                            <p className="mt-1 text-xs text-slate-500">Deadline: {notification.metadata.deadline || "Not set"}</p>
-                                        </div>
-                                    ) : <p className="text-sm text-slate-700">{notification.message}</p>}
-                                    <p className="mt-1 text-xs text-slate-400">{new Date(notification.createdAt).toLocaleString()}</p>
-                                </button>
+                                    <button
+                                        onClick={() => markNotificationRead(notification)}
+                                        className="min-w-0 flex-1 px-1 py-1 text-left hover:bg-slate-50"
+                                    >
+                                        {notification.metadata?.taskId ? (
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-600">{notification.metadata.category || "Task"}</p>
+                                                <p className="mt-1 text-sm font-semibold text-slate-800">{notification.metadata.taskName || "Task update"}</p>
+                                                <p className="mt-1 text-xs text-slate-600">{notification.message}</p>
+                                                <p className="mt-1 text-xs text-slate-500">Deadline: {notification.metadata.deadline || "Not set"}</p>
+                                            </div>
+                                        ) : <p className="text-sm text-slate-700">{notification.message}</p>}
+                                        <p className="mt-1 text-xs text-slate-400">{new Date(notification.createdAt).toLocaleString()}</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        aria-label="Clear notification"
+                                        title="Clear notification"
+                                        onClick={(event) => clearNotification(event, notification)}
+                                        className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
                             ))}
                         </div>
                     </div>
