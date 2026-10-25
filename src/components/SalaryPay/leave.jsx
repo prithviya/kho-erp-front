@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { Check, Eye, X, Trash2 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Eye, X, Trash2 } from "lucide-react";
 import leaveService from "../../services/leave.service";
 import { getCurrentUser, canDeleteRecords } from "../../utils/auth";
 
@@ -19,6 +19,22 @@ function formatDate(value) {
     month: "short",
     year: "numeric",
   });
+}
+
+function toDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getLeaveCalendarLabel(request) {
+  const duration = String(request.durationType || "").toUpperCase();
+  const partialDay = duration === "HALF_DAY" ? " (½)" : "";
+  const onDutyDetails = request.categoryCode === "ON_THE_DUTY"
+    ? ` · On The Duty${request.clientName ? ` · Client: ${request.clientName}` : ""}`
+    : "";
+  return `${request.employeeName}${partialDay}${onDutyDetails}`;
 }
 
 function statusClass(status = "") {
@@ -135,8 +151,14 @@ export default function LeaveManagement() {
   const canDelete = canDeleteRecords();
   const [deletingId, setDeletingId] = useState(null);
 
-  const [activeTab, setActiveTab] = useState("summary");
+  const [activeTab, setActiveTab] = useState("calendar");
   const [loading, setLoading] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarRequests, setCalendarRequests] = useState([]);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [summary, setSummary] = useState({ categories: [], totals: {} });
   const [categories, setCategories] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -155,7 +177,13 @@ export default function LeaveManagement() {
     startTime: "",
     endTime: "",
     reason: "",
+    clientName: "",
   });
+
+  const selectedCategory = categories.find(
+    (category) => Number(category.id) === Number(form.categoryId)
+  );
+  const isOnDutyLeave = selectedCategory?.code === "ON_THE_DUTY";
 
   const categoryBalance = useMemo(() => {
     const categoryId = Number(form.categoryId || 0);
@@ -205,6 +233,46 @@ export default function LeaveManagement() {
     ));
   };
 
+  const loadCalendar = useCallback(async () => {
+    try {
+      setCalendarLoading(true);
+      const response = await leaveService.getCalendar({
+        year: calendarMonth.getFullYear(),
+        month: calendarMonth.getMonth() + 1,
+      });
+      setCalendarRequests(normalizeList(response));
+    } catch (error) {
+      toast.error(error?.message || "Unable to load the leave calendar.");
+    } finally {
+      setCalendarLoading(false);
+    }
+  }, [calendarMonth]);
+
+  useEffect(() => {
+    loadCalendar();
+  }, [loadCalendar]);
+
+  const calendarDays = useMemo(() => {
+    const firstOfMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+    const mondayOffset = (firstOfMonth.getDay() + 6) % 7;
+    const gridStart = new Date(firstOfMonth);
+    gridStart.setDate(firstOfMonth.getDate() - mondayOffset);
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(gridStart);
+      date.setDate(gridStart.getDate() + index);
+      const dateKey = toDateKey(date);
+      return {
+        date,
+        dateKey,
+        inCurrentMonth: date.getMonth() === calendarMonth.getMonth(),
+        requests: calendarRequests.filter(
+          (request) => request.fromDate <= dateKey && request.toDate >= dateKey
+        ),
+      };
+    });
+  }, [calendarMonth, calendarRequests]);
+
   const handleDeleteRequest = async (item) => {
     if (!canDelete || deletingId) return;
     if (!window.confirm("Delete this leave request? This action cannot be undone.")) return;
@@ -213,6 +281,7 @@ export default function LeaveManagement() {
       await leaveService.deleteRequest(item.id);
       toast.success("Leave request deleted.");
       await loadPageData();
+      await loadCalendar();
     } catch (error) {
       toast.error(error?.message || "Unable to delete leave request.");
     } finally {
@@ -251,6 +320,10 @@ export default function LeaveManagement() {
   const handleApply = async (event) => {
     event.preventDefault();
     const selectedCategory = categories.find((category) => Number(category.id) === Number(form.categoryId));
+    if (selectedCategory?.code === "ON_THE_DUTY" && !form.clientName.trim()) {
+      toast.error("Client name is required for On The Duty leave.");
+      return;
+    }
     if (selectedCategory?.code === "CASUAL_LEAVE" && hasCasualLeaveInRange(form.fromDate, form.toDate)) {
       toast.error("Casual Leave is already booked for this month.");
       return;
@@ -272,6 +345,9 @@ export default function LeaveManagement() {
         startTime: form.startTime || undefined,
         endTime: form.endTime || undefined,
         reason: form.reason,
+        ...(selectedCategory?.code === "ON_THE_DUTY"
+          ? { clientName: form.clientName.trim() }
+          : {}),
       };
 
       await leaveService.createRequest(payload);
@@ -287,8 +363,10 @@ export default function LeaveManagement() {
         startTime: "",
         endTime: "",
         reason: "",
+        clientName: "",
       });
       await loadPageData();
+      await loadCalendar();
     } catch (error) {
       toast.error(error?.message || "Unable to submit leave request.");
     }
@@ -318,6 +396,7 @@ export default function LeaveManagement() {
       await leaveService.updateRequestStatus(requestId, payload);
       toast.success(`Leave request ${status.toLowerCase()} successfully.`);
       await loadPageData();
+      await loadCalendar();
     } catch (error) {
       toast.error(error?.message || "Unable to update leave request status.");
     }
@@ -334,6 +413,16 @@ export default function LeaveManagement() {
         </div>
 
         <div className="flex gap-4 mb-6 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab("calendar")}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === "calendar"
+                ? "border-b-2 border-gray-800 text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Leave Calendar
+          </button>
           <button
             onClick={() => setActiveTab("summary")}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
@@ -355,6 +444,99 @@ export default function LeaveManagement() {
             Leave Requests
           </button>
         </div>
+
+        {activeTab === "calendar" && (
+          <section className="rounded-lg bg-white p-4 shadow-md sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Previous month"
+                  onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+                  className="rounded-md border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <h2 className="min-w-36 text-center text-lg font-semibold text-gray-800">
+                  {calendarMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+                </h2>
+                <button
+                  type="button"
+                  aria-label="Next month"
+                  onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+                  className="rounded-md border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowApplyModal(true)}
+                className="rounded-md bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900"
+              >
+                Apply Leave
+              </button>
+            </div>
+
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded bg-green-100 px-2 py-1 font-medium text-green-800">Approved leave</span>
+              <span className="rounded border border-dashed border-amber-500 bg-amber-50 px-2 py-1 font-medium text-amber-800">Pending leave</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <div className="min-w-[700px]">
+                <div className="grid grid-cols-7 rounded-t-lg border border-gray-200 bg-gray-50">
+                  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                    <div key={day} className="border-r border-gray-200 px-2 py-2 text-xs font-medium text-gray-600 last:border-r-0">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 overflow-hidden rounded-b-lg border-b border-l border-gray-200">
+                  {calendarDays.map((day) => {
+                    const isToday = day.dateKey === toDateKey(new Date());
+                    return (
+                      <div
+                        key={day.dateKey}
+                        className={`min-h-24 border-r border-t border-gray-200 p-1.5 sm:min-h-28 sm:p-2 ${
+                          day.inCurrentMonth ? "bg-white" : "bg-gray-50 text-gray-400"
+                        } ${isToday ? "ring-2 ring-inset ring-emerald-700" : ""}`}
+                      >
+                        <p className={`mb-1 text-xs font-medium ${day.inCurrentMonth ? "text-gray-800" : "text-gray-400"}`}>
+                          {day.date.getDate()}
+                        </p>
+                        <div className="space-y-1">
+                          {day.requests.map((item) => {
+                            const approved = String(item.status).toUpperCase() === "APPROVED";
+                            return (
+                              <div
+                                key={`${day.dateKey}-${item.id}`}
+                                title={`${item.employeeName} - ${item.categoryName}${item.clientName ? ` - Client: ${item.clientName}` : ""} (${approved ? "Approved" : "Pending"})`}
+                                className={`break-words rounded px-1.5 py-1 text-[10px] leading-4 sm:text-xs ${
+                                  approved
+                                    ? "bg-green-100 text-green-800"
+                                    : "border border-dashed border-amber-500 bg-amber-50 text-amber-800"
+                                }`}
+                              >
+                                {getLeaveCalendarLabel(item)}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            {calendarLoading && (
+              <p className="mt-3 text-center text-xs text-gray-500">Loading leave calendar...</p>
+            )}
+            {!calendarLoading && calendarRequests.length === 0 && (
+              <p className="mt-3 text-center text-xs text-gray-500">No approved or pending leave this month.</p>
+            )}
+          </section>
+        )}
 
         {activeTab === "summary" && (
           <>
@@ -388,14 +570,18 @@ export default function LeaveManagement() {
                     <div className="mt-2 flex justify-between items-end">
                       <div>
                         <p className="text-xs text-gray-400">Available</p>
-                        <p className="text-2xl font-bold text-gray-900">{Number(item.available).toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {item.unlimited ? "Unlimited" : Number(item.available).toFixed(2)}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-gray-400">Booked</p>
                         <p className="text-2xl font-bold text-blue-600">{Number(item.booked).toFixed(2)}</p>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-3">Allocated: {Number(item.allocated).toFixed(2)} {item.unit === "HOUR" ? "hr" : "day"}</p>
+                    <p className="text-xs text-gray-400 mt-3">
+                      Allocated: {item.unlimited ? "No limit" : `${Number(item.allocated).toFixed(2)} ${item.unit === "HOUR" ? "hr" : "day"}`}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -515,7 +701,11 @@ export default function LeaveManagement() {
                 {categoryBalance && (
                   <div className="mb-4 rounded-md bg-blue-50 border border-blue-100 p-3 text-sm text-blue-900">
                     <div>Category balance: {categoryBalance.name}</div>
-                    <div>Available today: {Number(categoryBalance.available).toFixed(2)} {categoryBalance.unit === "HOUR" ? "hr" : "day"}</div>
+                    <div>
+                      Available today: {categoryBalance.unlimited
+                        ? "No limit"
+                        : `${Number(categoryBalance.available).toFixed(2)} ${categoryBalance.unit === "HOUR" ? "hr" : "day"}`}
+                    </div>
                     <div>Taken: {Number(categoryBalance.taken).toFixed(2)} | Pending: {Number(categoryBalance.pending).toFixed(2)}</div>
                   </div>
                 )}
@@ -554,6 +744,22 @@ export default function LeaveManagement() {
                       })}
                     </select>
                   </div>
+
+                  {isOnDutyLeave && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Client Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={form.clientName}
+                        onChange={(e) => setForm((prev) => ({ ...prev, clientName: e.target.value }))}
+                        maxLength={200}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -683,6 +889,12 @@ export default function LeaveManagement() {
                   <p className="text-gray-500">Category</p>
                   <p className="text-gray-900">{selectedRequest.category?.name || "-"}</p>
                 </div>
+                {selectedRequest.category?.code === "ON_THE_DUTY" && (
+                  <div>
+                    <p className="text-gray-500">Client Name</p>
+                    <p className="text-gray-900">{selectedRequest.clientName || "-"}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-gray-500">Period</p>
                   <p className="text-gray-900">{formatDate(selectedRequest.fromDate)} to {formatDate(selectedRequest.toDate)}</p>

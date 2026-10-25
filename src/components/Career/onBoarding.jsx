@@ -32,6 +32,13 @@ const EmployeeOnboarding = () => {
   const [erpRoleOptions, setErpRoleOptions] = useState([]);
 
   const hasText = (value) => Boolean(String(value || '').trim());
+  const hasExperienceDetails = (experience) =>
+    Array.isArray(experience) &&
+    experience.some((entry) =>
+      ['company', 'designation', 'startDate', 'endDate', 'totalExp', 'reason'].some((field) =>
+        hasText(entry?.[field])
+      )
+    );
   const sanitizePhoneNumber = (value) => String(value ?? '').replace(/\D/g, '').slice(0, 10);
   const sanitizeCountryCode = (value) => {
     const digits = String(value ?? '').replace(/\D/g, '').slice(0, 4);
@@ -119,6 +126,7 @@ const EmployeeOnboarding = () => {
     superAdmin: 'Super_admin',
     currentAddress: { line1: '', city: '', state: '', pincode: '' },
     permanentAddress: { line1: '', city: '', state: '', pincode: '' },
+    hasPriorExperience: false,
     experience: [],
     education: [{ qualification: '', institution: '', board: '', year: '', percentage: '' }],
     icebreaker: {
@@ -176,6 +184,11 @@ const EmployeeOnboarding = () => {
     },
   });
 
+  const isManagingDirector = String(formData.designation || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "") === "managingdirector";
+
   const validateRequiredFields = () => {
     const errors = [];
 
@@ -230,10 +243,12 @@ const EmployeeOnboarding = () => {
       'sourceOfHire',
       'department',
       'designation',
-      'reportingHead',
       'panNumber',
       'currentSalary',
     ];
+    if (!isManagingDirector) {
+      requiredEmploymentFields.push('reportingHead');
+    }
 
     requiredEmploymentFields.forEach((field) => {
       if (!hasText(formData[field])) {
@@ -546,7 +561,8 @@ const EmployeeOnboarding = () => {
     superAdmin: 'Super_admin',
     currentAddress: { line1: '', city: '', state: '', pincode: '' },
     permanentAddress: { line1: '', city: '', state: '', pincode: '' },
-    experience: [{ company: '', designation: '', startDate: '', endDate: '', totalExp: '', reason: '' }],
+    hasPriorExperience: false,
+    experience: [],
     education: [{ qualification: '', institution: '', board: '', year: '', percentage: '' }],
     icebreaker: {
       favoriteCake: '',
@@ -665,6 +681,10 @@ const EmployeeOnboarding = () => {
 
     mergeAddressSection('currentAddress', 'currentAddress');
     mergeAddressSection('permanentAddress', 'permanentAddress');
+    merged.hasPriorExperience =
+      typeof baseSaved.hasPriorExperience === 'boolean'
+        ? baseSaved.hasPriorExperience
+        : hasExperienceDetails(baseSaved.experience);
 
     Object.keys(merged).forEach((key) => {
       if (typeof merged[key] === 'string' && !hasText(merged[key]) && hasText(baseFallback[key])) {
@@ -757,7 +777,10 @@ const EmployeeOnboarding = () => {
         body: JSON.stringify({
           cifid: selectedEmployee.id,
           status,
-          formData,
+          formData: {
+            ...formData,
+            experience: formData.hasPriorExperience ? formData.experience : [],
+          },
         }),
       });
       setHasExistingRecord(true);
@@ -1013,7 +1036,21 @@ const EmployeeOnboarding = () => {
       }
     } else {
       clearFieldError(name);
+      const nextDesignation = name === 'designation'
+        ? String(sanitizedValue || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
+        : '';
+      if (nextDesignation === 'managingdirector') {
+        clearFieldError('reportingHead');
+      }
       setFormData(prev => {
+        if (nextDesignation === 'managingdirector') {
+          return {
+            ...prev,
+            designation: sanitizedValue,
+            reportingHead: '',
+          };
+        }
+
         if (shouldAutoFillNextEmployeeId) {
           const nextEmployeeId = String(type === 'checkbox' ? checked : sanitizedValue || '').trim();
           return {
@@ -1053,6 +1090,22 @@ const EmployeeOnboarding = () => {
     const updated = [...formData[section]];
     updated[index][field] = value;
     setFormData(prev => ({ ...prev, [section]: updated }));
+  };
+
+  const handleExperienceStatusChange = (hasPriorExperience) => {
+    if (isViewMode) return;
+    setFormData((prev) => {
+      const experience = Array.isArray(prev.experience) ? prev.experience : [];
+      return {
+        ...prev,
+        hasPriorExperience,
+        experience:
+          hasPriorExperience && experience.length === 0
+            ? [{ company: '', designation: '', startDate: '', endDate: '', totalExp: '', reason: '' }]
+            : experience,
+      };
+    });
+    clearFieldError('experience');
   };
 
   const addItem = (section, template) => {
@@ -1539,21 +1592,23 @@ const EmployeeOnboarding = () => {
               placeholder="Enter designation"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reporting Head <span className="text-red-500">*</span></label>
-            <select
-              name="reportingHead"
-              value={formData.reportingHead}
-              onChange={handleInputChange}
-              disabled={isViewMode}
-              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'reportingHead')}
-            >
-              <option value="">Select reporting head</option>
-              {reportingHeadOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
+          {!isManagingDirector && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Reporting Head <span className="text-red-500">*</span></label>
+              <select
+                name="reportingHead"
+                value={formData.reportingHead}
+                onChange={handleInputChange}
+                disabled={isViewMode}
+                className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'reportingHead')}
+              >
+                <option value="">Select reporting head</option>
+                {reportingHeadOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">UAN Number</label>
             <input
@@ -1735,12 +1790,31 @@ const EmployeeOnboarding = () => {
       {/* Experience Details */}
       <div className="border-t border-gray-200 pt-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Experience Details</h3>
-        {/* {hasFieldError('experience') && (
-          <p className="mb-3 text-sm text-red-600">
-            Add at least one complete experience entry (company, designation, start date, total experience).
-          </p>
-        )} */}
-        {formData.experience.map((exp, index) => (
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:gap-6">
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="radio"
+              name="experienceStatus"
+              checked={!formData.hasPriorExperience}
+              onChange={() => handleExperienceStatusChange(false)}
+              disabled={isViewMode}
+              className="h-4 w-4 border-gray-300 text-gray-700 focus:ring-gray-400"
+            />
+            Fresher / No Prior Experience
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="radio"
+              name="experienceStatus"
+              checked={Boolean(formData.hasPriorExperience)}
+              onChange={() => handleExperienceStatusChange(true)}
+              disabled={isViewMode}
+              className="h-4 w-4 border-gray-300 text-gray-700 focus:ring-gray-400"
+            />
+            Has Prior Experience
+          </label>
+        </div>
+        {formData.hasPriorExperience && formData.experience.map((exp, index) => (
           <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 relative">
             {index > 0 && !isViewMode && (
               <button
@@ -1825,7 +1899,7 @@ const EmployeeOnboarding = () => {
             </div>
           </div>
         ))}
-        {!isViewMode && (
+        {!isViewMode && formData.hasPriorExperience && (
           <button
             type="button"
             onClick={() => addItem('experience', { company: '', designation: '', startDate: '', endDate: '', totalExp: '', reason: '' })}
@@ -2078,7 +2152,7 @@ const EmployeeOnboarding = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Any tablets taking currently? <RequiredAsterisk />
+            Are you taking any medicines currently? <RequiredAsterisk />
           </label>
           <select
             name="anyTablets"
@@ -2460,12 +2534,11 @@ const EmployeeOnboarding = () => {
       <p className="text-sm text-gray-500 mb-4">Please check the items that have been provided to the employee.</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
-          { key: 'laptop', label: 'Laptop' },
-          { key: 'mouse', label: 'Mouse' },
-          { key: 'PC', label: 'PC' },
+          { key: 'laptop / PC / Mouse', label: 'Laptop / PC / Mouse' },
           { key: 'entryCard', label: 'ID Card/Biometric' },
           { key: 'headset', label: 'Headset' },
-           { key: 'OfficialSim', label: 'Official Phone Number' },
+          { key: 'Welcome Kit', label: 'Welcome Kit' },
+          { key: 'OfficialSim', label: 'Official Phone Number' },
         ].map((item) => (
           <label key={item.key} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
             <input

@@ -28,6 +28,9 @@ function buildEmployeeFormData(payload) {
 }
 
 const employeeService = {
+  getMyProfile() {
+    return request("/employees/me/profile");
+  },
   list(params = {}) {
     const query = new URLSearchParams(params).toString();
     return request(`/employees${query ? `?${query}` : ""}`);

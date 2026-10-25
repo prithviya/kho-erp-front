@@ -7,7 +7,7 @@ import { getDefaultHomePath } from "../../utils/auth";
 
 export default function Login() {
   const [showModal, setShowModal] = useState(false);
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
   const navigate = useNavigate();
@@ -15,14 +15,14 @@ export default function Login() {
   const LoginBtn = async (e) => {
     e.preventDefault();
 
-    if (!String(email || "").trim() || !String(password || "").trim()) {
-      toast.error("Email and password are required.");
+    if (!String(identifier || "").trim() || !String(password || "").trim()) {
+      toast.error("Employee code, email, and password are required.");
       return;
     }
 
     try {
       const response = await authService.login({
-        email,
+        email: identifier,
         password,
       });
 
@@ -49,14 +49,14 @@ export default function Login() {
           <form onSubmit={LoginBtn} className="space-y-5">
             <div>
               <label className="block mb-2 text-gray-700">
-                User Email
+                Employee Code
               </label>
 
               <input
                 type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter username or email"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Enter employee code"
                 className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:border-black outline-none"
               />
             </div>

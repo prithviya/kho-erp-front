@@ -20,6 +20,10 @@ const leaveService = {
     const query = new URLSearchParams(params).toString();
     return request(`/leaves/summary${query ? `?${query}` : ""}`);
   },
+  getCalendar(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return request(`/leaves/calendar${query ? `?${query}` : ""}`);
+  },
   getRequests(params = {}) {
     const query = new URLSearchParams(params).toString();
     return request(`/leaves/requests${query ? `?${query}` : ""}`);
