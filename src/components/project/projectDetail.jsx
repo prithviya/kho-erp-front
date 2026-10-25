@@ -345,7 +345,7 @@ const ProjectManagement = () => {
     try {
       const [projectRes, userRes, employeeRes, categoryRes, vendorRes] = await Promise.allSettled([
         projectOnboardService.list(),
-        userManagementService.getUsers(),
+        userManagementService.getDirectory(),
         employeeService.list(),
         leadService.getCategoriesWithServices(),
         vendorService.getAll()
@@ -359,7 +359,8 @@ const ProjectManagement = () => {
       }
 
       if (userRes.status === "fulfilled") {
-        setUsers((userRes.value?.data || []).filter((user) => user.isActive && !user.deletedAt));
+        // /users/directory already returns active users only.
+        setUsers(userRes.value?.data || []);
       } else {
         setUsers([]);
       }

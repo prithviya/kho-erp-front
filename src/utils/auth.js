@@ -95,8 +95,12 @@ export const getDefaultHomePath = (user = null) => {
         return "/lead-overview";
     }
 
-    if (roles.includes(ROLE_CODES.MANAGER) || roles.includes(ROLE_CODES.CEO)) {
+    if (roles.includes(ROLE_CODES.MANAGER)) {
         return "/onboard-prjt";
+    }
+
+    if (roles.includes(ROLE_CODES.CEO)) {
+        return "/assign-board";
     }
 
     if (roles.includes(ROLE_CODES.HR)) {

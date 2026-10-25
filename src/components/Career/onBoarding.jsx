@@ -429,7 +429,7 @@ const EmployeeOnboarding = () => {
 
   const fetchReportingHeads = async () => {
     try {
-      const response = await request('/users', { method: 'GET' });
+      const response = await userManagementService.getDirectory();
       const users = Array.isArray(response?.data) ? response.data : [];
       const normalizedOptions = users
         .filter((user) => !isExcludedSuperadmin(user))

@@ -104,7 +104,7 @@ export default function ProjectOnboarding() {
       try {
         setLoading(true);
         const tasks = [
-          userManagementService.getUsers(),
+          userManagementService.getDirectory(),
           leadService.getCategoriesWithServices()
         ];
         if (leadIdFromState) {
@@ -114,8 +114,8 @@ export default function ProjectOnboarding() {
         const [usersRes, categoriesRes, leadRes] = await Promise.all(tasks);
         if (!mounted) return;
 
-        const allUsers = usersRes?.data || [];
-        const activeUsers = allUsers.filter((u) => u.isActive && !u.deletedAt);
+        // /users/directory already returns active users only.
+        const activeUsers = usersRes?.data || [];
         setUsers(activeUsers);
 
         setCategories(categoriesRes?.data || []);
