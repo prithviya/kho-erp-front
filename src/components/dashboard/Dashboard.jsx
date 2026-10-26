@@ -124,7 +124,7 @@ export default function Dashboard() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Performance Snapshot</p>
           <h1 className="mt-1 text-2xl font-semibold text-slate-900">Dashboard Overview</h1>
-          <p className="mt-1 text-sm text-slate-500">Quick health view of leads, users, conversions and open hiring.</p>
+          <p className="mt-1 text-sm text-slate-500">We Innovate Lead and Leverage</p>
         </div>
         <button
           type="button"

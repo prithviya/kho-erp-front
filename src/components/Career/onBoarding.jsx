@@ -72,12 +72,18 @@ const EmployeeOnboarding = () => {
       return String(value ?? '').replace(/\D/g, '');
     }
   };
+  // Saved records (and the PhoneInput display fallback) can leave the country
+  // code blank even though a number is present -- resolve the same default
+  // here so validation agrees with what's actually shown on screen.
+  const getEffectivePhoneCountryCode = (countryCode) => {
+    const code = String(countryCode || '').trim();
+    if (!code) return '+91';
+    return code.startsWith('+') ? code : `+${code}`;
+  };
   const buildPhoneInputValue = (countryCode, nationalNumber) => {
     const digits = String(nationalNumber ?? '').replace(/\D/g, '');
     if (!digits) return '';
-    const code = String(countryCode || '').trim();
-    const prefix = code ? (code.startsWith('+') ? code : `+${code}`) : '+91';
-    return `${prefix}${digits}`;
+    return `${getEffectivePhoneCountryCode(countryCode)}${digits}`;
   };
 
   const addressFieldKeys = ['line1', 'city', 'state', 'pincode'];
@@ -238,7 +244,6 @@ const EmployeeOnboarding = () => {
       'fullName',
       'personalEmail',
       'personalPhone',
-      'officialEmail',
       'gender',
       'maritalStatus',
       'dateOfBirth',
@@ -280,7 +285,7 @@ const EmployeeOnboarding = () => {
       if (!isValidPhoneNumber(value)) {
         errors.push(fieldKey);
       }
-      if (!isValidCountryCode(countryCode)) errors.push(countryCodeKey);
+      if (!isValidCountryCode(getEffectivePhoneCountryCode(countryCode))) errors.push(countryCodeKey);
     });
 
     const requiredEmploymentFields = [
@@ -379,7 +384,7 @@ const EmployeeOnboarding = () => {
         const value = formData?.[section]?.[key];
         if (!hasText(value)) return true;
         if (key === 'emergencyNumber') {
-          return !isValidPhoneNumber(value) || !isValidCountryCode(formData.health.emergencyPhoneCountryCode);
+          return !isValidPhoneNumber(value) || !isValidCountryCode(getEffectivePhoneCountryCode(formData.health.emergencyPhoneCountryCode));
         }
         return false;
       });
@@ -1446,7 +1451,7 @@ const EmployeeOnboarding = () => {
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Official Email <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Official Email</label>
             <input
               type="email"
               name="officialEmail"

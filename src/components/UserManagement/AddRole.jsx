@@ -186,7 +186,17 @@ function AddRole({
                         <input
                             list={employeeListId}
                             value={form.employeeRecord}
-                            onChange={(e) => setForm((prev) => ({ ...prev, employeeRecord: e.target.value }))}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                setForm((prev) => ({
+                                    ...prev,
+                                    employeeRecord: value,
+                                    // Linking a new user to an employee defaults the password to
+                                    // 123456 so HR doesn't have to invent one -- only when nothing
+                                    // has been typed into the password field yet.
+                                    password: !isEditMode && value.trim() && !prev.password ? "123456" : prev.password,
+                                }));
+                            }}
                             placeholder="Select employee"
                             className="h-12 w-full rounded-2xl border border-gray-300 bg-white px-4 text-lg outline-none focus:border-blue-500"
                         />

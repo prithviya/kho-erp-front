@@ -2,7 +2,7 @@ import {
     X, Building2, User, Mail, LogIn, IndianRupee,
     CalendarDays, FileText, Users, StickyNote, UserCheck, Loader2
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
 import PhoneInput, { parsePhoneNumber } from "react-phone-number-input";
@@ -108,6 +108,88 @@ function IconInput({ icon: Icon, children }) {
                 <Icon size={16} />
             </span>
             {children}
+        </div>
+    );
+}
+
+function SearchableUserSelect({ icon: Icon, value, onChange, options, placeholder = "Select Executive", hasError }) {
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState("");
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setOpen(false);
+                setQuery("");
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const getLabel = (option) =>
+        option.firstName ? `${option.firstName} ${option.lastName ?? ""}`.trim() : option.name ?? "";
+
+    const selectedOption = options.find((o) => String(o.id) === String(value));
+    const selectedLabel = selectedOption ? getLabel(selectedOption) : "";
+    const filteredOptions = options.filter((o) =>
+        getLabel(o).toLowerCase().includes(query.trim().toLowerCase())
+    );
+
+    return (
+        <div className="relative" ref={containerRef}>
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
+                <Icon size={16} />
+            </span>
+            <button
+                type="button"
+                onClick={() => setOpen((prev) => !prev)}
+                className={`w-full rounded-lg border bg-white pl-9 pr-4 py-2.5 text-left text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition ${hasError ? "border-red-400 bg-red-50/30" : "border-gray-200"
+                    }`}
+            >
+                <span className={selectedLabel ? "text-gray-800" : "text-gray-400"}>
+                    {selectedLabel || placeholder}
+                </span>
+            </button>
+            {open && (
+                <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+                    <div className="border-b border-gray-100 p-2">
+                        <input
+                            type="text"
+                            autoFocus
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search..."
+                            className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto py-1">
+                        <button
+                            type="button"
+                            onClick={() => { onChange(""); setOpen(false); setQuery(""); }}
+                            className="block w-full px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
+                        >
+                            {placeholder}
+                        </button>
+                        {filteredOptions.length === 0 ? (
+                            <p className="px-3 py-2 text-sm text-gray-400">No matches found.</p>
+                        ) : (
+                            filteredOptions.map((o) => (
+                                <button
+                                    key={o.id}
+                                    type="button"
+                                    onClick={() => { onChange(String(o.id)); setOpen(false); setQuery(""); }}
+                                    className={`block w-full px-3 py-2 text-left text-sm hover:bg-blue-50 ${String(o.id) === String(value) ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700"
+                                        }`}
+                                >
+                                    {getLabel(o)}
+                                </button>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -293,6 +375,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
     const currentStatus = leadStatuses.find((s) => s.id === Number(form.leadStatusId));
     const statusName = currentStatus?.name || "New Lead";
     const progressValue = progress[statusName] || 10;
+    const isConverted = statusName === "Converted";
 
     if (!open) return null;
 
@@ -597,7 +680,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                                 <FieldError message={fieldErrors.budget} />
                             </div>
 
-                            {/* Next Follow-up Date */}
+                            {/* Next Follow-up Date (not applicable once the lead has converted) */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Next Follow-up Date
@@ -609,7 +692,8 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                                         value={form.nextFollowupDate}
                                         onChange={handleChange}
                                         min={getTodayDate()}
-                                        className={inputCls("nextFollowupDate")}
+                                        disabled={isConverted}
+                                        className={`${inputCls("nextFollowupDate")} ${isConverted ? "cursor-not-allowed bg-gray-50 text-gray-400" : ""}`}
                                     />
                                 </IconInput>
                                 <FieldError message={fieldErrors.nextFollowupDate} />
@@ -640,23 +724,14 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Assigned CRM Executive
                                 </label>
-                                <IconInput icon={Users}>
-                                    <select
-                                        name="assignedTo"
-                                        value={form.assignedTo}
-                                        onChange={handleChange}
-                                        className={selectCls("assignedTo")}
-                                    >
-                                        <option value="">Select Executive</option>
-                                        {users.map((u) => (
-                                            <option key={u.id} value={u.id}>
-                                                {u.firstName
-                                                    ? `${u.firstName} ${u.lastName ?? ""}`.trim()
-                                                    : u.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </IconInput>
+                                <SearchableUserSelect
+                                    icon={Users}
+                                    value={form.assignedTo}
+                                    onChange={(value) => handleChange({ target: { name: "assignedTo", value } })}
+                                    options={users}
+                                    placeholder="Select Executive"
+                                    hasError={Boolean(fieldErrors.assignedTo)}
+                                />
                             </div>
 
                             {/* Internal Notes with character counter */}
