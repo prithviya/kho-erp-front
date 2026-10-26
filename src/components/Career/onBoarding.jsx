@@ -7,6 +7,8 @@ import userManagementService from '../../services/userManagement.service';
 import { toast } from 'react-toastify';
 import {Eye, Edit, Rocket, Trash2} from 'lucide-react';
 import { canDeleteRecords } from '../../utils/auth';
+import PhoneInput, { parsePhoneNumber } from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 
 const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
@@ -30,6 +32,8 @@ const EmployeeOnboarding = () => {
   const [reportingHeadOptions, setReportingHeadOptions] = useState([]);
   const [departmentOptions, setDepartmentOptions] = useState([]);
   const [erpRoleOptions, setErpRoleOptions] = useState([]);
+  const [existingEmployees, setExistingEmployees] = useState([]);
+  const [assignedEmployeeId, setAssignedEmployeeId] = useState('');
 
   const hasText = (value) => Boolean(String(value || '').trim());
   const hasExperienceDetails = (experience) =>
@@ -51,6 +55,30 @@ const EmployeeOnboarding = () => {
   };
   const isValidCountryCode = (value) => /^\+\d{1,4}$/.test(String(value || '').trim());
   const isValidNumericOnly = (value) => sanitizeNumericOnly(value).length > 0 && sanitizeNumericOnly(value) === String(value ?? '').replace(/\s+/g, '');
+
+  // Country-code picker: same react-phone-number-input pattern used on the Lead form.
+  const getPhoneCountryCode = (value) => {
+    try {
+      const parsed = parsePhoneNumber(value || '');
+      return parsed?.countryCallingCode ? `+${parsed.countryCallingCode}` : '';
+    } catch {
+      return '';
+    }
+  };
+  const getNationalPhoneDigits = (value) => {
+    try {
+      return parsePhoneNumber(value || '')?.nationalNumber || '';
+    } catch {
+      return String(value ?? '').replace(/\D/g, '');
+    }
+  };
+  const buildPhoneInputValue = (countryCode, nationalNumber) => {
+    const digits = String(nationalNumber ?? '').replace(/\D/g, '');
+    if (!digits) return '';
+    const code = String(countryCode || '').trim();
+    const prefix = code ? (code.startsWith('+') ? code : `+${code}`) : '+91';
+    return `${prefix}${digits}`;
+  };
 
   const addressFieldKeys = ['line1', 'city', 'state', 'pincode'];
 
@@ -189,6 +217,20 @@ const EmployeeOnboarding = () => {
     .toLowerCase()
     .replace(/[\s_-]+/g, "") === "managingdirector";
 
+  const normalizedEmployeeId = String(formData.employeeId || '').trim().toUpperCase();
+  const currentEmployeeEmails = [formData.officialEmail, formData.personalEmail]
+    .map((email) => String(email || '').trim().toLowerCase())
+    .filter(Boolean);
+  const isEmployeeIdTaken = Boolean(normalizedEmployeeId) && existingEmployees.some((employee) => {
+    const employeeCode = String(employee?.employeeCode || '').trim().toUpperCase();
+    const employeeEmail = String(employee?.email || '').trim().toLowerCase();
+    const alreadyAssignedToCurrentEmployee =
+      normalizedEmployeeId === assignedEmployeeId ||
+      (employeeEmail && currentEmployeeEmails.includes(employeeEmail));
+
+    return employeeCode === normalizedEmployeeId && !alreadyAssignedToCurrentEmployee;
+  });
+
   const validateRequiredFields = () => {
     const errors = [];
 
@@ -209,6 +251,10 @@ const EmployeeOnboarding = () => {
         errors.push(field);
       }
     });
+
+    if (isEmployeeIdTaken && !errors.includes('employeeId')) {
+      errors.push('employeeId');
+    }
 
     const phoneFields = [
       ['personalPhone', 'personalPhoneCountryCode', true],
@@ -385,7 +431,22 @@ const EmployeeOnboarding = () => {
     fetchReportingHeads();
     fetchDepartments();
     fetchErpRoles();
+    fetchExistingEmployeeCodes();
   }, []);
+
+  const fetchExistingEmployeeCodes = async () => {
+    try {
+      const response = await request('/employees', { method: 'GET' });
+      const list = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response?.data?.employees)
+          ? response.data.employees
+          : [];
+      setExistingEmployees(list);
+    } catch (error) {
+      console.error('Error fetching existing employee codes:', error);
+    }
+  };
 
   const fetchErpRoles = async () => {
     try {
@@ -452,7 +513,7 @@ const EmployeeOnboarding = () => {
           const roles = Array.isArray(user?.roles) ? user.roles : [];
           const roleCodes = roles.map((role) => String(role?.code || role?.name || '')).filter(Boolean);
           const normalizedRoleCodes = roleCodes.map((roleCode) => String(roleCode).trim().toUpperCase().replace(/[_\s-]+/g, ''));
-          const hasEligibleRole = normalizedRoleCodes.some((roleCode) => roleCode === 'MANAGER' || roleCode === 'SUPERADMIN' || roleCode === 'SUPER_ADMIN' || roleCode === 'CEO');
+          const hasEligibleRole = normalizedRoleCodes.includes('MANAGER');
 
           if (!hasEligibleRole) return null;
 
@@ -726,6 +787,8 @@ const EmployeeOnboarding = () => {
   };
 
   const loadOnboardingRecord = async (employee, fallbackData) => {
+    setHasExistingRecord(false);
+    setAssignedEmployeeId('');
     const candidateId = resolveCandidateId(employee);
     if (!candidateId) {
       if (fallbackData) {
@@ -739,6 +802,13 @@ const EmployeeOnboarding = () => {
       const response = await request(`/onboardings/record/${candidateId}`, { method: 'GET' });
       if (response?.success && response?.data?.formData) {
         setHasExistingRecord(true);
+        setAssignedEmployeeId(
+          String(
+            response.data.formData.employeeId ||
+            response.data.formData.employeeCode ||
+            ''
+          ).trim().toUpperCase()
+        );
         const mergedData = mergeFormDataWithFallback(response.data.formData, fallbackData);
         setFormData(mergedData);
         syncPermanentAddressFlag(mergedData);
@@ -923,6 +993,7 @@ const EmployeeOnboarding = () => {
     setCurrentStep(1);
     setSelectedEmployee(null);
     setHasExistingRecord(false);
+    setAssignedEmployeeId('');
     setIsPermanentAddressSame(false);
     const nextEmployeeId = await fetchNextEmployeeId();
     setFormData(getDefaultFormData(nextEmployeeId));
@@ -1361,15 +1432,18 @@ const EmployeeOnboarding = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID <span className="text-red-500">*</span></label>
-            <input 
+            <input
               type="text"
               name="employeeId"
               value={formData.employeeId}
               onChange={handleInputChange}
               disabled={isViewMode}
-              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'employeeId')}
+              className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''} ${isEmployeeIdTaken ? 'border-red-500 ring-1 ring-red-500' : ''}`, 'employeeId')}
               placeholder="Enter employee ID"
             />
+            {isEmployeeIdTaken && (
+              <p className="mt-1 text-xs text-red-600">This Employee ID is already assigned to an existing employee.</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Official Email <span className="text-red-500">*</span></label>
@@ -1399,53 +1473,47 @@ const EmployeeOnboarding = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Personal Phone <RequiredAsterisk />
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                name="personalPhoneCountryCode"
-                value={formData.personalPhoneCountryCode}
-                onChange={handleInputChange}
-                disabled={isViewMode}
-                maxLength={5}
-                className={getFieldClassName(`w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'personalPhoneCountryCode')}
-                placeholder="+91"
-                aria-label="Personal phone country code"
-              />
-              <input
-                type="tel"
-                name="personalPhone"
-                value={formData.personalPhone}
-                onChange={handleInputChange}
-                disabled={isViewMode}
-                className={getFieldClassName(`min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'personalPhone')}
-                placeholder="10 digit mobile number"
-              />
-            </div>
+            <PhoneInput
+              international
+              defaultCountry="IN"
+              countryCallingCodeEditable={false}
+              disabled={isViewMode}
+              value={buildPhoneInputValue(formData.personalPhoneCountryCode, formData.personalPhone)}
+              onChange={(value) => {
+                const nextValue = value || '';
+                setFormData((prev) => ({
+                  ...prev,
+                  personalPhoneCountryCode: getPhoneCountryCode(nextValue) || '+91',
+                  personalPhone: getNationalPhoneDigits(nextValue),
+                }));
+                clearFieldError('personalPhone');
+                clearFieldError('personalPhoneCountryCode');
+              }}
+              className="phone-input-wrap"
+              placeholder="10 digit mobile number"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Office Phone</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                name="officePhoneCountryCode"
-                value={formData.officePhoneCountryCode}
-                onChange={handleInputChange}
-                disabled={isViewMode}
-                maxLength={5}
-                className={getFieldClassName(`w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'officePhoneCountryCode')}
-                placeholder="+91"
-                aria-label="Office phone country code"
-              />
-              <input
-                type="tel"
-                name="officePhone"
-                value={formData.officePhone}
-                onChange={handleInputChange}
-                disabled={isViewMode}
-                className={getFieldClassName(`min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'officePhone')}
-                placeholder="10 digit mobile number"
-              />
-            </div>
+            <PhoneInput
+              international
+              defaultCountry="IN"
+              countryCallingCodeEditable={false}
+              disabled={isViewMode}
+              value={buildPhoneInputValue(formData.officePhoneCountryCode, formData.officePhone)}
+              onChange={(value) => {
+                const nextValue = value || '';
+                setFormData((prev) => ({
+                  ...prev,
+                  officePhoneCountryCode: getPhoneCountryCode(nextValue) || '+91',
+                  officePhone: getNationalPhoneDigits(nextValue),
+                }));
+                clearFieldError('officePhone');
+                clearFieldError('officePhoneCountryCode');
+              }}
+              className="phone-input-wrap"
+              placeholder="10 digit mobile number"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Gender <span className="text-red-500">*</span></label>
@@ -2186,15 +2254,23 @@ const EmployeeOnboarding = () => {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Blood Group <RequiredAsterisk />
           </label>
-          <input
-            type="text"
+          <select
             name="bloodGroup"
             value={formData.health.bloodGroup}
             onChange={(e) => handleInputChange(e, 'health')}
             disabled={isViewMode}
             className={getFieldClassName(`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.bloodGroup')}
-            placeholder="e.g., O+"
-          />
+          >
+            <option value="">Select Blood Group</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+            <option value="O+">O+</option>
+            <option value="O-">O-</option>
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2235,28 +2311,28 @@ const EmployeeOnboarding = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Emergency Contact Number <RequiredAsterisk />
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                name="emergencyPhoneCountryCode"
-                value={formData.health.emergencyPhoneCountryCode}
-                onChange={(e) => handleInputChange(e, 'health')}
-                disabled={isViewMode}
-                maxLength={5}
-                className={getFieldClassName(`w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.emergencyPhoneCountryCode')}
-                placeholder="+91"
-                aria-label="Emergency phone country code"
-              />
-              <input
-                type="tel"
-                name="emergencyNumber"
-                value={formData.health.emergencyNumber}
-                onChange={(e) => handleInputChange(e, 'health')}
-                disabled={isViewMode}
-                className={getFieldClassName(`min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent ${isViewMode ? 'bg-gray-50' : ''}`, 'health.emergencyNumber')}
-                placeholder="10 digit mobile number"
-              />
-            </div>
+            <PhoneInput
+              international
+              defaultCountry="IN"
+              countryCallingCodeEditable={false}
+              disabled={isViewMode}
+              value={buildPhoneInputValue(formData.health.emergencyPhoneCountryCode, formData.health.emergencyNumber)}
+              onChange={(value) => {
+                const nextValue = value || '';
+                setFormData((prev) => ({
+                  ...prev,
+                  health: {
+                    ...prev.health,
+                    emergencyPhoneCountryCode: getPhoneCountryCode(nextValue) || '+91',
+                    emergencyNumber: getNationalPhoneDigits(nextValue),
+                  },
+                }));
+                clearFieldError('health.emergencyNumber');
+                clearFieldError('health.emergencyPhoneCountryCode');
+              }}
+              className="phone-input-wrap"
+              placeholder="10 digit mobile number"
+            />
           </div>
         </div>
       </div>
