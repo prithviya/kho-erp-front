@@ -168,7 +168,7 @@ const menu = [
                 title: "Ventor Management",
                 icon: RotateCwSquare,
                 path: "/vendor-overview",
-                roles: ["SUPER_ADMIN"]
+                roles: ["SUPER_ADMIN", "HR"]
             },
             // {
             //     name: "Ventor Assigned",
