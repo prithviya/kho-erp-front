@@ -292,22 +292,35 @@ export default function LeaveManagement() {
   const loadPageData = async () => {
     setLoading(true);
     try {
-      const [summaryRes, categoriesRes, requestsRes] = await Promise.all([
+      const [summaryResult, categoriesResult, requestsResult] = await Promise.allSettled([
         leaveService.getSummary(),
         leaveService.getCategories(),
         leaveService.getRequests(),
       ]);
 
-      setSummary(summaryRes?.data || { categories: [], totals: {} });
-      const categoryList = normalizeList(categoriesRes);
-      setCategories(categoryList);
-      setRequests(normalizeList(requestsRes));
+      if (summaryResult.status === "fulfilled") {
+        setSummary(summaryResult.value?.data || { categories: [], totals: {} });
+      } else {
+        toast.error(summaryResult.reason?.message || "Failed to load leave summary.");
+      }
 
-      if (!form.categoryId && categoryList.length > 0) {
+      let categoryList;
+      if (categoriesResult.status === "fulfilled") {
+        categoryList = normalizeList(categoriesResult.value);
+        setCategories(categoryList);
+      } else {
+        toast.error(categoriesResult.reason?.message || "Failed to load leave categories.");
+      }
+
+      if (requestsResult.status === "fulfilled") {
+        setRequests(normalizeList(requestsResult.value));
+      } else {
+        toast.error(requestsResult.reason?.message || "Failed to load leave requests.");
+      }
+
+      if (!form.categoryId && categoryList?.length > 0) {
         setForm((prev) => ({ ...prev, categoryId: String(categoryList[0].id) }));
       }
-    } catch (error) {
-      toast.error(error?.message || "Failed to load leave data.");
     } finally {
       setLoading(false);
     }
