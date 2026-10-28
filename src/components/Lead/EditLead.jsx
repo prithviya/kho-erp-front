@@ -399,6 +399,7 @@ export default function EditLead({ open, onClose, leadId: leadIdProp, lead: lead
                     <h2 className="text-lg font-semibold text-gray-800">Edit Lead</h2>
                     <button
                         type="button"
+                        title="Close"
                         onClick={onClose}
                         className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
                     >

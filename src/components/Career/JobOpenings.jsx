@@ -39,7 +39,7 @@ const JobOpenings = () => {
         jobOpeningUrl: ""
     });
 
-    const canDelete = canDeleteRecords();
+    const canDelete = canDeleteRecords('opening');
     const [deletingId, setDeletingId] = useState(null);
 
     const handleDeleteJob = async (job) => {
@@ -313,7 +313,7 @@ const JobOpenings = () => {
                                             <td className="whitespace-nowrap px-4 py-3">
                                                 <div className="flex gap-2">
                                                    
-                                                    <button onClick={() => editJob(job)} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">
+                                                    <button title="Edit job opening" aria-label="Edit job opening" onClick={() => editJob(job)} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">
                                                         <Edit3 size={'14px'}/>
                                                     </button>
                                                     {/* View Button */}
@@ -358,7 +358,7 @@ const JobOpenings = () => {
                         <div className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
                             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg z-10 flex justify-between items-center">
                                 <h2 className="text-xl font-semibold text-gray-800">{isEditing ? "Edit Opening" : "Add New Opening"}</h2>
-                                <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600"><X /></button>
+                                <button title="Close" aria-label="Close" onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600"><X /></button>
                             </div>
 
                             <div className="px-6 py-6">
@@ -438,7 +438,7 @@ const JobOpenings = () => {
                                     <h2 className="text-xl font-semibold text-gray-800">{selectedJob.jobTitle}</h2>
                                     <span className="text-xs text-gray-500 font-mono">Code: {selectedJob.code}</span>
                                 </div>
-                                <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">
+                                <button title="Close" aria-label="Close" onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">
                                     <X size={20} />
                                 </button>
                             </div>

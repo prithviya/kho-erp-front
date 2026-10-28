@@ -12,7 +12,7 @@ const Applied = () => {
   const [updating, setUpdating] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
-  const canDelete = canDeleteRecords();
+  const canDelete = canDeleteRecords('applied');
 
   const deleteApplication = async (cifid, name) => {
     if (!canDelete || deletingId) return;
@@ -487,7 +487,7 @@ const Applied = () => {
                   <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg z-10">
                     <div className="flex justify-between items-center">
                       <h2 className="text-xl font-semibold text-gray-800"> Application Details</h2>
-                      <button onClick={() => setShowModal(false) } className="text-gray-400 hover:text-gray-600">
+                      <button title="Close" aria-label="Close" onClick={() => setShowModal(false) } className="text-gray-400 hover:text-gray-600">
                         <X size={16}/>
                       </button>
                     </div>
@@ -652,6 +652,7 @@ const Applied = () => {
                     Open in New Tab
                   </a>
                   <button
+                    title="Close"
                     onClick={() => {
                       if (resumeUrlToView?.startsWith('blob:')) {
                         URL.revokeObjectURL(resumeUrlToView);

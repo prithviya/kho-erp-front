@@ -68,9 +68,10 @@ export const hasRole = (roleCode) => {
 
 export const isSuperAdmin = () => hasRole(ROLE_CODES.SUPER_ADMIN);
 
-// Delete buttons are shown only to super admins whose per-account
-// delete access (users.canDelete) has not been switched off.
-export const canDeleteRecords = () => isSuperAdmin() && getCurrentUser()?.canDelete !== false;
+// Keep the existing per-account delete switch in addition to role grants.
+export const canDeleteRecords = (moduleCode = null) =>
+    getCurrentUser()?.canDelete !== false
+    && (isSuperAdmin() || Boolean(moduleCode && hasModulePermission(`${moduleCode}.delete`)));
 
 export const hasAnyRole = (roleCodes = []) => {
     const allowed = roleCodes
@@ -91,24 +92,34 @@ export const getDefaultHomePath = (user = null) => {
         return "/dashboard";
     }
 
-    if (roles.includes(ROLE_CODES.CRM_EXECUTIVE)) {
-        return "/lead-overview";
-    }
+    const accessiblePages = [
+        ["dashboard.view", "/dashboard"],
+        ["lead_management.view", "/lead-overview"],
+        ["reports.view", "/report"],
+        ["project_onboard.view", "/onboard-prjt"],
+        ["project_details.view", "/prjt-details"],
+        ["assign_board.view", "/assign-board"],
+        ["opening.view", "/job"],
+        ["applied.view", "/applied"],
+        ["recruitment.view", "/recruitment-process"],
+        ["onboarding.view", "/onboarding"],
+        ["employee.view", "/employee"],
+        ["payroll_management.view", "/payroll"],
+        ["leave.view", "/leave"],
+        ["user_management.view", "/user-management"],
+        ["master.view", "/master"],
+        ["vendor_management.view", "/vendor-overview"],
+    ];
+    const sourceRoles = user?.roles || getRoles();
+    const accessiblePage = accessiblePages.find(([permissionKey]) =>
+        sourceRoles.some((role) => {
+            if (role.isActive === false) return false;
+            const permissions = Array.isArray(role?.permissions) ? role.permissions : [];
+            return permissions.some((permission) => permission.permissionKey === permissionKey);
+        })
+    );
 
-    if (roles.includes(ROLE_CODES.MANAGER)) {
-        return "/onboard-prjt";
-    }
-
-    if (roles.includes(ROLE_CODES.CEO)) {
-        return "/assign-board";
-    }
-
-    if (roles.includes(ROLE_CODES.HR)) {
-        return "/onboarding";
-    }
-
-    // Team members (and any role without a dedicated landing page) go to their tasks.
-    return "/assign-board";
+    return accessiblePage?.[1] || "/profile";
 };
 
 export const hasPermission = (permissionKey) => {
@@ -118,6 +129,27 @@ export const hasPermission = (permissionKey) => {
             permission.permissionKey === permissionKey
         )
     );
+};
+
+// Latest permission keys fetched from the server (null until fetched or for Super Admin).
+let livePermissionKeys = null;
+export const setLivePermissionKeys = (keys) => {
+    livePermissionKeys = Array.isArray(keys) ? new Set(keys) : null;
+};
+
+export const hasModulePermission = (permissionKey) => {
+    if (!permissionKey || isSuperAdmin()) {
+        return true;
+    }
+
+    if (livePermissionKeys) {
+        return livePermissionKeys.has(permissionKey);
+    }
+
+    return getRoles().some((role) => (
+        role.isActive !== false
+        && role.permissions?.some((permission) => permission.permissionKey === permissionKey)
+    ));
 };
 export const logout = () => {
     clearSession();

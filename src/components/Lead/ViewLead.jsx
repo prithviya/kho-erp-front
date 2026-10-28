@@ -250,6 +250,7 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
         <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
           <h2 className="text-xl font-bold text-gray-900">Lead Details</h2>
           <button
+            title="Close"
             onClick={onClose}
             className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           >

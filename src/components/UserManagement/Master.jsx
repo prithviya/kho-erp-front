@@ -159,7 +159,7 @@ function Master() {
 
   const [modalType, setModalType] = useState(null);
   const [deletingKey, setDeletingKey] = useState(null);
-  const canDelete = canDeleteRecords();
+  const canDelete = canDeleteRecords('master');
   const [servicePage, setServicePage] = useState(1);
   const servicesPerPage = 5;
 

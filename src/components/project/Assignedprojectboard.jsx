@@ -22,7 +22,10 @@ import {
   Bell,
   UserCircle2,
   Play,
-  FileText
+  FileText,
+  Pencil,
+  Download,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import taskService from '../../services/task.service';
@@ -33,6 +36,12 @@ import projectChatService from '../../services/projectChat.service';
 import taskChatService from '../../services/taskChat.service';
 import { subscribe } from '../../services/realtime.service';
 import { getCanonicalRoles, getCurrentUser, isSuperAdmin } from '../../utils/auth';
+
+const formatTime12 = (value) => {
+  const [hour, minute] = String(value || '').split(':').map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  return `${String(hour % 12 || 12).padStart(2, '0')}:${String(minute).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
+};
 
 function parseIds(value) {
   if (Array.isArray(value)) return value;
@@ -121,6 +130,16 @@ function Assignedprojectboard() {
 
   // Master Lists for Employees and Vendors
   const [employeesList, setEmployeesList] = useState([]);
+  const extraAssigneeNames = (task) => {
+    let extraIds = task?.additionalAssigneeIds;
+    if (typeof extraIds === 'string') {
+      try { extraIds = JSON.parse(extraIds); } catch { extraIds = []; }
+    }
+    return (Array.isArray(extraIds) ? extraIds : [])
+      .map((id) => employeesList.find((user) => Number(user.id) === Number(id)))
+      .filter(Boolean)
+      .map((user) => `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email);
+  };
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -137,7 +156,6 @@ function Assignedprojectboard() {
   const [projectId, setProjectId] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState('');
-  const [taskImage, setTaskImage] = useState(null);
   
   // Assignment sub-menu state inside modal
   const [assigneeType, setAssigneeType] = useState('employee'); // 'employee' or 'vendor'
@@ -162,6 +180,22 @@ function Assignedprojectboard() {
   const [taskUnreadCounts, setTaskUnreadCounts] = useState({});
   const [taskProjectIds, setTaskProjectIds] = useState({});
   const [taskChatAttachments, setTaskChatAttachments] = useState([]);
+  const [taskCommentCounts, setTaskCommentCounts] = useState({});
+  const seenTaskMessageIds = useRef(new Set());
+  const deletedTaskMessageIds = useRef(new Set());
+  const bumpTaskCommentCount = (taskId, delta) => {
+    setTaskCommentCounts((current) => ({ ...current, [taskId]: (current[taskId] ?? 0) + delta }));
+  };
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [messageToDelete, setMessageToDelete] = useState(null);
+  const [isDeletingMessage, setIsDeletingMessage] = useState(false);
+  const [editingMessageText, setEditingMessageText] = useState('');
+  const [editingRemovedUrls, setEditingRemovedUrls] = useState([]);
+  const [editingNewFiles, setEditingNewFiles] = useState([]);
+  const [isDraggingEdit, setIsDraggingEdit] = useState(false);
+  const [isDraggingChat, setIsDraggingChat] = useState(false);
+  const [newTaskFiles, setNewTaskFiles] = useState([]);
+  const [isDraggingNewTask, setIsDraggingNewTask] = useState(false);
   const [attachmentViewer, setAttachmentViewer] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [commentImage, setCommentImage] = useState(null);
@@ -254,6 +288,7 @@ function Assignedprojectboard() {
           text: item.message,
           time: new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           createdAt: item.createdAt,
+          editedAt: item.editedAt || null,
           mentionedUserIds: item.mentionedUserIds || [],
           attachments: normalizeAttachments(item.attachments)
         }));
@@ -307,6 +342,7 @@ function Assignedprojectboard() {
       text: item.message,
       time: new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: item.createdAt,
+      editedAt: item.editedAt || null,
       mentionedUserIds: item.mentionedUserIds || [],
       attachments: normalizeAttachments(item.attachments)
     };
@@ -316,10 +352,39 @@ function Assignedprojectboard() {
       if (existing.some((entry) => Number(entry.id) === Number(message.id))) return current;
       return { ...current, [taskId]: [...existing, message] };
     });
+    if (!seenTaskMessageIds.current.has(item.id)) {
+      seenTaskMessageIds.current.add(item.id);
+      bumpTaskCommentCount(taskId, 1);
+    }
     if (Number(item.senderId) !== Number(currentUser?.id) && Number(activeTask?.id) !== Number(payload.taskId)) {
       setTaskUnreadCounts((current) => ({ ...current, [taskId]: (current[taskId] || 0) + 1 }));
     }
   }), [activeTask?.id, currentUser?.id]);
+
+  useEffect(() => subscribe('task-message-updated', (payload) => {
+    if (!payload?.taskId || !payload?.message) return;
+    const taskId = String(payload.taskId);
+    const item = payload.message;
+    setTaskChatMessages((current) => ({
+      ...current,
+      [taskId]: (current[taskId] || []).map((entry) => (Number(entry.id) === Number(item.id)
+        ? { ...entry, text: item.message, editedAt: item.editedAt || new Date().toISOString(), attachments: normalizeAttachments(item.attachments) }
+        : entry))
+    }));
+  }), []);
+
+  useEffect(() => subscribe('task-message-deleted', (payload) => {
+    if (!payload?.taskId || !payload?.messageId) return;
+    const taskId = String(payload.taskId);
+    if (deletedTaskMessageIds.current.has(payload.messageId)) return;
+    deletedTaskMessageIds.current.add(payload.messageId);
+    seenTaskMessageIds.current.delete(payload.messageId);
+    setTaskChatMessages((current) => ({
+      ...current,
+      [taskId]: (current[taskId] || []).filter((entry) => Number(entry.id) !== Number(payload.messageId))
+    }));
+    bumpTaskCommentCount(taskId, -1);
+  }), []);
 
   useEffect(() => subscribe('task-activity', (payload) => {
     if (!payload?.taskId || !payload?.activity) return;
@@ -608,7 +673,7 @@ function Assignedprojectboard() {
     setProjectId(selectedProjectId);
     setDueDate('');
     setDueTime('');
-    setTaskImage(null);
+    setNewTaskFiles([]);
     setAssigneeType('employee');
     setSelectedAssigneeIds([]);
     setSelectedEmployeeIds([]);
@@ -617,9 +682,101 @@ function Assignedprojectboard() {
   };
 
   // Handle file/image selection for task creation
-  const handleTaskImageUpload = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setTaskImage(URL.createObjectURL(e.target.files[0]));
+  const addNewTaskFiles = (fileList) => {
+    const incoming = Array.from(fileList || []);
+    const tooBig = incoming.filter((file) => file.size > 5 * 1024 * 1024);
+    if (tooBig.length) toast.error('Files larger than 5MB were skipped.');
+    setNewTaskFiles((current) => [...current, ...incoming.filter((file) => file.size <= 5 * 1024 * 1024)].slice(0, 5));
+  };
+
+  const addChatFiles = (fileList) => {
+    const files = Array.from(fileList || []).map((file) => ({
+      file,
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+    }));
+    setTaskChatAttachments((current) => {
+      const next = [...current, ...files];
+      next.slice(5).forEach(({ preview }) => preview && URL.revokeObjectURL(preview));
+      return next.slice(0, 5);
+    });
+  };
+
+  const startEditingMessage = (message) => {
+    setEditingMessageId(message.id);
+    setEditingMessageText(message.text || '');
+    setEditingRemovedUrls([]);
+    setEditingNewFiles([]);
+  };
+
+  const cancelEditingMessage = () => {
+    setEditingMessageId(null);
+    setEditingMessageText('');
+    setEditingRemovedUrls([]);
+    setEditingNewFiles([]);
+  };
+
+  const addEditingFiles = (fileList, message) => {
+    const incoming = Array.from(fileList || []);
+    if (incoming.some((file) => file.size > 5 * 1024 * 1024)) toast.error('Files larger than 5MB were skipped.');
+    const valid = incoming.filter((file) => file.size <= 5 * 1024 * 1024);
+    const keptCount = normalizeAttachments(message.attachments).filter((item) => !editingRemovedUrls.includes(item.url)).length;
+    setEditingNewFiles((current) => [...current, ...valid].slice(0, Math.max(5 - keptCount, 0)));
+  };
+
+  const downloadAttachment = async (attachment) => {
+    try {
+      const response = await fetch(attachment.url);
+      if (!response.ok) throw new Error('Download failed');
+      const blobUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = attachment.name || 'download';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      window.open(attachment.url, '_blank', 'noopener');
+    }
+  };
+
+  const handleSaveEditedMessage = async (message) => {
+    const text = editingMessageText.trim();
+    const keptCount = normalizeAttachments(message.attachments).filter((item) => !editingRemovedUrls.includes(item.url)).length;
+    if (!text && !keptCount && !editingNewFiles.length) return;
+    try {
+      const formData = new FormData();
+      formData.append('message', text);
+      formData.append('removedUrls', JSON.stringify(editingRemovedUrls));
+      editingNewFiles.forEach((file) => formData.append('attachments', file));
+      const response = await taskChatService.update(activeTask.id, message.id, formData);
+      const item = response?.data || {};
+      setTaskChatMessages((current) => ({
+        ...current,
+        [activeTask.id]: (current[activeTask.id] || []).map((entry) => (Number(entry.id) === Number(message.id)
+          ? { ...entry, text, editedAt: item.editedAt || new Date().toISOString(), attachments: normalizeAttachments(item.attachments ?? entry.attachments) }
+          : entry))
+      }));
+      cancelEditingMessage();
+    } catch (error) {
+      toast.error(error.message || 'Failed to edit comment.');
+    }
+  };
+
+  const handleDeleteMessage = async (message) => {
+    setIsDeletingMessage(true);
+    try {
+      await taskChatService.remove(activeTask.id, message.id);
+      deletedTaskMessageIds.current.add(message.id);
+      setTaskChatMessages((current) => ({
+        ...current,
+        [activeTask.id]: (current[activeTask.id] || []).filter((entry) => Number(entry.id) !== Number(message.id))
+      }));
+      setMessageToDelete(null);
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete comment.');
+    } finally {
+      setIsDeletingMessage(false);
     }
   };
 
@@ -629,15 +786,29 @@ function Assignedprojectboard() {
     if (!taskName.trim()) return;
     if (!projectId || (!selectedEmployeeIds.length && !selectedVendorIds.length)) return;
     try {
-      await Promise.all([
-        ...selectedEmployeeIds.map((assignedToId) => taskService.createTask({
-          projectOnboardId: Number(projectId), serviceId: Number(activeColumnId), title: taskName.trim(), assignedToId: Number(assignedToId), dueDate: dueDate || null
-        })),
+      const [primaryId, ...extraIds] = selectedEmployeeIds;
+      const created = await Promise.all([
+        ...(primaryId ? [taskService.createTask({
+          projectOnboardId: Number(projectId), serviceId: Number(activeColumnId), title: taskName.trim(), assignedToId: Number(primaryId),
+          additionalAssigneeIds: extraIds.map(Number), dueDate: dueDate || null, dueTime: dueDate ? (dueTime || null) : null
+        })] : []),
         ...selectedVendorIds.map((assignedVendorId) => taskService.createTask({
-          projectOnboardId: Number(projectId), serviceId: Number(activeColumnId), title: taskName.trim(), assignedVendorId: Number(assignedVendorId), dueDate: dueDate || null
+          projectOnboardId: Number(projectId), serviceId: Number(activeColumnId), title: taskName.trim(), assignedVendorId: Number(assignedVendorId), dueDate: dueDate || null, dueTime: dueDate ? (dueTime || null) : null
         }))
       ]);
-      const assigneeCount = selectedEmployeeIds.length + selectedVendorIds.length;
+      if (newTaskFiles.length) {
+        const results = await Promise.allSettled(created.map((response) => {
+          const newId = response?.data?.id;
+          if (!newId) return Promise.resolve();
+          const formData = new FormData();
+          formData.append('message', '');
+          formData.append('mentionedUserIds', JSON.stringify([]));
+          newTaskFiles.forEach((file) => formData.append('attachments', file));
+          return taskChatService.send(newId, formData);
+        }));
+        if (results.some((result) => result.status === 'rejected')) toast.error('Task created, but some files failed to upload.');
+      }
+      const assigneeCount = (selectedEmployeeIds.length ? 1 : 0) + selectedVendorIds.length;
       toast.success(`${assigneeCount} task${assigneeCount > 1 ? 's' : ''} created.`);
       setIsModalOpen(false);
       const response = await taskService.getTasks();
@@ -1078,9 +1249,17 @@ function Assignedprojectboard() {
                           </h4>
                           <div className="flex items-center gap-1.5">
                             {taskUnreadCounts[task.id] > 0 && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{taskUnreadCounts[task.id]}</span>}
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                              {task.assignee !== 'Unassigned' ? task.assignee.split(' ')[0] : 'Unassigned'}
-                            </span>
+                            {(() => {
+                              if (task.assignee === 'Unassigned') {
+                                return <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Unassigned</span>;
+                              }
+                              const names = [task.assignee, ...extraAssigneeNames(task)].map((name) => name.split(' ')[0]);
+                              const chipClass = 'rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700';
+                              if (names.length <= 2) {
+                                return names.map((name, index) => <span key={`${name}-${index}`} className={chipClass}>{name}</span>);
+                              }
+                              return <span className={`${chipClass} cursor-default`} title={names.join(', ')}>{names.length} assignees</span>;
+                            })()}
                           </div>
                         </div>
                         {!selectedProject && task.project?.projectName && (
@@ -1097,7 +1276,7 @@ function Assignedprojectboard() {
                         <div className="flex items-center justify-between text-xs pt-1">
                           <span className="flex items-center space-x-1 text-gray-400">
                             <MessageSquare size={12} />
-                            <span>{task.commentsCount}</span>
+                            <span>{taskChatMessages[task.id]?.length ?? Math.max((task.commentsCount || 0) + (taskCommentCounts[task.id] || 0), 0)}</span>
                           </span>
 
                           {task.dueDate && (
@@ -1105,7 +1284,7 @@ function Assignedprojectboard() {
                               overdue ? 'bg-red-100 text-red-600 border border-red-200' : 'bg-orange-50 text-orange-600'
                             }`}>
                               <Calendar size={12} />
-                              <span>{task.dueDate} {task.dueTime && `@ ${task.dueTime}`}</span>
+                              <span>{task.dueDate} {task.dueTime && `@ ${formatTime12(task.dueTime)}`}</span>
                             </span>
                           )}
                         </div>
@@ -1136,7 +1315,7 @@ function Assignedprojectboard() {
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-600">Workspace action</p>
                 <h2 className="mt-1 text-base font-bold text-slate-900">Create New Task</h2>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <button title="Close" aria-label="Close" onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={18} />
               </button>
             </div>
@@ -1200,25 +1379,61 @@ function Assignedprojectboard() {
                 </div>
                 <div>
                   <label className="block text-gray-600 font-medium mb-1">Due Time</label>
-                  <input 
-                    type="time" 
-                    value={dueTime}
-                    onChange={(e) => setDueTime(e.target.value)}
-                    className="w-full border rounded px-3 py-2 text-xs"
-                  />
+                  <div className="flex gap-1">
+                    {(() => {
+                      const [h24, min] = (dueTime || '').split(':');
+                      const hasTime = Boolean(dueTime);
+                      const hour24 = Number(h24);
+                      const period = hour24 >= 12 ? 'PM' : 'AM';
+                      const hour12 = hasTime ? String(hour24 % 12 || 12) : '';
+                      const update = (nextHour12, nextMin, nextPeriod) => {
+                        if (!nextHour12) { setDueTime(''); return; }
+                        let hour = Number(nextHour12) % 12;
+                        if (nextPeriod === 'PM') hour += 12;
+                        setDueTime(`${String(hour).padStart(2, '0')}:${nextMin || '00'}`);
+                      };
+                      const selectClass = 'w-full border rounded px-2 py-2 text-xs';
+                      return (
+                        <>
+                          <select aria-label="Hour" value={hour12} onChange={(e) => update(e.target.value, min, period)} className={selectClass}>
+                            <option value="">--</option>
+                            {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={String(i + 1)}>{String(i + 1).padStart(2, '0')}</option>)}
+                          </select>
+                          <select aria-label="Minute" value={hasTime ? min : ''} disabled={!hasTime} onChange={(e) => update(hour12, e.target.value, period)} className={selectClass}>
+                            {!hasTime && <option value="">--</option>}
+                            {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map((m) => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                          <select aria-label="AM or PM" value={period} disabled={!hasTime} onChange={(e) => update(hour12, min, e.target.value)} className={selectClass}>
+                            <option value="AM">AM</option>
+                            <option value="PM">PM</option>
+                          </select>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
 
               {/* Image Upload */}
               <div>
-                <label className="block text-gray-600 font-medium mb-1">Attach Image</label>
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  onChange={handleTaskImageUpload}
-                  className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                />
-                {taskImage && <span className="text-[10px] text-green-600 mt-1 block">Image attached successfully!</span>}
+                <label className="block text-gray-600 font-medium mb-1">Attachments</label>
+                <label
+                  onDragOver={(e) => { e.preventDefault(); setIsDraggingNewTask(true); }}
+                  onDragLeave={() => setIsDraggingNewTask(false)}
+                  onDrop={(e) => { e.preventDefault(); setIsDraggingNewTask(false); addNewTaskFiles(e.dataTransfer.files); }}
+                  className={`flex cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed px-3 py-4 text-center text-xs ${isDraggingNewTask ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                >
+                  Drag &amp; drop files here, or click to browse (max 5, 5MB each)
+                  <input type="file" multiple className="hidden" onChange={(e) => { addNewTaskFiles(e.target.files); e.target.value = ''; }} />
+                </label>
+                {!!newTaskFiles.length && <ul className="mt-2 space-y-1">
+                  {newTaskFiles.map((file, index) => (
+                    <li key={`${file.name}-${index}`} className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-[11px] text-gray-600">
+                      <span className="truncate">{file.name}</span>
+                      <button type="button" title="Remove file" onClick={() => setNewTaskFiles((current) => current.filter((_f, i) => i !== index))} className="ml-2 text-red-500 hover:text-red-700">✕</button>
+                    </li>
+                  ))}
+                </ul>}
               </div>
 
               <div className="flex justify-end space-x-2 pt-2">
@@ -1250,7 +1465,7 @@ function Assignedprojectboard() {
                 <h2 className="mt-1 text-lg font-bold text-slate-900">{selectedProject.projectName}</h2>
                 <p className="text-xs text-slate-500">{projectMembers.length} project members</p>
               </div>
-              <button type="button" onClick={() => setShowProjectChat(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close project chat">
+              <button type="button" onClick={() => setShowProjectChat(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close project chat" title="Close project chat">
                 <X size={19} />
               </button>
             </div>
@@ -1312,7 +1527,7 @@ function Assignedprojectboard() {
       {showProjectMembers && selectedProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-[2px]">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-600">Access list</p><h2 className="mt-1 text-lg font-bold text-slate-900">Project Members</h2></div><button type="button" onClick={() => setShowProjectMembers(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button></div>
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-600">Access list</p><h2 className="mt-1 text-lg font-bold text-slate-900">Project Members</h2></div><button type="button" title="Close" aria-label="Close" onClick={() => setShowProjectMembers(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button></div>
             <div className="mt-4 max-h-80 space-y-2 overflow-y-auto">{projectMembers.map((member) => { const name = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.fullName || member.email; return <div key={member.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3"><UserCircle2 size={28} className="text-emerald-600" /><div><p className="text-sm font-semibold text-slate-800">{name}</p><p className="text-xs text-slate-500">{member.memberRole}</p></div></div>; })}</div>
           </div>
         </div>
@@ -1340,7 +1555,7 @@ function Assignedprojectboard() {
                 </button>
                 <div className="flex items-center gap-2 border-l border-slate-200 pl-3 text-xs text-slate-500">
                   <UsersRound size={18} className="text-amber-500" />
-                  <span>Assigned to<br /><strong className="text-slate-800">{activeTask.assignee || 'Unassigned'}</strong></span>
+                  <span>Assigned to<br /><strong className="text-slate-800">{[activeTask.assignee || 'Unassigned', ...extraAssigneeNames(activeTask)].join(', ')}</strong></span>
                   {canManageActiveTask && <select
                     value=""
                     onChange={handleReassignTaskAssignee}
@@ -1370,7 +1585,7 @@ function Assignedprojectboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2 text-slate-400">
-                <button type="button" onClick={() => setActiveTask(null)} className="rounded-md p-2 hover:bg-slate-100" aria-label="Close task details"><X size={19} /></button>
+                <button type="button" onClick={() => setActiveTask(null)} className="rounded-md p-2 hover:bg-slate-100" aria-label="Close task details" title="Close task details"><X size={19} /></button>
               </div>
             </div>
 
@@ -1406,7 +1621,11 @@ function Assignedprojectboard() {
                           ? value
                           : new Date(timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
                       };
-                      const activityText = activity.action === 'STATUS_CHANGED'
+                      const activityText = activity.action === 'TASK_CREATED'
+                        ? <>has created the Task <strong className="font-semibold text-slate-700">{activity.newValue}</strong>.</>
+                        : activity.action === 'DUE_DATE_SET'
+                          ? <>has set the Task due date to <strong className="font-semibold text-slate-700">{activity.newValue}</strong>.</>
+                          : activity.action === 'STATUS_CHANGED'
                         ? <>has changed the Task status from <strong className="font-semibold text-slate-700">{activity.previousValue}</strong> to <strong className="font-semibold text-slate-700">{activity.newValue}</strong>.</>
                         : activity.action === 'ASSIGNEE_REMOVED'
                           ? <>has removed the assignee <strong className="font-semibold text-indigo-600">{activity.newValue}</strong> from this Task.</>
@@ -1428,7 +1647,8 @@ function Assignedprojectboard() {
                         <div key={entry.id} className="flex items-start gap-3 border-b border-slate-100 pb-4">
                           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-500">
                             {activity.action === 'STATUS_CHANGED' ? <CheckCircle2 size={17} />
-                              : activity.action === 'DUE_DATE_CHANGED' ? <Calendar size={17} />
+                              : activity.action === 'TASK_CREATED' ? <Plus size={17} />
+                              : activity.action === 'DUE_DATE_CHANGED' || activity.action === 'DUE_DATE_SET' ? <Calendar size={17} />
                                 : activity.action === 'REMINDER_CHANGED' ? <Bell size={17} />
                                   : activity.action === 'PRIORITY_CHANGED' ? <Activity size={17} />
                                     : <UsersRound size={17} />}
@@ -1463,9 +1683,40 @@ function Assignedprojectboard() {
                           <p className={`text-sm font-semibold ${isOwnMessage ? 'text-emerald-700' : 'text-indigo-600'}`}>{comm.sender}</p>
                           <p className="text-[11px] text-slate-400">{comm.time}</p>
                         </div>
-                        {comm.text && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{comm.text}</p>}
+                        {editingMessageId === comm.id ? (
+                          <div
+                            className={`mt-2 rounded-lg ${isDraggingEdit ? 'ring-2 ring-indigo-300' : ''}`}
+                            onDragOver={(e) => { e.preventDefault(); setIsDraggingEdit(true); }}
+                            onDragLeave={() => setIsDraggingEdit(false)}
+                            onDrop={(e) => { e.preventDefault(); setIsDraggingEdit(false); addEditingFiles(e.dataTransfer.files, comm); }}
+                          >
+                            <textarea value={editingMessageText} onChange={(e) => setEditingMessageText(e.target.value)} rows={2} className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" />
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {attachments.filter((item) => !editingRemovedUrls.includes(item.url)).map((item) => (
+                                <span key={item.url} className="flex items-center gap-1 rounded bg-white px-2 py-1 text-[11px] text-slate-600 ring-1 ring-slate-200">
+                                  <span className="max-w-[140px] truncate">{item.name}</span>
+                                  <button type="button" title="Remove file" onClick={() => setEditingRemovedUrls((current) => [...current, item.url])} className="text-red-500 hover:text-red-700"><X size={12} /></button>
+                                </span>
+                              ))}
+                              {editingNewFiles.map((file, index) => (
+                                <span key={`${file.name}-${index}`} className="flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[11px] text-indigo-700 ring-1 ring-indigo-100">
+                                  <span className="max-w-[140px] truncate">{file.name}</span>
+                                  <button type="button" title="Remove file" onClick={() => setEditingNewFiles((current) => current.filter((_f, i) => i !== index))} className="text-red-500 hover:text-red-700"><X size={12} /></button>
+                                </span>
+                              ))}
+                            </div>
+                            <label title="Drag and drop files here or click to browse" className={`mt-2 flex cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-dashed px-2 py-2 text-[11px] ${isDraggingEdit ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-slate-300 text-slate-500 hover:bg-white'}`}>
+                              <Paperclip size={12} /> Drag &amp; drop files here, or click to browse
+                              <input type="file" multiple className="hidden" onChange={(e) => { addEditingFiles(e.target.files, comm); e.target.value = ''; }} />
+                            </label>
+                            <div className="mt-1 flex justify-end gap-2 text-xs">
+                              <button type="button" title="Cancel editing" onClick={cancelEditingMessage} className="text-slate-500 hover:text-slate-700">Cancel</button>
+                              <button type="button" title="Save edited comment" onClick={() => handleSaveEditedMessage(comm)} className="font-medium text-indigo-600 hover:text-indigo-800">Save</button>
+                            </div>
+                          </div>
+                        ) : comm.text && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{comm.text}{comm.editedAt && <span className="ml-1 text-[10px] text-slate-400">(edited)</span>}</p>}
                         {comm.image && <div className="mt-3 max-w-sm overflow-hidden rounded-lg border border-slate-200"><img src={comm.image} alt="comment attachment" className="max-h-64 w-full object-cover" /></div>}
-                        {!!attachments.length && <div className="mt-3 flex flex-wrap gap-2">
+                        {editingMessageId !== comm.id && !!attachments.length && <div className="mt-3 flex flex-wrap gap-2">
                           {attachments.map((attachment) => {
                             const kind = getAttachmentKind(attachment);
                             const url = getAttachmentUrl(attachment.url);
@@ -1484,7 +1735,12 @@ function Assignedprojectboard() {
                             </button>;
                           })}
                         </div>}
-                        <div className={`mt-2 text-xs text-slate-400 ${isOwnMessage ? 'text-right' : ''}`}>Reply</div>
+                        {isOwnMessage && editingMessageId !== comm.id && <div className="mt-2 flex justify-end gap-2">
+                          {comm.createdAt && Date.now() - new Date(comm.createdAt).getTime() <= 15 * 60 * 1000 && (
+                            <button type="button" title="Edit comment (available for 15 minutes)" aria-label="Edit comment" onClick={() => startEditingMessage(comm)} className="rounded p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"><Pencil size={14} /></button>
+                          )}
+                          <button type="button" title="Delete your comment" aria-label="Delete comment" onClick={() => setMessageToDelete(comm)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={14} /></button>
+                        </div>}
                       </div>
                     </div>
                     );
@@ -1493,7 +1749,12 @@ function Assignedprojectboard() {
                   {taskViewTab === 'comments' && !activeTaskMessages.length && <div className="py-16 text-center text-sm text-slate-400">No comments yet. Start the task conversation below.</div>}
                 </div>
 
-                <div className="border-t border-slate-200 bg-slate-50 px-5 py-4">
+                <div
+                  className={`border-t border-slate-200 px-5 py-4 ${isDraggingChat ? 'bg-indigo-50 ring-2 ring-inset ring-indigo-300' : 'bg-slate-50'}`}
+                  onDragOver={(e) => { e.preventDefault(); setIsDraggingChat(true); }}
+                  onDragLeave={() => setIsDraggingChat(false)}
+                  onDrop={(e) => { e.preventDefault(); setIsDraggingChat(false); addChatFiles(e.dataTransfer.files); }}
+                >
                   {taskMentionActive && taskMentionOptions.length > 0 && (
                     <div className="relative mb-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
                       {taskMentionOptions.map((member) => {
@@ -1507,7 +1768,7 @@ function Assignedprojectboard() {
                     {taskChatAttachments.map(({ file, preview }, index) => (
                       <div key={`${file.name}-${index}`} className="relative rounded-lg border border-slate-200 bg-white p-1">
                         {preview ? <img src={preview} alt={file.name} className="h-16 w-16 rounded object-cover" /> : <span className="block max-w-32 px-2 py-4 text-[10px] text-slate-600">{file.name}</span>}
-                        <button type="button" onClick={() => removeTaskAttachment(index)} className="absolute -right-2 -top-2 rounded-full bg-slate-700 p-0.5 text-white" aria-label={`Remove ${file.name}`}><X size={12} /></button>
+                        <button type="button" onClick={() => removeTaskAttachment(index)} className="absolute -right-2 -top-2 rounded-full bg-slate-700 p-0.5 text-white" aria-label={`Remove ${file.name}`} title={`Remove ${file.name}`}><X size={12} /></button>
                       </div>
                     ))}
                   </div>}
@@ -1587,7 +1848,7 @@ function Assignedprojectboard() {
                   <p className="text-sm font-semibold text-slate-700">About the Task</p>
                   <dl className="mt-4 space-y-3 text-xs">
                     <div><dt className="text-slate-400">Project</dt><dd className="mt-1 text-slate-700">{selectedProject?.projectName || 'Not set'}</dd></div>
-                    <div><dt className="text-slate-400">Assigned to</dt><dd className="mt-1 text-slate-700">{activeTask.assignee || 'Unassigned'}</dd></div>
+                    <div><dt className="text-slate-400">Assigned to</dt><dd className="mt-1 text-slate-700">{[activeTask.assignee || 'Unassigned', ...extraAssigneeNames(activeTask)].join(', ')}</dd></div>
                     <div><dt className="text-slate-400">Created by</dt><dd className="mt-1 text-slate-700">{activeTask.creator ? `${activeTask.creator.firstName || ''} ${activeTask.creator.lastName || ''}`.trim() : 'Not available'}</dd></div>
                   </dl>
                 </div>
@@ -1597,20 +1858,36 @@ function Assignedprojectboard() {
         </div>
       )}
 
+      {messageToDelete && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4" onClick={() => !isDeletingMessage && setMessageToDelete(null)}>
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600"><Trash2 size={18} /></span>
+              <h3 className="text-base font-semibold text-slate-800">Delete comment?</h3>
+            </div>
+            <p className="mt-3 text-sm text-slate-500">This comment will be permanently removed from the task. This action cannot be undone.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" title="Keep the comment" disabled={isDeletingMessage} onClick={() => setMessageToDelete(null)} className="rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200">Cancel</button>
+              <button type="button" title="Delete the comment" disabled={isDeletingMessage} onClick={() => handleDeleteMessage(messageToDelete)} className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{isDeletingMessage ? 'Deleting…' : 'Delete'}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {attachmentViewer && (
         <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-label={`Preview ${attachmentViewer.name || 'attachment'}`} onClick={() => setAttachmentViewer(null)}>
           <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <p className="truncate text-sm font-semibold text-slate-800">{attachmentViewer.name || 'Attachment preview'}</p>
-              <button type="button" onClick={() => setAttachmentViewer(null)} className="rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Close attachment preview"><X size={18} /></button>
+              <button type="button" onClick={() => setAttachmentViewer(null)} className="rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Close attachment preview" title="Close preview"><X size={18} /></button>
             </div>
             <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-slate-100 p-4">
               {attachmentViewer.kind === 'image' && <img src={attachmentViewer.url} alt={attachmentViewer.name || 'Attachment'} className="max-h-[75vh] max-w-full object-contain" />}
               {attachmentViewer.kind === 'video' && <video src={attachmentViewer.url} controls autoPlay className="max-h-[75vh] max-w-full" />}
               {attachmentViewer.kind === 'document' && <iframe src={attachmentViewer.url} title={attachmentViewer.name || 'Document preview'} className="h-[75vh] w-full rounded border border-slate-200 bg-white" />}
             </div>
-            <div className="flex justify-end border-t border-slate-200 px-4 py-3">
-              <a href={attachmentViewer.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Open in new tab</a>
+            <div className="flex items-center justify-end gap-4 border-t border-slate-200 px-4 py-3">
+              <button type="button" title="Download this file" onClick={() => downloadAttachment(attachmentViewer)} className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800"><Download size={14} /> Download</button>
+              <a href={attachmentViewer.url} target="_blank" rel="noreferrer" title="Open file in a new browser tab" className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Open in new tab</a>
             </div>
           </div>
         </div>

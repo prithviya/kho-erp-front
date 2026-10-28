@@ -47,7 +47,7 @@
         const navigate = useNavigate();
 
         const canCreateLead = hasRole("SUPER_ADMIN");
-        const canDelete = canDeleteRecords();
+        const canDelete = canDeleteRecords('lead_management');
         const [deletingId, setDeletingId] = useState(null);
 
         const normalizeList = (payload) => {

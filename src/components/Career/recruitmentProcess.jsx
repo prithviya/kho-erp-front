@@ -90,7 +90,7 @@ const RecruitmentPipeline = () => {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
-  const canDelete = canDeleteRecords();
+  const canDelete = canDeleteRecords('recruitment');
 
   const handleDeleteCandidate = async (candidate) => {
     const cifid = resolveCandidateId(candidate);
@@ -429,7 +429,7 @@ const RecruitmentPipeline = () => {
                     <h2 className="text-xl font-semibold text-gray-800">Manage Recruitment Process</h2>
                     <p className="text-sm text-gray-500">Update interview schedules, internal reviews, and candidate status.</p>
                   </div>
-                  <button onClick={() => setShowDetailsModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <button title="Close" aria-label="Close" onClick={() => setShowDetailsModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                     <X size={20} />
                   </button>
                 </div>

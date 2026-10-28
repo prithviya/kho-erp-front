@@ -23,7 +23,7 @@ export default function VendorOverview() {
     const [viewOpen, setViewOpen] = useState(false);
     const [selectedVendor, setSelectedVendor] = useState(null);
     const [updatingStatusId, setUpdatingStatusId] = useState(null);
-    const canDelete = canDeleteRecords();
+    const canDelete = canDeleteRecords('vendor_management');
 
     const fetchVendors = useCallback(async () => {
         setLoading(true);

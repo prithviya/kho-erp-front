@@ -153,6 +153,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                     <h2 className="text-lg font-semibold text-gray-800">Add New Vendor</h2>
                     <button 
                         type="button" 
+                        title="Close"
                         disabled={submitting} 
                         onClick={onClose} 
                         className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition disabled:opacity-40"

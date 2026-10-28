@@ -66,7 +66,7 @@ export default function AssignTask() {
   const currentUser = getCurrentUser();
   const superAdmin = isSuperAdmin();
   const canCreateTasks = superAdmin || isManagerUser(currentUser);
-  const canDelete = canDeleteRecords();
+  const canDelete = canDeleteRecords('tasks');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -762,7 +762,7 @@ function getProjectPeople(project, key) {
             <div className="relative w-full max-w-2xl rounded-xl bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                 <h2 className="text-lg font-semibold text-gray-800">{editingTask ? "Edit Task" : "Assign Task"}</h2>
-                <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                <button type="button" title="Close" aria-label="Close" onClick={closeForm} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -883,7 +883,7 @@ function getProjectPeople(project, key) {
             <div className="relative w-full max-w-xl rounded-xl bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                 <h2 className="text-lg font-semibold text-gray-800">Task Details</h2>
-                <button type="button" onClick={() => setShowView(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                <button type="button" title="Close" aria-label="Close" onClick={() => setShowView(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
               </div>
               <div className="space-y-4 px-6 py-5 text-sm">
                 <div>

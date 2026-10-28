@@ -10,7 +10,7 @@ export default function ViewVendor({ open, onClose, vendor }) {
             <div className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-md flex-col bg-white shadow-2xl">
                 <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
                     <h2 className="text-lg font-semibold text-gray-800">Vendor Details</h2>
-                    <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100">
+                    <button title="Close" aria-label="Close" onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100">
                         <X size={20} />
                     </button>
                 </div>

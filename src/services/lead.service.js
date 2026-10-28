@@ -83,7 +83,7 @@ const leadService = {
         }
         return res;
     },
-    getUsers() { return request("/users"); },
+    getUsers() { return request("/users/directory"); },
 };
 
 export default leadService;

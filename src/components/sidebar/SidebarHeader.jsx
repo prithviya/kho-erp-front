@@ -31,6 +31,8 @@ export default function SidebarHeader({ collapsed, toggleSidebar, mobileOpen, se
                 mobileOpen &&
                 <button
                     className="lg:hidden"
+                    title="Close navigation"
+                    aria-label="Close navigation"
                     onClick={() => setMobileOpen(false)}
                 >
                     <ChevronLeft size={22} />

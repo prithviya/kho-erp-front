@@ -148,7 +148,7 @@ function datesOverlap(firstFrom, firstTo, secondFrom, secondTo) {
 
 export default function LeaveManagement() {
   const currentUser = getCurrentUser();
-  const canDelete = canDeleteRecords();
+  const canDelete = canDeleteRecords('leave');
   const [deletingId, setDeletingId] = useState(null);
 
   const [activeTab, setActiveTab] = useState("calendar");
@@ -465,6 +465,7 @@ export default function LeaveManagement() {
                 <button
                   type="button"
                   aria-label="Previous month"
+                  title="Previous month"
                   onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
                   className="rounded-md border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
                 >
@@ -476,6 +477,7 @@ export default function LeaveManagement() {
                 <button
                   type="button"
                   aria-label="Next month"
+                  title="Next month"
                   onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
                   className="rounded-md border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
                 >

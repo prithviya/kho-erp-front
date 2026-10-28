@@ -12,7 +12,9 @@ import {
     WalletCards,
     FileUser,
     Network,
-    RotateCwSquare
+    RotateCwSquare,
+    ShieldCheck,
+    ListTree
 } from "lucide-react";
 const menu = [
     {
@@ -23,6 +25,7 @@ const menu = [
                 title: "Dashboard Overview",
                 icon: LayoutDashboard,
                 path: "/dashboard",
+                permissionKey: "dashboard.view",
                 roles: ["SUPER_ADMIN"]
             }
         ]
@@ -35,6 +38,7 @@ const menu = [
                 title: "Lead Overview",
                 icon: Users,
                 path: "/lead-overview",
+                permissionKey: "lead_management.view",
                 roles: ["SUPER_ADMIN", "CRM_EXECUTIVE"]
             },
             {
@@ -42,6 +46,7 @@ const menu = [
                 title: "Report Overview",
                 icon: ChartNoAxesCombined,
                 path: "/report",
+                permissionKey: "reports.view",
                 roles: ["SUPER_ADMIN"]
             }
         ]
@@ -54,6 +59,7 @@ const menu = [
                 title: "Project Onboarding",
                 icon: KanbanSquare,
                 path: "/onboard-prjt",
+                permissionKey: "project_onboard.view",
                 roles: ["SUPER_ADMIN"]
             },
             {
@@ -61,6 +67,7 @@ const menu = [
                 title: "Project details",
                 icon: Waypoints,
                 path: "/prjt-details",
+                permissionKey: "project_details.view",
                 roles: ["SUPER_ADMIN", "MANAGER"]
             },
             // {
@@ -82,6 +89,7 @@ const menu = [
                 title: "My Tasks Assign board",
                 icon: ClipboardCheck,
                 path: "/assign-board",
+                permissionKey: "assign_board.view",
                 roles: ["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]
             },
         ]
@@ -95,6 +103,7 @@ const menu = [
                 title: "Job Opening",
                 icon: Briefcase,
                 path: "/job",
+                permissionKey: "opening.view",
                 roles: ["SUPER_ADMIN", "HR"]
             },
             {
@@ -102,6 +111,7 @@ const menu = [
                 title: "job Applied",
                 icon: Split,
                 path: "/applied",
+                permissionKey: "applied.view",
                 roles: ["SUPER_ADMIN", "HR"]
             },
             {
@@ -109,6 +119,7 @@ const menu = [
                 title: "Recruitment Process",
                 icon: UserPlus,
                 path: "/recruitment-process",
+                permissionKey: "recruitment.view",
                 roles: ["SUPER_ADMIN", "HR"]
             },
             {
@@ -116,6 +127,7 @@ const menu = [
                 title: "Onboarding",
                 icon: BadgeCheck,
                 path: "/onboarding",
+                permissionKey: "onboarding.view",
                 roles: ["SUPER_ADMIN", "HR"]
             },
             {
@@ -123,6 +135,7 @@ const menu = [
                 title: "Employee",
                 icon: Puzzle,
                 path: "/employee",
+                permissionKey: "employee.view",
                 roles: ["SUPER_ADMIN", "HR" ]
             }
         ]
@@ -135,6 +148,7 @@ const menu = [
                 title: "Payroll",
                 icon: WalletCards,
                 path: "/payroll",
+                permissionKey: "payroll_management.view",
                 roles: ["SUPER_ADMIN", "HR"]
             },
             {
@@ -142,6 +156,7 @@ const menu = [
                 title: "Leave",
                 icon: Users,
                 path: "/leave",
+                permissionKey: "leave.view",
                 roles: ["SUPER_ADMIN", "HR", "CRM_EXECUTIVE", "CEO", "TEAM_MEMBER","MANAGER"]
             }
         ]
@@ -154,6 +169,21 @@ const menu = [
                 title: "User Management",
                 icon: Users,
                 path: "/user-management",
+                permissionKey: "user_management.view",
+                roles: ["SUPER_ADMIN"]
+            },
+            {
+                name: "Roles & Permissions",
+                title: "Manage roles and module permissions",
+                icon: ShieldCheck,
+                path: "/role-permissions",
+                roles: ["SUPER_ADMIN"]
+            },
+            {
+                name: "Menu & Permissions",
+                title: "Menu & Permission Management",
+                icon: ListTree,
+                path: "/menu-management",
                 roles: ["SUPER_ADMIN"]
             },
             {
@@ -161,6 +191,7 @@ const menu = [
                 title:"Master Setting",
                 icon: Network,
                 path:"/master",
+                permissionKey: "master.view",
                 roles:["SUPER_ADMIN"]
             },
             {
@@ -168,6 +199,7 @@ const menu = [
                 title: "Ventor Management",
                 icon: RotateCwSquare,
                 path: "/vendor-overview",
+                permissionKey: "vendor_management.view",
                 roles: ["SUPER_ADMIN", "HR"]
             },
             // {
@@ -182,6 +214,7 @@ const menu = [
                 title: "CIF Form",
                 icon: FileUser,
                 path: "/cif-form",
+                permissionKey: "cif_form.view",
                 roles: ["SUPER_ADMIN"]
             }
         ]

@@ -323,6 +323,7 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                     </h2>
                     <button
                         type="button"
+                        title="Close"
                         onClick={onClose}
                         className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
                     >

@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { hasAnyRole } from "../../utils/auth";
+import { hasAnyRole, hasModulePermission } from "../../utils/auth";
 
 export default function SidebarItem({
     item,
@@ -10,7 +10,11 @@ export default function SidebarItem({
     const location = useLocation();
     const Icon = item.icon;
     const active = location.pathname === item.path;
-    const canAccess = Array.isArray(item.roles) && item.roles.length > 0 && hasAnyRole(item.roles);
+    const canAccess = Array.isArray(item.roles)
+        && item.roles.length > 0
+        && (item.permissionKey
+            ? hasModulePermission(item.permissionKey)
+            : hasAnyRole(item.roles));
 
     if (!canAccess) {
         return null;
@@ -18,7 +22,11 @@ export default function SidebarItem({
 
     const handleClick = () => {
         if (!item.path) return;
-        navigate(item.path);
+        if (/^https?:\/\//i.test(item.path)) {
+            window.open(item.path, "_blank", "noopener,noreferrer");
+        } else {
+            navigate(item.path);
+        }
         if (mobileClose) {
             mobileClose(false);
         }

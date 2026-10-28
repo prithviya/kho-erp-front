@@ -383,6 +383,7 @@ function Salary() {
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold text-gray-800">💳 Process Payment</h2>
                   <button
+                    title="Close"
                     onClick={() => setShowPaymentModal(false)}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
@@ -531,6 +532,7 @@ function Salary() {
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold text-gray-800">📄 Salary Details</h2>
                   <button
+                    title="Close"
                     onClick={() => setShowSalaryModal(false)}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >

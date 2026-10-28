@@ -20,7 +20,7 @@ const EmployeeOnboarding = () => {
   
   const [awaitingEmployees, setAwaitingEmployees] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
-  const canDelete = canDeleteRecords();
+  const canDelete = canDeleteRecords('onboarding');
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasExistingRecord, setHasExistingRecord] = useState(false);
@@ -2693,18 +2693,21 @@ const EmployeeOnboarding = () => {
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <button
+                            title="View employee"
                             onClick={() => handleViewEmployee(employee)}
                             className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors"
                           >
                             <Eye size={16} />
                           </button>
                           <button
+                            title="Edit employee"
                             onClick={() => handleEditEmployee(employee)}
                             className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
                           >
                             <Edit size={16} />
                           </button>
                           <button
+                            title="Add to employees"
                             onClick={() => handleAddEmployee(employee)}
                             className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors"
                           >

@@ -282,7 +282,7 @@ const ProjectManagement = () => {
 
   const [projects, setProjects] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
-  const canDelete = canDeleteRecords();
+  const canDelete = canDeleteRecords('project_details');
   const [users, setUsers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -567,9 +567,12 @@ const ProjectManagement = () => {
     }
 
     return list.map((project) => {
-      const managerNames = project.reportingHeadUser
-        ? [formatUserName(project.reportingHeadUser)]
-        : getUserNames(project.projectManagerIds);
+      const managerNames = [...new Set([
+        ...getUserNames(project.projectManagerIds),
+        ...(project.reportingHeadUser ? [formatUserName(project.reportingHeadUser)] : [])
+      ].filter(Boolean))];
+      const visibleManagerNames = managerNames.slice(0, 2);
+      const hiddenManagerNames = managerNames.slice(2);
       const assignedNames = project.assignedUsers?.length
         ? project.assignedUsers.map(formatUserName).filter(Boolean)
         : getEmployeeNames(project.assignedToIds);
@@ -593,11 +596,21 @@ const ProjectManagement = () => {
           <td className="px-4 py-3">
             <div className="flex flex-wrap gap-1">
               {managerNames.length ? (
-                managerNames.map((name) => (
-                  <span key={`${project.id}-${name}`} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                    {name}
-                  </span>
-                ))
+                <>
+                  {visibleManagerNames.map((name) => (
+                    <span key={`${project.id}-${name}`} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                      {name}
+                    </span>
+                  ))}
+                  {hiddenManagerNames.length > 0 && (
+                    <span
+                      title={hiddenManagerNames.join(", ")}
+                      className="cursor-default rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-blue-200"
+                    >
+                      +{hiddenManagerNames.length}
+                    </span>
+                  )}
+                </>
               ) : (
                 <span className="text-xs text-gray-400">-</span>
               )}

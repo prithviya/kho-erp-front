@@ -26,7 +26,7 @@ const Employee = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
-  const canDelete = canDeleteRecords();
+  const canDelete = canDeleteRecords('employee');
 
   const [selectedDepartment, setSelectedDepartment] = useState('All Positions');
   const [searchTerm, setSearchTerm] = useState('');
@@ -366,12 +366,14 @@ const Employee = () => {
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <button
+                            title="View employee"
                             onClick={() => handleView(employee)}
                             className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors"
                           >
                             <Eye size={16} />
                           </button>
                           <button
+                            title="Edit employee"
                             onClick={() => handleEdit(employee, index)}
                             className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
                           >
@@ -379,6 +381,7 @@ const Employee = () => {
                           </button>
                           {canDelete && (
                             <button
+                              title="Delete employee"
                               onClick={() => handleDelete(employee)}
                               disabled={deletingId === employee.id}
                               className="px-3 py-1 bg-red-100 text-red-700 text-xs rounded-md hover:bg-red-200 transition-colors disabled:opacity-50"
@@ -426,6 +429,7 @@ const Employee = () => {
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold text-gray-800">Employee Details</h2>
                   <button
+                    title="Close"
                     onClick={() => {
                       setShowViewModal(false);
                       setEmployeeDocuments([]);
@@ -560,6 +564,7 @@ const Employee = () => {
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold text-gray-800">Edit Employee</h2>
                   <button
+                    title="Close"
                     onClick={() => {
                       setShowEditModal(false);
                       setSelectedEmployee(null);

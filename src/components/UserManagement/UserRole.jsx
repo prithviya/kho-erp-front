@@ -3,7 +3,7 @@ import AddRole from "./AddRole";
 import { Pencil, Trash2, UserPlus } from "lucide-react";
 import userManagementService from "../../services/userManagement.service";
 import { toast } from "react-toastify";
-import { getCurrentUser, canDeleteRecords } from "../../utils/auth";
+import { getCurrentUser, isSuperAdmin, canDeleteRecords } from "../../utils/auth";
 import { getSession, setSession } from "../../utils/session";
 
 function usernameFromEmail(email = "") {
@@ -25,6 +25,7 @@ function UserRole() {
     const [userToDelete, setUserToDelete] = useState(null);
 
     const [canDelete, setCanDelete] = useState(() => canDeleteRecords());
+    const isAdmin = isSuperAdmin();
     const currentUser = getCurrentUser();
     const currentUserId = currentUser?.id || currentUser?._id;
 
@@ -65,18 +66,21 @@ function UserRole() {
     }, [users]);
 
     const handleOpenCreate = () => {
+        if (!isAdmin) return;
         setFormError("");
         setEditingUser(null);
         setOpenModal(true);
     };
 
     const handleOpenEdit = (user) => {
+        if (!isAdmin) return;
         setFormError("");
         setEditingUser(user);
         setOpenModal(true);
     };
 
     const handleSubmitUser = async (form, userToEdit = null) => {
+        if (!isAdmin) return;
         try {
             setSaving(true);
             setFormError("");
@@ -133,6 +137,7 @@ function UserRole() {
     };
 
     const handleDeleteUser = async (user) => {
+        if (!isAdmin) return;
         const targetId = String(user?.id || user?._id || "");
     if (!canDelete || deletingId || !targetId) return;
 
@@ -173,13 +178,15 @@ function UserRole() {
                             placeholder="Search users..."
                             className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
                         />
-                        <button
-                            onClick={handleOpenCreate}
-                            className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-                        >
-                            <UserPlus size={16} />
-                            Add New User
-                        </button>
+                        {isAdmin && (
+                            <button
+                                onClick={handleOpenCreate}
+                                className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                            >
+                                <UserPlus size={16} />
+                                Add New User
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -237,17 +244,19 @@ function UserRole() {
 
                                         <div className="relative text-right">
                                             <div className="inline-flex items-center justify-end gap-1.5">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleOpenEdit(user)}
-                                                    className="group relative rounded-md p-1.5 text-gray-700 hover:bg-gray-100"
-                                                >
-                                                    <Pencil size={14} />
-                                                    <span className="pointer-events-none absolute -top-7 right-0 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
-                                                        Edit
-                                                    </span>
-                                                </button>
-                                                {canDelete && userId !== currentUserId && (
+                                                {isAdmin && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenEdit(user)}
+                                                        className="group relative rounded-md p-1.5 text-gray-700 hover:bg-gray-100"
+                                                    >
+                                                        <Pencil size={14} />
+                                                        <span className="pointer-events-none absolute -top-7 right-0 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                                                            Edit
+                                                        </span>
+                                                    </button>
+                                                )}
+                                                {isAdmin && canDelete && userId !== currentUserId && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setUserToDelete(user)}

@@ -117,6 +117,7 @@ export default function AppHeader({
                 {!hideSidebarToggle && (
                     <button
                         aria-label="Open navigation"
+                        title="Open navigation"
                         className="lg:hidden"
                         onClick={toggleSidebar}
                     >
