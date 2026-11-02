@@ -49,7 +49,7 @@ function Salary() {
             name: onboardingData.fullName || employee.fullName || '-',
             designation: onboardingData.designation || employee.jobPosition || '-',
             department: onboardingData.department || employee.department || '-',
-            monthlySalary: Number(onboardingData.currentSalary) || 0,
+            monthlySalary: (Number(onboardingData.currentSalary) || 0) / 12,
             lopDays: 0,
             clTaken: 0,
             isBestPerformer: false,
@@ -90,7 +90,7 @@ function Salary() {
     // Formula 2: LOP = Per Day Salary × Number of LOP Days
     const lopAmount = perDaySalary * (employee.lopDays || 0);
     
-    // Formula 3: Monthly Net Salary = Monthly Salary - LOP
+    // Formula 3: LOP-adjusted monthly salary
     const monthlyNetSalary = monthlySalary - lopAmount;
     
     // Conveyance Allowance fixed at 1600
@@ -254,7 +254,6 @@ function Salary() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly Salary</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CL Taken</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LOP Days</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Salary</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
@@ -263,21 +262,19 @@ function Salary() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading && (
                   <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-sm text-gray-500">
+                    <td colSpan="7" className="px-4 py-8 text-center text-sm text-gray-500">
                       Loading salary details from onboarding records...
                     </td>
                   </tr>
                 )}
                 {!loading && employees.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-sm text-gray-500">
+                    <td colSpan="7" className="px-4 py-8 text-center text-sm text-gray-500">
                       No employee salary details are available in onboarding records.
                     </td>
                   </tr>
                 )}
-                {!loading && employees.map((employee) => {
-                  const salary = calculateSalary(employee);
-                  return (
+                {!loading && employees.map((employee) => (
                     <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
                         <div>
@@ -310,12 +307,6 @@ function Salary() {
                           onChange={(e) => handleLopUpdate(employee.id, e.target.value)}
                           className="w-16 px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm text-center"
                         />
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-gray-900">{formatCurrency(salary.monthlyNetSalary)}</p>
-                        {employee.isBestPerformer && (
-                          <span className="text-xs text-green-600">+10% bonus</span>
-                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={getStatusBadge(employee.salaryPaid)}>
@@ -352,8 +343,7 @@ function Salary() {
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>
@@ -438,7 +428,6 @@ function Salary() {
                     const monthlySalary = selectedEmployee.monthlySalary;
                     const perDay = monthlySalary / totalWorkingDays;
                     const lopAmt = perDay * (parseInt(paymentData.lopDays) || 0);
-                    const netSalary = monthlySalary - lopAmt;
                     const conveyance = 1600;
                     let basic = 0;
                     let hra = 0;
@@ -474,10 +463,6 @@ function Salary() {
                           <div className="flex justify-between">
                             <span className="text-gray-600">LOP Amount (Per Day × LOP):</span>
                             <span className="font-medium text-red-600">{formatCurrency(lopAmt)}</span>
-                          </div>
-                          <div className="flex justify-between border-t border-blue-200 pt-1 mt-1">
-                            <span className="font-semibold text-gray-700">Net Salary (Salary - LOP):</span>
-                            <span className="font-bold text-blue-700">{formatCurrency(netSalary)}</span>
                           </div>
                           <div className="flex justify-between mt-1 pt-1 border-t border-blue-200">
                             <span className="text-gray-600">Conveyance Allowance:</span>
@@ -596,10 +581,6 @@ function Salary() {
                           <span className="text-sm text-gray-600">LOP Amount (Per Day × LOP Days)</span>
                           <span className="text-sm font-medium text-red-600">{formatCurrency(salary.lopAmount)}</span>
                         </div>
-                        <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <span className="text-sm font-semibold text-gray-700">Monthly Net Salary (Salary - LOP)</span>
-                          <span className="text-sm font-bold text-blue-700">{formatCurrency(salary.monthlyNetSalary)}</span>
-                        </div>
                       </div>
 
                       <h3 className="text-md font-semibold text-gray-800 mt-6 mb-4">📋 Salary Components</h3>
@@ -630,7 +611,7 @@ function Salary() {
                           <div className="flex justify-between items-center">
                             <div>
                               <span className="text-sm font-semibold text-green-700">🏆 Best Performer Bonus</span>
-                              <p className="text-xs text-green-600">10% hike on net salary</p>
+                              <p className="text-xs text-green-600">10% hike</p>
                             </div>
                             <span className="text-lg font-bold text-green-700">{formatCurrency(salary.bonusAmount)}</span>
                           </div>

@@ -1,5 +1,5 @@
 import { clearSession, getSession } from "../utils/session";
-import { hasModulePermission, isSuperAdmin } from "../utils/auth";
+import { hasAnyRole, hasModulePermission, isSuperAdmin } from "../utils/auth";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 let refreshPromise = null;
@@ -77,16 +77,29 @@ function enforceFrontendApiPermission(url, method) {
   const path = String(url).split("?")[0].replace(/\/+$/, "") || "/";
   const normalizedMethod = String(method || "GET").toUpperCase();
 
+  if (normalizedMethod === "DELETE" && /^\/tasks\/\d+$/.test(path)) {
+    return;
+  }
+
   if (
     normalizedMethod === "OPTIONS"
     || path.startsWith("/auth/")
     || (normalizedMethod === "GET" && /^\/openings\/public(?:\/|$)/.test(path))
+    || (normalizedMethod === "GET" && path === "/employees/me/profile")
     || (normalizedMethod === "POST" && path === "/cif-submissions")
   ) {
     return;
   }
 
   if (isSuperAdmin()) {
+    return;
+  }
+
+  if (
+    normalizedMethod === "PUT"
+    && /^\/employees\/[^/]+$/.test(path)
+    && hasAnyRole(["MANAGER", "HR", "SUPER_ADMIN"])
+  ) {
     return;
   }
 

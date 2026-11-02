@@ -166,6 +166,7 @@ function Assignedprojectboard() {
 
   // Active Task Detail Drawer State (Chat/Comments view)
   const [activeTask, setActiveTask] = useState(null);
+  const [deletingTaskId, setDeletingTaskId] = useState(null);
   const [taskViewTab, setTaskViewTab] = useState('activities');
   const [isRemovingAssignee, setIsRemovingAssignee] = useState(false);
   const [isReassigningTask, setIsReassigningTask] = useState(false);
@@ -485,6 +486,15 @@ function Assignedprojectboard() {
   const isSelectedProjectSpoc = Boolean(selectedProject && parseIds(selectedProject.spocIds)
     .some((id) => Number(getId(id)) === Number(currentUser?.id)));
   const canCreateTasks = superAdmin || isManager || isSelectedProjectSpoc;
+  const canDeleteTask = (task) => {
+    if (currentUser?.canDelete === false) return false;
+    if (superAdmin) return true;
+    const userId = Number(currentUser?.id);
+    const project = task.project || selectedProject;
+    return Number(task.reportingHeadId) === userId
+      || Number(project?.reportingHeadId) === userId
+      || parseIds(project?.spocIds).some((id) => Number(getId(id)) === userId);
+  };
   const canManageActiveTask = Boolean(activeTask && (superAdmin || (isManager
     && (Number(activeTask.reportingHeadId) === Number(currentUser?.id)
       || Number(activeTask.createdBy) === Number(currentUser?.id)))));
@@ -834,6 +844,27 @@ function Assignedprojectboard() {
     setActiveTask(updatedTask);
     if (updatedTask.status === 'TODO') {
       void handleStatusChange('IN_PROGRESS', updatedTask);
+    }
+  };
+
+  const handleDeleteTask = async (event, task) => {
+    event.stopPropagation();
+    if (deletingTaskId !== null) return;
+    if (!window.confirm(`Delete task "${task.title}"? This action cannot be undone.`)) return;
+
+    setDeletingTaskId(task.id);
+    try {
+      await taskService.deleteTask(task.id);
+      setColumns((previous) => previous.map((column) => ({
+        ...column,
+        tasks: column.tasks.filter((item) => Number(item.id) !== Number(task.id))
+      })));
+      setActiveTask((current) => Number(current?.id) === Number(task.id) ? null : current);
+      toast.success('Task deleted.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete task.');
+    } finally {
+      setDeletingTaskId(null);
     }
   };
 
@@ -1248,6 +1279,18 @@ function Assignedprojectboard() {
                             {task.title}
                           </h4>
                           <div className="flex items-center gap-1.5">
+                            {canDeleteTask(task) && (
+                              <button
+                                type="button"
+                                title="Delete task"
+                                aria-label={`Delete task ${task.title}`}
+                                disabled={deletingTaskId === task.id}
+                                onClick={(event) => handleDeleteTask(event, task)}
+                                className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                             {taskUnreadCounts[task.id] > 0 && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{taskUnreadCounts[task.id]}</span>}
                             {(() => {
                               if (task.assignee === 'Unassigned') {

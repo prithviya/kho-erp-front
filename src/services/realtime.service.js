@@ -1,6 +1,9 @@
 import { io } from "socket.io-client";
 
-const apiUrl = String(import.meta.env.VITE_API_URL || "http://localhost:5000/api");
+// const apiUrl = String(import.meta.env.VITE_API_URL || "http://localhost:5000/api");
+const apiUrl = String(
+  import.meta.env.VITE_API_URL || `${window.location.origin}/api`
+);
 const socketUrl = apiUrl.replace(/\/api\/?$/, "");
 let socket;
 

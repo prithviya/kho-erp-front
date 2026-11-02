@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Check, ChevronLeft, ChevronRight, Eye, X, Trash2 } from "lucide-react";
 import leaveService from "../../services/leave.service";
-import { getCurrentUser, canDeleteRecords } from "../../utils/auth";
+import { getCanonicalRoles, getCurrentUser, canDeleteRecords } from "../../utils/auth";
 
 function normalizeList(payload) {
   if (Array.isArray(payload)) return payload;
@@ -26,6 +26,12 @@ function toDateKey(date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function toCalendarDateKey(value) {
+  if (!value) return "";
+  if (value instanceof Date) return toDateKey(value);
+  return String(value).slice(0, 10);
 }
 
 function getLeaveCalendarLabel(request) {
@@ -148,6 +154,12 @@ function datesOverlap(firstFrom, firstTo, secondFrom, secondTo) {
 
 export default function LeaveManagement() {
   const currentUser = getCurrentUser();
+  const canonicalRoles = getCanonicalRoles(currentUser);
+  const rawRoles = (currentUser?.roles || []).flatMap((role) => [role?.code, role?.name])
+    .filter(Boolean)
+    .map((role) => String(role).toLowerCase().replace(/[\s_-]+/g, ""));
+  const canSeeLeaveReports = canonicalRoles.some((role) => ["HR", "MANAGER", "CEO", "SUPER_ADMIN"].includes(role))
+    || rawRoles.some((role) => role.includes("head") || role.includes("teamlead"));
   const canDelete = canDeleteRecords('leave');
   const [deletingId, setDeletingId] = useState(null);
 
@@ -162,6 +174,17 @@ export default function LeaveManagement() {
   const [summary, setSummary] = useState({ categories: [], totals: {} });
   const [categories, setCategories] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [leaveReports, setLeaveReports] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [reportFilters, setReportFilters] = useState({
+    employeeId: "",
+    departmentId: "",
+    leaveType: "",
+    status: "",
+    fromDate: "",
+    toDate: "",
+  });
 
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -184,6 +207,46 @@ export default function LeaveManagement() {
     (category) => Number(category.id) === Number(form.categoryId)
   );
   const isOnDutyLeave = selectedCategory?.code === "ON_THE_DUTY";
+  const isPermissionLeave = selectedCategory?.code === "PERMISSION";
+  const permissionMonthStats = useMemo(() => {
+    const monthKey = (form.fromDate || toDateKey(new Date())).slice(0, 7);
+    const monthRequests = requests.filter((request) => (
+      Number(request.userId) === Number(currentUser?.id)
+      && request.category?.code === "PERMISSION"
+      && String(request.fromDate || "").slice(0, 7) === monthKey
+      && ["PENDING", "APPROVED"].includes(String(request.status || "").toUpperCase())
+    ));
+    const usedHours = monthRequests.reduce((sum, request) => (
+      String(request.status).toUpperCase() === "APPROVED"
+        ? sum + Number(request.requestedHours || 0)
+        : sum
+    ), 0);
+    const pendingHours = monthRequests.reduce((sum, request) => (
+      String(request.status).toUpperCase() === "PENDING"
+        ? sum + Number(request.requestedHours || 0)
+        : sum
+    ), 0);
+    const bookedHours = usedHours + pendingHours;
+    const [startHour, startMinute] = String(form.startTime || "").split(":").map(Number);
+    const [endHour, endMinute] = String(form.endTime || "").split(":").map(Number);
+    const requestedHours = Number.isFinite(startHour) && Number.isFinite(startMinute)
+      && Number.isFinite(endHour) && Number.isFinite(endMinute) && (endHour * 60 + endMinute) > (startHour * 60 + startMinute)
+      ? Number((((endHour * 60 + endMinute) - (startHour * 60 + startMinute)) / 60).toFixed(2))
+      : 0;
+    const toMonthKey = (form.toDate || form.fromDate || "").slice(0, 7);
+
+    return {
+      monthKey,
+      allocatedHours: Number(summary.categories?.find((item) => item.code === "PERMISSION")?.monthlyBalance?.allocatedHours ?? 6),
+      usageLimitHours: 2,
+      usedHours: Number(usedHours.toFixed(2)),
+      pendingHours: Number(pendingHours.toFixed(2)),
+      remainingHours: Number(Math.max(0, 2 - bookedHours).toFixed(2)),
+      requestedHours,
+      crossesMonth: Boolean(form.fromDate && form.toDate && monthKey !== toMonthKey),
+      exceedsLimit: requestedHours > 0 && bookedHours + requestedHours > 2,
+    };
+  }, [currentUser?.id, form.fromDate, form.startTime, form.endTime, form.toDate, requests, summary.categories]);
 
   const categoryBalance = useMemo(() => {
     const categoryId = Number(form.categoryId || 0);
@@ -193,18 +256,27 @@ export default function LeaveManagement() {
 
   const hasCasualLeaveForMonth = (dateValue) => {
     if (!dateValue) return false;
+    const [year, month] = dateValue.slice(0, 7).split("-").map(Number);
     const monthStart = `${dateValue.slice(0, 7)}-01`;
-    const monthEnd = new Date(
-      Number(dateValue.slice(0, 4)),
-      Number(dateValue.slice(5, 7)),
-      0
-    ).toISOString().slice(0, 10);
-
-    return requests.some((item) => (
-      item.category?.code === "CASUAL_LEAVE" &&
-      ["PENDING", "APPROVED"].includes(String(item.status || "").toUpperCase()) &&
-      datesOverlap(item.fromDate, item.toDate, monthStart, monthEnd)
+    const monthEnd = toDateKey(new Date(year, month, 0));
+    const previousMonthDate = new Date(year, month - 2, 1);
+    const previousMonthStart = toDateKey(previousMonthDate);
+    const previousMonthEnd = toDateKey(new Date(year, month - 1, 0));
+    const relevantRequests = requests.filter((item) => (
+      Number(item.userId) === Number(currentUser?.id)
+      && item.category?.code === "CASUAL_LEAVE"
+      && ["PENDING", "APPROVED"].includes(String(item.status || "").toUpperCase())
     ));
+    const joiningDate = summary.joiningDate;
+    const wasOnboardedInPreviousMonth = !joiningDate || joiningDate <= previousMonthEnd;
+    const previousMonthBooked = wasOnboardedInPreviousMonth && relevantRequests.some((item) => (
+      datesOverlap(item.fromDate, item.toDate, previousMonthStart, previousMonthEnd)
+    ));
+    const currentMonthBooked = relevantRequests
+      .filter((item) => datesOverlap(item.fromDate, item.toDate, monthStart, monthEnd))
+      .reduce((sum, item) => sum + Number(item.requestedDays || 0), 0);
+    const monthlyBalance = 1 + (previousMonthBooked ? 0 : 1) - currentMonthBooked;
+    return monthlyBalance <= 0;
   };
 
   const hasCasualLeaveInRange = (fromDate, toDate) => {
@@ -227,6 +299,7 @@ export default function LeaveManagement() {
     const endDate = toDate || fromDate;
 
     return requests.some((item) => (
+      Number(item.userId) === Number(currentUser?.id) &&
       conflictingLeaveTypes[category.code]?.includes(item.category?.code) &&
       ["PENDING", "APPROVED"].includes(String(item.status || "").toUpperCase()) &&
       datesOverlap(item.fromDate, item.toDate, fromDate, endDate)
@@ -252,6 +325,52 @@ export default function LeaveManagement() {
     loadCalendar();
   }, [loadCalendar]);
 
+  const refreshLeaveData = useCallback(async () => {
+    try {
+      const [requestsResponse, summaryResponse] = await Promise.all([
+        leaveService.getRequests(),
+        leaveService.getSummary(),
+      ]);
+      setRequests(normalizeList(requestsResponse));
+      setSummary(summaryResponse?.data || { categories: [], totals: {} });
+      await loadCalendar();
+    } catch (error) {
+      toast.error(error?.message || "Unable to refresh leave status.");
+    }
+  }, [loadCalendar]);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void refreshLeaveData();
+    };
+    const intervalId = window.setInterval(refreshLeaveData, 30000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [refreshLeaveData]);
+
+  const loadLeaveReports = useCallback(async () => {
+    setReportLoading(true);
+    setReportError("");
+    try {
+      const response = await leaveService.getReports();
+      setLeaveReports(normalizeList(response));
+    } catch (error) {
+      setLeaveReports([]);
+      setReportError(error?.message || "Unable to load leave reports.");
+    } finally {
+      setReportLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "reports") void loadLeaveReports();
+  }, [activeTab, loadLeaveReports]);
+
   const calendarDays = useMemo(() => {
     const firstOfMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
     const mondayOffset = (firstOfMonth.getDay() + 6) % 7;
@@ -267,11 +386,32 @@ export default function LeaveManagement() {
         dateKey,
         inCurrentMonth: date.getMonth() === calendarMonth.getMonth(),
         requests: calendarRequests.filter(
-          (request) => request.fromDate <= dateKey && request.toDate >= dateKey
+          (request) => toCalendarDateKey(request.fromDate) <= dateKey
+            && toCalendarDateKey(request.toDate) >= dateKey
         ),
       };
     });
   }, [calendarMonth, calendarRequests]);
+
+  const filteredLeaveReports = useMemo(() => leaveReports.filter((item) => {
+    const matchesEmployee = !reportFilters.employeeId || String(item.userId) === reportFilters.employeeId;
+    const matchesDepartment = !reportFilters.departmentId || String(item.departmentId) === reportFilters.departmentId;
+    const matchesLeaveType = !reportFilters.leaveType || item.leaveTypeCode === reportFilters.leaveType;
+    const matchesStatus = !reportFilters.status || item.status === reportFilters.status;
+    const matchesFrom = !reportFilters.fromDate || toCalendarDateKey(item.toDate) >= reportFilters.fromDate;
+    const matchesTo = !reportFilters.toDate || toCalendarDateKey(item.fromDate) <= reportFilters.toDate;
+    return matchesEmployee && matchesDepartment && matchesLeaveType && matchesStatus && matchesFrom && matchesTo;
+  }), [leaveReports, reportFilters]);
+
+  const reportEmployees = useMemo(
+    () => [...new Map(leaveReports.map((item) => [item.userId, item])).values()],
+    [leaveReports]
+  );
+  const reportDepartments = useMemo(
+    () => [...new Map(leaveReports.filter((item) => item.departmentId)
+      .map((item) => [item.departmentId, item.departmentName])).entries()],
+    [leaveReports]
+  );
 
   const handleDeleteRequest = async (item) => {
     if (!canDelete || deletingId) return;
@@ -335,6 +475,14 @@ export default function LeaveManagement() {
     const selectedCategory = categories.find((category) => Number(category.id) === Number(form.categoryId));
     if (selectedCategory?.code === "ON_THE_DUTY" && !form.clientName.trim()) {
       toast.error("Client name is required for On The Duty leave.");
+      return;
+    }
+    if (selectedCategory?.code === "PERMISSION" && permissionMonthStats.crossesMonth) {
+      toast.error("Permission requests must be within one calendar month.");
+      return;
+    }
+    if (selectedCategory?.code === "PERMISSION" && permissionMonthStats.exceedsLimit) {
+      toast.error(`Permission exceeds 2 hours per month. Available ${permissionMonthStats.remainingHours.toFixed(2)} hours.`);
       return;
     }
     if (selectedCategory?.code === "CASUAL_LEAVE" && hasCasualLeaveInRange(form.fromDate, form.toDate)) {
@@ -456,6 +604,18 @@ export default function LeaveManagement() {
           >
             Leave Requests
           </button>
+          {canSeeLeaveReports && (
+            <button
+              onClick={() => setActiveTab("reports")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === "reports"
+                  ? "border-b-2 border-gray-800 text-gray-900"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Leave Reports
+            </button>
+          )}
         </div>
 
         {activeTab === "calendar" && (
@@ -523,17 +683,21 @@ export default function LeaveManagement() {
                         <div className="space-y-1">
                           {day.requests.map((item) => {
                             const approved = String(item.status).toUpperCase() === "APPROVED";
+                            const leaveStatus = approved ? "Approved" : "Pending";
                             return (
                               <div
                                 key={`${day.dateKey}-${item.id}`}
-                                title={`${item.employeeName} - ${item.categoryName}${item.clientName ? ` - Client: ${item.clientName}` : ""} (${approved ? "Approved" : "Pending"})`}
+                                title={`${item.employeeName} - ${item.categoryName}${item.clientName ? ` - Client: ${item.clientName}` : ""} (${leaveStatus})`}
                                 className={`break-words rounded px-1.5 py-1 text-[10px] leading-4 sm:text-xs ${
                                   approved
                                     ? "bg-green-100 text-green-800"
                                     : "border border-dashed border-amber-500 bg-amber-50 text-amber-800"
                                 }`}
                               >
-                                {getLeaveCalendarLabel(item)}
+                                <span className="font-semibold">{getLeaveCalendarLabel(item)}</span>
+                                <span className="ml-1 inline-block whitespace-nowrap rounded bg-white/70 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide">
+                                  {leaveStatus}
+                                </span>
                               </div>
                             );
                           })}
@@ -582,21 +746,38 @@ export default function LeaveManagement() {
                 {(summary.categories || []).map((item) => (
                   <div key={item.categoryId} className="bg-white rounded-lg shadow-md p-6">
                     <h3 className="text-sm font-medium text-gray-500">{item.name}</h3>
-                    <div className="mt-2 flex justify-between items-end">
+                    {item.code === "PERMISSION" && item.monthlyBalance ? (
+                      <div className="mt-4 space-y-2 text-sm">
+                        <div className="flex justify-between"><span className="text-gray-500">Total allocation</span><span className="font-semibold">{Number(item.monthlyBalance.allocatedHours).toFixed(2)} hr</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Monthly usage limit</span><span className="font-semibold">{Number(item.monthlyBalance.usageLimitHours).toFixed(2)} hr</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Used</span><span className="font-semibold text-blue-600">{Number(item.monthlyBalance.usedHours).toFixed(2)} hr</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Pending</span><span className="font-semibold">{Number(item.monthlyBalance.pendingHours).toFixed(2)} hr</span></div>
+                        <div className="flex justify-between border-t border-gray-100 pt-2"><span className="text-gray-500">Remaining</span><span className="font-bold text-gray-900">{Number(item.monthlyBalance.remainingHours).toFixed(2)} hr</span></div>
+                      </div>
+                    ) : (
                       <div>
-                        <p className="text-xs text-gray-400">Available</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {item.unlimited ? "Unlimited" : Number(item.available).toFixed(2)}
+                        <div className="mt-2 flex justify-between items-end">
+                          <div>
+                            <p className="text-xs text-gray-400">Available</p>
+                            <p className="text-2xl font-bold text-gray-900">
+                              {item.unlimited ? "Unlimited" : Number(item.available).toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400">Booked</p>
+                            <p className="text-2xl font-bold text-blue-600">{Number(item.booked).toFixed(2)}</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-3">
+                          Allocated: {item.unlimited ? "No limit" : `${Number(item.allocated).toFixed(2)} ${item.unit === "HOUR" ? "hr" : "day"}`}
                         </p>
+                        {item.code === "CASUAL_LEAVE" && Number(item.carryForwardDays || 0) > 0 && (
+                          <p className="mt-2 text-xs font-medium text-emerald-700">
+                            Carry-forward from previous month: {Number(item.carryForwardDays).toFixed(2)} day
+                          </p>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-400">Booked</p>
-                        <p className="text-2xl font-bold text-blue-600">{Number(item.booked).toFixed(2)}</p>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-3">
-                      Allocated: {item.unlimited ? "No limit" : `${Number(item.allocated).toFixed(2)} ${item.unit === "HOUR" ? "hr" : "day"}`}
-                    </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -615,6 +796,7 @@ export default function LeaveManagement() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days/Hours</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approver</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested On</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                   </tr>
@@ -622,12 +804,14 @@ export default function LeaveManagement() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {requests.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">No leave requests found.</td>
+                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">No leave requests found.</td>
                     </tr>
                   )}
                   {requests.map((item) => {
                     const isPending = String(item.status || "").toUpperCase() === "PENDING";
                     const isDesignatedApprover = Number(item.designatedApproverId) === Number(currentUser?.id);
+                    const canApprove = isDesignatedApprover
+                      || canonicalRoles.some((role) => ["HR", "SUPER_ADMIN"].includes(role));
 
                     return (
                       <tr key={item.id} className="hover:bg-gray-50 transition-colors">
@@ -644,6 +828,14 @@ export default function LeaveManagement() {
                             {String(item.status || "").toUpperCase()}
                           </span>
                         </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {(() => {
+                            const approver = item.approver || item.designatedApprover;
+                            return approver
+                              ? `${approver.firstName || ""} ${approver.lastName || ""}`.trim() || approver.email
+                              : "Not assigned";
+                          })()}
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-700">{formatDate(item.createdAt)}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2 flex-wrap">
@@ -658,7 +850,7 @@ export default function LeaveManagement() {
                             >
                               <Eye size={14} />
                             </button>
-                            {isDesignatedApprover && isPending && (
+                            {canApprove && isPending && (
                               <>
                                 <button
                                   onClick={() => handleApproveReject(item.id, "APPROVED")}
@@ -699,6 +891,89 @@ export default function LeaveManagement() {
             </div>
           </div>
         )}
+
+        {activeTab === "reports" && canSeeLeaveReports && (
+          <section className="rounded-lg bg-white p-4 shadow-md sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Leave Reports</h2>
+                <p className="text-sm text-gray-500">Reports are limited to your assigned team or HR organization access.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadLeaveReports()}
+                disabled={reportLoading}
+                className="rounded-md bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50"
+              >
+                {reportLoading ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
+              <select aria-label="Filter by employee" value={reportFilters.employeeId} onChange={(event) => setReportFilters((current) => ({ ...current, employeeId: event.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+                <option value="">All employees</option>
+                {reportEmployees.map((employee) => <option key={employee.userId} value={employee.userId}>{employee.employeeName} {employee.employeeId ? `(${employee.employeeId})` : ""}</option>)}
+              </select>
+              <select aria-label="Filter by department" value={reportFilters.departmentId} onChange={(event) => setReportFilters((current) => ({ ...current, departmentId: event.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+                <option value="">All departments</option>
+                {reportDepartments.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+              <select aria-label="Filter by leave type" value={reportFilters.leaveType} onChange={(event) => setReportFilters((current) => ({ ...current, leaveType: event.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+                <option value="">All leave types</option>
+                {[...new Map(leaveReports.map((item) => [item.leaveTypeCode, item.leaveType])).entries()].map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+              </select>
+              <select aria-label="Filter by leave status" value={reportFilters.status} onChange={(event) => setReportFilters((current) => ({ ...current, status: event.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+                <option value="">All statuses</option>
+                {["PENDING", "APPROVED", "REJECTED", "CANCELLED"].map((status) => <option key={status} value={status}>{status}</option>)}
+              </select>
+              <input aria-label="Filter from date" type="date" value={reportFilters.fromDate} onChange={(event) => setReportFilters((current) => ({ ...current, fromDate: event.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm" />
+              <input aria-label="Filter to date" type="date" value={reportFilters.toDate} onChange={(event) => setReportFilters((current) => ({ ...current, toDate: event.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+            {reportLoading ? (
+              <p className="py-8 text-center text-sm text-gray-500">Loading leave reports...</p>
+            ) : reportError ? (
+              <p role="alert" className="py-8 text-center text-sm text-red-600">{reportError}</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-[1100px] divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <tr>
+                      <th className="px-3 py-3">Employee</th>
+                      <th className="px-3 py-3">Employee ID</th>
+                      <th className="px-3 py-3">Department</th>
+                      <th className="px-3 py-3">Leave type</th>
+                      <th className="px-3 py-3">Leave dates</th>
+                      <th className="px-3 py-3">Days / hours</th>
+                      <th className="px-3 py-3">Reason</th>
+                      <th className="px-3 py-3">Status</th>
+                      <th className="px-3 py-3">Approver</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredLeaveReports.map((item) => (
+                      <tr key={item.id}>
+                        <td className="px-3 py-3 font-medium text-gray-800">{item.employeeName}</td>
+                        <td className="px-3 py-3 text-gray-600">{item.employeeId || "-"}</td>
+                        <td className="px-3 py-3 text-gray-600">{item.departmentName || "-"}</td>
+                        <td className="px-3 py-3 text-gray-600">{item.leaveType}</td>
+                        <td className="px-3 py-3 text-gray-600">{formatDate(item.fromDate)} - {formatDate(item.toDate)}</td>
+                        <td className="px-3 py-3 text-gray-600">{item.unit === "HOUR" ? `${Number(item.requestedHours).toFixed(2)} hr` : `${Number(item.requestedDays).toFixed(2)} day`}</td>
+                        <td className="max-w-56 whitespace-pre-wrap px-3 py-3 text-gray-600">{item.reason || "-"}</td>
+                        <td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${statusClass(item.status)}`}>{item.status}</span></td>
+                        <td className="px-3 py-3 text-gray-600">
+                          {item.approverName || "Not assigned"}
+                          {item.approverEmail && <div className="text-xs text-gray-400">{item.approverEmail}</div>}
+                        </td>
+                      </tr>
+                    ))}
+                    {!filteredLeaveReports.length && (
+                      <tr><td colSpan={9} className="px-3 py-8 text-center text-gray-500">No leave report records match these filters.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       {showApplyModal && (
@@ -716,11 +991,23 @@ export default function LeaveManagement() {
                 {categoryBalance && (
                   <div className="mb-4 rounded-md bg-blue-50 border border-blue-100 p-3 text-sm text-blue-900">
                     <div>Category balance: {categoryBalance.name}</div>
+                    {isPermissionLeave ? (
+                      <>
+                        <div>Total allocation: {permissionMonthStats.allocatedHours.toFixed(2)} hr</div>
+                        <div>Monthly usage limit: {permissionMonthStats.usageLimitHours.toFixed(2)} hr</div>
+                        <div>Used: {permissionMonthStats.usedHours.toFixed(2)} hr | Pending: {permissionMonthStats.pendingHours.toFixed(2)} hr</div>
+                        <div>Remaining this month: {permissionMonthStats.remainingHours.toFixed(2)} hr</div>
+                      </>
+                    ) : (
                     <div>
                       Available today: {categoryBalance.unlimited
                         ? "No limit"
                         : `${Number(categoryBalance.available).toFixed(2)} ${categoryBalance.unit === "HOUR" ? "hr" : "day"}`}
                     </div>
+                    )}
+                    {categoryBalance.code === "CASUAL_LEAVE" && Number(categoryBalance.carryForwardDays || 0) > 0 && (
+                      <div>Carry-forward balance this month: {Number(categoryBalance.carryForwardDays).toFixed(2)} day</div>
+                    )}
                     <div>Taken: {Number(categoryBalance.taken).toFixed(2)} | Pending: {Number(categoryBalance.pending).toFixed(2)}</div>
                   </div>
                 )}
@@ -860,6 +1147,14 @@ export default function LeaveManagement() {
                       />
                     </div>
                   )}
+                  {isPermissionLeave && permissionMonthStats.exceedsLimit && (
+                    <p className="text-sm text-red-600">
+                      This request exceeds the {permissionMonthStats.usageLimitHours.toFixed(2)} hour monthly limit. Remaining: {permissionMonthStats.remainingHours.toFixed(2)} hr.
+                    </p>
+                  )}
+                  {isPermissionLeave && permissionMonthStats.crossesMonth && (
+                    <p className="text-sm text-red-600">Permission requests must be within one calendar month.</p>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Reason<span className="text-red-500">*</span></label>
@@ -873,7 +1168,11 @@ export default function LeaveManagement() {
 
                   <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
                     <button type="button" onClick={() => setShowApplyModal(false)} className="px-6 py-2 border border-gray-300 rounded-md text-gray-700">Cancel</button>
-                    <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Submit</button>
+                    <button
+                      type="submit"
+                      disabled={isPermissionLeave && (permissionMonthStats.exceedsLimit || permissionMonthStats.crossesMonth)}
+                      className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                    >Submit</button>
                   </div>
                 </form>
               </div>
@@ -922,6 +1221,28 @@ export default function LeaveManagement() {
                   <p className="text-gray-500">Requested On</p>
                   <p className="text-gray-900">{formatDate(selectedRequest.createdAt)}</p>
                 </div>
+                <div>
+                  <p className="text-gray-500">Approved / reviewed by</p>
+                  <p className="text-gray-900">
+                    {selectedRequest.approver
+                      ? `${selectedRequest.approver.firstName || ""} ${selectedRequest.approver.lastName || ""}`.trim() || selectedRequest.approver.email
+                      : selectedRequest.designatedApprover
+                        ? `${selectedRequest.designatedApprover.firstName || ""} ${selectedRequest.designatedApprover.lastName || ""}`.trim() || selectedRequest.designatedApprover.email
+                        : "Not assigned"}
+                  </p>
+                </div>
+                {selectedRequest.approvedAt && (
+                  <div>
+                    <p className="text-gray-500">Approval date</p>
+                    <p className="text-gray-900">{formatDate(selectedRequest.approvedAt)}</p>
+                  </div>
+                )}
+                {selectedRequest.approverRemarks && (
+                  <div className="col-span-2">
+                    <p className="text-gray-500">Approver remarks</p>
+                    <p className="text-gray-900 whitespace-pre-wrap">{selectedRequest.approverRemarks}</p>
+                  </div>
+                )}
                 <div className="col-span-2">
                   <p className="text-gray-500">Reason</p>
                   <p className="text-gray-900 whitespace-pre-wrap">{selectedRequest.reason || "-"}</p>

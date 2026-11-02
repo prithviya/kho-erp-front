@@ -5,7 +5,7 @@ import { isExcludedSuperadmin } from '../../utils/employeeOptions';
 import departmentService from '../../services/department.service';
 import userManagementService from '../../services/userManagement.service';
 import { toast } from 'react-toastify';
-import {Eye, Edit, Rocket, Trash2} from 'lucide-react';
+import {CheckCircle2, Eye, Edit, Rocket, Trash2} from 'lucide-react';
 import { canDeleteRecords } from '../../utils/auth';
 import PhoneInput, { parsePhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -55,6 +55,44 @@ const EmployeeOnboarding = () => {
   };
   const isValidCountryCode = (value) => /^\+\d{1,4}$/.test(String(value || '').trim());
   const isValidNumericOnly = (value) => sanitizeNumericOnly(value).length > 0 && sanitizeNumericOnly(value) === String(value ?? '').replace(/\s+/g, '');
+
+  const normalizeErpRoleForDisplay = (value) => {
+    const role = String(value || '').trim().toLowerCase();
+    if (role === 'team member' || role === 'team_member') return 'TEAM_MEMBER';
+    if (role === 'manager') return 'MANAGER';
+    if (role === 'crm') return 'CRM';
+    return String(value || '').trim();
+  };
+
+  const normalizeHireSourceForDisplay = (value) => {
+    const source = String(value || '').trim().toLowerCase();
+    if (source === 'referal' || source === 'referral') return 'Referral';
+    if (source === 'website') return 'Website';
+    if (source === 'direct') return 'Walk-in';
+    if (source === 'linkedin') return 'LinkedIn';
+    if (source === 'naukri') return 'Naukri';
+    if (source === 'walk-in' || source === 'walkin') return 'Walk-in';
+    return String(value || '').trim();
+  };
+
+  const normalizeDepartmentForDisplay = (value) => {
+    const rawValue = String(value ?? '').trim();
+    if (!rawValue) return '';
+
+    const department = departmentOptions.find((option) =>
+      String(option.id) === rawValue ||
+      String(option.name).toLowerCase() === rawValue.toLowerCase()
+    );
+
+    return department?.name || rawValue;
+  };
+
+  const normalizeLoadedFormData = (data) => ({
+    ...data,
+    erpRole: normalizeErpRoleForDisplay(data?.erpRole),
+    sourceOfHire: normalizeHireSourceForDisplay(data?.sourceOfHire),
+    department: normalizeDepartmentForDisplay(data?.department),
+  });
 
   // Country-code picker: same react-phone-number-input pattern used on the Lead form.
   const getPhoneCountryCode = (value) => {
@@ -477,12 +515,15 @@ const EmployeeOnboarding = () => {
     try {
       const response = await departmentService.getDepartments();
       const departments = Array.isArray(response?.data) ? response.data : [];
-      const names = departments
-        .map((department) => String(department?.name || '').trim())
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b));
+      const options = departments
+        .map((department) => ({
+          id: department?.id,
+          name: String(department?.name || '').trim(),
+        }))
+        .filter((department) => department.name)
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-      setDepartmentOptions(names);
+      setDepartmentOptions(options);
     } catch (error) {
       console.error('Error fetching departments:', error);
       setDepartmentOptions([]);
@@ -563,15 +604,73 @@ const EmployeeOnboarding = () => {
       setLoading(true);
       const response = await request('/cif-submissions', { method: 'GET' });
       if (response?.success) {
+        let employeeRecords = [];
+        try {
+          const employeeResponse = await request('/employees', { method: 'GET' });
+          employeeRecords = Array.isArray(employeeResponse?.data) ? employeeResponse.data : [];
+        } catch (error) {
+          console.error('Error fetching employees for onboarding status:', error);
+        }
+
+        let onboardingRecords = [];
+        try {
+          const onboardingResponse = await request('/onboardings/record', { method: 'GET' });
+          onboardingRecords = Array.isArray(onboardingResponse?.data) ? onboardingResponse.data : [];
+        } catch (error) {
+          console.error('Error fetching onboarding records:', error);
+        }
+
         const selected = (response.data || []).filter((c) => {
           const s = String(c?.status || '').trim().toLowerCase();
           return s === 'selected';
         });
 
+        const sanitizeDigits = (val) => String(val || '').replace(/\D/g, '').slice(-10);
+
         const mappedEmployees = selected
           .map(c => {
             const candidateId = resolveCandidateId(c);
             if (!candidateId) return null;
+
+            const candidateEmail = String(c.email || '').trim().toLowerCase();
+            const candidateName = String(c.fullName || '').trim().toLowerCase();
+            const candidatePhone = sanitizeDigits(c.phoneNumber);
+
+            const candidateOnboard = onboardingRecords.find(
+              (o) => Number(o.cifid || o.candidateId) === Number(candidateId)
+            );
+            const onboardForm = candidateOnboard?.formData || {};
+            const formOffEmail = String(onboardForm.officialEmail || '').trim().toLowerCase();
+            const formPersEmail = String(onboardForm.personalEmail || '').trim().toLowerCase();
+            const formEmpCode = String(onboardForm.employeeId || '').trim().toUpperCase();
+            const formPhone = sanitizeDigits(onboardForm.personalPhone || onboardForm.officePhone);
+
+            const isAlreadyOnboarded = employeeRecords.some((employee) => {
+              const empEmail = String(employee?.email || '').trim().toLowerCase();
+              const empName = String(employee?.fullName || '').trim().toLowerCase();
+              const empPhone = sanitizeDigits(employee?.phone);
+              const empCode = String(employee?.employeeCode || employee?.employeeId || '').trim().toUpperCase();
+
+              const emailMatch = Boolean(
+                (candidateEmail && empEmail === candidateEmail) ||
+                (formOffEmail && empEmail === formOffEmail) ||
+                (formPersEmail && empEmail === formPersEmail)
+              );
+
+              const phoneMatch = Boolean(
+                (candidatePhone && empPhone && candidatePhone === empPhone) ||
+                (formPhone && empPhone && formPhone === empPhone)
+              );
+
+              const codeMatch = Boolean(formEmpCode && empCode && formEmpCode === empCode);
+
+              const nameMatch = Boolean(
+                candidateName && empName &&
+                (candidateName === empName || candidateName.includes(empName) || empName.includes(candidateName))
+              );
+
+              return emailMatch || phoneMatch || codeMatch || nameMatch;
+            });
 
             return {
               id: candidateId,
@@ -583,10 +682,12 @@ const EmployeeOnboarding = () => {
               DOB: c.DOB || c.dob || 'N/A',
               department: 'N/A',
               status: 'Awaiting Onboarding',
+              isAlreadyOnboarded,
               rawCandidate: c
             };
           })
-          .filter(Boolean);
+          .filter(Boolean)
+          .filter(candidate => !candidate.isAlreadyOnboarded);
         
         setAwaitingEmployees(mappedEmployees);
       }
@@ -815,8 +916,9 @@ const EmployeeOnboarding = () => {
           ).trim().toUpperCase()
         );
         const mergedData = mergeFormDataWithFallback(response.data.formData, fallbackData);
-        setFormData(mergedData);
-        syncPermanentAddressFlag(mergedData);
+        const displayData = normalizeLoadedFormData(mergedData);
+        setFormData(displayData);
+        syncPermanentAddressFlag(displayData);
         return;
       }
     } catch (error) {
@@ -1639,8 +1741,8 @@ const EmployeeOnboarding = () => {
             >
               <option value="">Select Department</option>
               {departmentOptions.length > 0 ? (
-                departmentOptions.map((departmentName) => (
-                  <option key={departmentName} value={departmentName}>{departmentName}</option>
+                departmentOptions.map((department) => (
+                  <option key={department.id} value={department.name}>{department.name}</option>
                 ))
               ) : (
                 <>
@@ -2673,60 +2775,68 @@ const EmployeeOnboarding = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {awaitingEmployees.map((employee) => (
-                    <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-gray-900">{employee.name}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-gray-700">{employee.designation}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-gray-700">{employee.group}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-gray-700">{employee.email}</p>
-                        {employee.phone && (
-                          <p className="text-xs text-gray-500">{employee.phone}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            title="View employee"
-                            onClick={() => handleViewEmployee(employee)}
-                            className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors"
-                          >
-                            <Eye size={16} />
-                          </button>
-                          <button
-                            title="Edit employee"
-                            onClick={() => handleEditEmployee(employee)}
-                            className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            title="Add to employees"
-                            onClick={() => handleAddEmployee(employee)}
-                            className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors"
-                          >
-                            <Rocket size={16} />
-                          </button>
-                          {canDelete && (
-                            <button
-                              onClick={() => handleDeleteEmployee(employee)}
-                              disabled={deletingId === employee.id}
-                              title="Delete"
-                              className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </div>
+                  {awaitingEmployees.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-4 py-8 text-center text-sm text-gray-500">
+                        No candidates awaiting onboarding. All selected candidates are already onboarded.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    awaitingEmployees.map((employee) => (
+                      <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-medium text-gray-900">{employee.name}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-gray-700">{employee.designation}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-gray-700">{employee.group}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-gray-700">{employee.email}</p>
+                          {employee.phone && (
+                            <p className="text-xs text-gray-500">{employee.phone}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <button
+                              title="View employee"
+                              onClick={() => handleViewEmployee(employee)}
+                              className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              title="Edit employee"
+                              onClick={() => handleEditEmployee(employee)}
+                              className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              title="Add to employees"
+                              onClick={() => handleAddEmployee(employee)}
+                              className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors"
+                            >
+                              <Rocket size={16} />
+                            </button>
+                            {canDelete && (
+                              <button
+                                onClick={() => handleDeleteEmployee(employee)}
+                                disabled={deletingId === employee.id}
+                                title="Delete"
+                                className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

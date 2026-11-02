@@ -2,6 +2,7 @@ import { request } from "./apiClient";
 
 function buildEmployeeFormData(payload) {
   const formData = new FormData();
+  formData.append("employeeCode", payload.employeeCode || "");
   formData.append("jobPosition", payload.jobPosition || "");
   formData.append("fullName", payload.fullName || "");
   formData.append("email", payload.email || "");
@@ -13,6 +14,10 @@ function buildEmployeeFormData(payload) {
   formData.append("portfolioLink", payload.portfolioLink || "");
   formData.append("consent", String(Boolean(payload.consent)));
   formData.append("status", payload.status || "Onboarding");
+  formData.append("joiningDate", payload.joiningDate || "");
+  formData.append("salary", payload.salary || "");
+  formData.append("designation", payload.designation || "");
+  formData.append("departmentId", payload.departmentId || "");
   formData.append("education", JSON.stringify(payload.education || []));
   formData.append("workExperience", JSON.stringify(payload.workExperience || []));
   formData.append("skills", JSON.stringify(payload.skills || []));

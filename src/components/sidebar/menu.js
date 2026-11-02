@@ -195,15 +195,15 @@ const menu = [
                 roles:["SUPER_ADMIN"]
             },
             {
-                name: "Ventor Management",
-                title: "Ventor Management",
+                name: "Vendor Management",
+                title: "Vendor Management",
                 icon: RotateCwSquare,
                 path: "/vendor-overview",
                 permissionKey: "vendor_management.view",
                 roles: ["SUPER_ADMIN", "HR"]
             },
             // {
-            //     name: "Ventor Assigned",
+            //     name: "Assigned",
             //     title: "Ventor Assigned",
             //     icon: RotateCwSquare,   
             //     path: "/ventor-assigned",

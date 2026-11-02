@@ -262,6 +262,32 @@ const Applied = () => {
       return normalizeStatus(app.status) === filterStatus.toLowerCase();
     });
 
+  const applicationPersonal = selectedApplication?.personal || selectedApplication || {};
+  const applicationValue = (...keys) => {
+    for (const key of keys) {
+      const value = applicationPersonal?.[key];
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        return value;
+      }
+    }
+    return '-';
+  };
+
+  const applicationArray = (...keys) => {
+    for (const key of keys) {
+      if (Array.isArray(selectedApplication?.[key])) {
+        return selectedApplication[key];
+      }
+    }
+    return [];
+  };
+
+  const academics = applicationArray('academics', 'education');
+  const skills = applicationArray('skills');
+  const softwares = applicationArray('softwares', 'softwareTools');
+  const languages = applicationArray('languages');
+  const references = applicationArray('references');
+
   const statusOptions = [
     {
       value: 'all', label: 'All Applications',
@@ -494,72 +520,87 @@ const Applied = () => {
                   </div>
                   <div className="px-6 py-6">
                     <div className="mb-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-3"> Personal Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-3">PERSONAL INFORMATION</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 bg-gray-50 p-4 rounded-lg">
                         <div>
-                          <p className="text-sm text-black-500"> Full Name </p>
-                          <p className="text-sm text-gray-500"> { selectedApplication .personal ?.fullName || selectedApplication.fullName || '-' } </p>
+                          <p className="text-sm text-gray-700">JOB POSITION (DESIGNATION)</p>
+                          <p className="text-sm text-gray-500">{getJobTitle(selectedApplication)}</p>
                         </div> 
                         <div>
-                          <p className="text-sm  text-black-500"> Email </p>
-                          <p className="text-sm text-gray-500"> { selectedApplication .personal ?.email || selectedApplication.email || '-' } </p>
+                          <p className="text-sm text-gray-700">FULL NAME</p>
+                          <p className="text-sm text-gray-500">{applicationValue('fullName')}</p>
                         </div>  
                         <div>
-                          <p className="text-sm text-black-500"> Gender </p>
-                          <p className="text-sm text-gray-500"> { selectedApplication .personal ?.gender || selectedApplication.gender || '-' } </p>
+                          <p className="text-sm text-gray-700">EMAIL</p>
+                          <p className="text-sm text-gray-500">{applicationValue('email')}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-black-500"> Phone  </p>
-                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.phoneNumber ||  selectedApplication.phoneNumber ||  '-' } </p>
+                          <p className="text-sm text-gray-700">PHONE NUMBER</p>
+                          <p className="text-sm text-gray-500">{applicationValue('phoneNumber', 'phone')}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-black-500"> DOB  </p>
-                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.dob ||  selectedApplication.dob ||  '-' } </p>
+                          <p className="text-sm text-gray-700">DATE OF BIRTH</p>
+                          <p className="text-sm text-gray-500">{applicationValue('DOB', 'dob')}</p>
                         </div> 
                         <div>
-                          <p className="text-sm text-black-500"> Marital Status  </p>
-                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.maritalStatus ||  selectedApplication.maritalStatus ||  '-' } </p>
+                          <p className="text-sm text-gray-700">ADDRESS</p>
+                          <p className="text-sm text-gray-500">{applicationValue('address', 'currentAddress')}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-black-500"> Address </p>
-                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.currentAddress ||  selectedApplication.currentAddress ||  '-' } </p> 
-                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.currentCity ||  selectedApplication.currentCity ||  '-' } </p>
-                          <p className="text-sm text-gray-500"> { selectedApplication  .personal  ?.currentPincode ||  selectedApplication.currentPincode ||  '-' } </p>
+                          <p className="text-sm text-gray-700">CITY</p>
+                          <p className="text-sm text-gray-500">{applicationValue('city', 'currentCity')}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-black-500">Portfolio Link</p>
-                            <a href={ selectedApplication?.personal?.portfolioLink || selectedApplication?.portfolioLink || "#" } target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500" > 
-                              {selectedApplication?.personal?.portfolioLink || selectedApplication?.portfolioLink || "-"}
+                          <p className="text-sm text-gray-700">STATE</p>
+                          <p className="text-sm text-gray-500">{applicationValue('state', 'currentState')}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-700">PIN CODE</p>
+                          <p className="text-sm text-gray-500">{applicationValue('pinCode', 'pincode', 'currentPincode')}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-700">MARITAL STATUS</p>
+                          <p className="text-sm text-gray-500">{applicationValue('maritalStatus', 'maritualStatus')}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-700">GENDER</p>
+                          <p className="text-sm text-gray-500">{applicationValue('gender')}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-700">PORTFOLIO LINK</p>
+                            <a href={applicationValue('portfolioLink') === '-' ? '#' : applicationValue('portfolioLink')} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 break-all" > 
+                              {applicationValue('portfolioLink')}
                             </a>
                         </div>
                         <div>
-                          <p className="text-sm  text-black-500"> Applied Position </p> 
-                          <p className="text-sm text-gray-500"> {getJobTitle( selectedApplication )} </p>
-                          {selectedApplication.jobid && ( <p className="text-xs text-gray-400 mt-1"> Job ID:{' '} { selectedApplication.jobid } </p> )}
+                          <p className="text-sm text-gray-700">RESUME</p>
+                          <p className="text-sm text-gray-500">
+                            {applicationValue('resumeOriginalName', 'resumeName', 'resume') === '-' ? 'Not uploaded' : applicationValue('resumeOriginalName', 'resumeName', 'resume')}
+                          </p>
                         </div>
                         <div>
-                          <p className="text-sm text-black-500"> Status </p>
+                          <p className="text-sm text-gray-700">STATUS</p>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge( selectedApplication.status )}`} > { selectedApplication.status || 'Pending' }
                           </span>
                         </div>
                         <div>
-                          <p className="text-sm text-black-500"> Applied Date </p>
-                          <p className="text-gray-500 text-sm"> {formatDate( selectedApplication.createdAt || selectedApplication.appliedDate )}
-                          </p>
+                          <p className="text-sm text-gray-700">APPLIED DATE</p>
+                          <p className="text-gray-500 text-sm">{formatDate(selectedApplication.createdAt || selectedApplication.appliedDate)}</p>
                         </div>
                       </div>
                     </div>
 
-                    {selectedApplication.academics && selectedApplication.academics.length > 0 && (
+                    {academics.length > 0 && (
                       <div className="mb-6">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-3"> Education </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {selectedApplication.academics.map(
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">PROFESSIONAL &amp; ACADEMIC</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {academics.map(
                             (edu, idx) => (
                               <div key={idx} className="bg-gray-50 p-3 rounded-lg">
-                                <p className="text-black-500 text-sm"> {edu.degree} </p>
-                                <p className="text-sm text-gray-600"> {edu.university} </p>
-                                <p className="text-sm text-gray-500"> Year:{' '} { edu.graduationYear } {' | '} Grade:{' '} {edu.grade} </p>
+                                <p className="text-gray-700 text-sm">{edu.degree || edu.qualification || '-'}</p>
+                                <p className="text-sm text-gray-600">{edu.university || edu.institution || '-'}</p>
+                                <p className="text-sm text-gray-500">Year: {edu.graduationYear || edu.year || '-'} | Grade: {edu.grade || edu.percentage || '-'}</p>
+                                {edu.city && <p className="text-sm text-gray-500">City: {edu.city}</p>}
                               </div>
                             )
                           )}
@@ -569,7 +610,7 @@ const Applied = () => {
 
                     {selectedApplication.experiences && selectedApplication.experiences.length > 0 && (
                       <div className="mb-6">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-3"> Work Experience </h3>
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">WORK EXPERIENCE</h3>
                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           {selectedApplication.experiences.map((exp, idx) => (
                             <div key={idx} className="border border-gray-200 rounded-lg p-3" >
@@ -582,14 +623,14 @@ const Applied = () => {
                       </div>
                     )}
 
-                    {selectedApplication.skills && selectedApplication.skills.length > 0 && (
+                    {skills.length > 0 && (
                       <div className="mb-6 ">
                         <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                          Skills
+                          SKILLS &amp; TRAINING
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {selectedApplication.skills.map((skill, idx) => (
+                          {skills.map((skill, idx) => (
                             <div
                               key={idx}
                               className="border border-gray-200 rounded-lg p-3"
@@ -608,6 +649,51 @@ const Applied = () => {
                                 <span className="font-semibold">Provider:</span>{" "}
                                 {skill.provider}
                               </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {softwares.length > 0 && (
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">SOFTWARE &amp; TOOLS PROFICIENCY</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {softwares.map((tool, idx) => (
+                            <div key={idx} className="border border-gray-200 rounded-lg p-3">
+                              <p className="text-sm text-gray-800">{tool.tools || tool.name || '-'}</p>
+                              <p className="text-sm text-gray-500">Proficiency: {tool.levels || tool.proficiency || '-'}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {languages.length > 0 && (
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">LANGUAGE PROFICIENCY</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {languages.map((language, idx) => (
+                            <div key={idx} className="border border-gray-200 rounded-lg p-3">
+                              <p className="text-sm text-gray-800">{language.language || '-'}</p>
+                              <p className="text-sm text-gray-500">Speak: {language.Speak || language.speak || '-'}</p>
+                              <p className="text-sm text-gray-500">Read: {language.Read || language.read || '-'}</p>
+                              <p className="text-sm text-gray-500">Write: {language.Write || language.write || '-'}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {references.length > 0 && (
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">REFERENCE</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {references.map((reference, idx) => (
+                            <div key={idx} className="border border-gray-200 rounded-lg p-3">
+                              <p className="text-sm text-gray-800">{reference.referenceName || reference.name || '-'}</p>
+                              <p className="text-sm text-gray-500">{reference.referenceEmail || reference.email || '-'}</p>
+                              <p className="text-sm text-gray-500">{reference.referencePhone || reference.phone || '-'}</p>
                             </div>
                           ))}
                         </div>

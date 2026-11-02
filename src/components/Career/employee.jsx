@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { request } from '../../services/apiClient';
 import employeeService from '../../services/employee.service';
-import { canDeleteRecords } from '../../utils/auth';
-import {X, Eye, Edit, Trash } from 'lucide-react'
+import { canDeleteRecords, hasAnyRole } from '../../utils/auth';
+import {CheckCircle2, X, Eye, Edit, Trash } from 'lucide-react'
 
 const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
@@ -22,11 +22,100 @@ const getEmployeeDocumentDownloadUrl = (doc) => {
   return `${API_ROOT_URL}/${rawUrl}`;
 };
 
+const normalizeJsonArray = (value) => {
+  let parsed = value;
+
+  for (let attempt = 0; attempt < 2 && typeof parsed === 'string'; attempt += 1) {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return [];
+    }
+  }
+
+  return Array.isArray(parsed) ? parsed : [];
+};
+
+const readableKey = (key) => String(key)
+  .replace(/([a-z])([A-Z])/g, '$1 $2')
+  .replace(/[_-]+/g, ' ')
+  .replace(/^./, (character) => character.toUpperCase());
+
+const formatArrayForTextarea = (value) => normalizeJsonArray(value).map((item) => {
+  if (item && typeof item === 'object' && !Array.isArray(item)) {
+    return Object.entries(item)
+      .map(([key, entryValue]) => `${readableKey(key)}: ${String(entryValue ?? '')}`)
+      .join(' | ');
+  }
+
+  return String(item ?? '');
+}).join('\n');
+
+const parseArrayFromTextarea = (value, fieldName) => {
+  const lines = String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.map((line) => {
+    if (!line.includes(': ')) return line;
+
+    return Object.fromEntries(
+      line.split(' | ').map((entry) => {
+        const separatorIndex = entry.indexOf(': ');
+        if (separatorIndex === -1) {
+          throw new Error(`${fieldName} contains an invalid entry.`);
+        }
+
+        const key = entry.slice(0, separatorIndex).trim();
+        const entryValue = entry.slice(separatorIndex + 2).trim();
+        if (!key) throw new Error(`${fieldName} contains an invalid entry.`);
+        const keyParts = key.split(/\s+/).filter(Boolean);
+        const normalizedKey = keyParts
+          .map((part, index) => index === 0
+            ? part.toLowerCase()
+            : `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`)
+          .join('');
+        return [normalizedKey, entryValue];
+      })
+    );
+  });
+};
+
+const formatArrayForView = (value) => {
+  const items = normalizeJsonArray(value);
+  if (!items.length) return '-';
+  const hiddenKeys = new Set(['id', 'candidateid', 'cifid', 'createdat', 'updatedat', 'deletedat']);
+
+  return items.map((item, index) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const visibleEntries = Object.entries(item)
+        .filter(([key]) => !hiddenKeys.has(key.toLowerCase()));
+      if (!visibleEntries.length) return null;
+      return (
+        <div key={index} className="rounded-md bg-gray-50 px-3 py-2">
+          {visibleEntries.map(([key, entryValue]) => (
+            <p key={key} className="text-sm text-gray-700">
+              <span className="font-medium text-gray-500">{readableKey(key)}:</span>{' '}
+              {typeof entryValue === 'object' && entryValue !== null
+                ? formatArrayForView([entryValue])
+                : String(entryValue ?? '-')}
+            </p>
+          ))}
+        </div>
+      );
+    }
+
+    return <p key={index} className="text-sm text-gray-700">{String(item)}</p>;
+  });
+};
+
 const Employee = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const canDelete = canDeleteRecords('employee');
+  const canEdit = hasAnyRole(['MANAGER', 'HR', 'SUPER_ADMIN']);
 
   const [selectedDepartment, setSelectedDepartment] = useState('All Positions');
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,6 +135,22 @@ const Employee = () => {
     doj: '',
     status: 'Active',
     userAccount: false,
+    employeeId: '',
+    portfolioLink: '',
+    pinCode: '',
+    gender: '',
+    consent: false,
+    education: '[]',
+    workExperience: '[]',
+    skills: '[]',
+    softwareTools: '[]',
+    languages: '[]',
+    references: '[]',
+    joiningDate: '',
+    salary: '',
+    designation: '',
+    departmentId: '',
+    resume: null,
   });
 
   const departments = useMemo(() => {
@@ -90,7 +195,11 @@ const Employee = () => {
     userAccount: false,
     phone: employee.phone,
     city: employee.city,
-    salary: formatSalary(onboardingData.currentSalary),
+    salary: formatSalary(Number(onboardingData.currentSalary) * 12),
+    salaryValue: onboardingData.currentSalary || '',
+    joiningDate: onboardingData.dateOfJoining || '',
+    designation: onboardingData.designation || '',
+    departmentId: onboardingData.department || '',
     original: employee,
   });
 
@@ -184,6 +293,8 @@ const Employee = () => {
   };
 
   const handleEdit = (employee, index) => {
+    if (!canEdit) return;
+    const original = employee.original || {};
     setSelectedEmployee(employee);
     setEditIndex(index);
     setFormData({
@@ -192,10 +303,25 @@ const Employee = () => {
       department: employee.department,
       group: employee.group,
       head: employee.phone || '',
-      dob: employee.dob,
+      dob: original.dateOfBirth || '',
       doj: employee.doj,
       status: employee.status,
       userAccount: employee.userAccount,
+      employeeId: employee.employeeId,
+      portfolioLink: original.portfolioLink || '',
+      pinCode: original.pinCode || '',
+      gender: original.gender || '',
+      consent: Boolean(original.consent),
+      education: formatArrayForTextarea(original.education),
+      workExperience: formatArrayForTextarea(original.workExperience),
+      skills: formatArrayForTextarea(original.skills),
+      softwareTools: formatArrayForTextarea(original.softwareTools),
+      languages: formatArrayForTextarea(original.languages),
+      references: formatArrayForTextarea(original.references),
+      joiningDate: employee.joiningDate || '',
+      salary: employee.salaryValue || '',
+      designation: employee.designation || '',
+      departmentId: employee.departmentId || '',
     });
     setShowEditModal(true);
   };
@@ -204,36 +330,42 @@ const Employee = () => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : type === 'file' ? e.target.files?.[0] || null : value
     }));
   };
 
   const handleUpdate = (e) => {
     e.preventDefault();
+    if (!canEdit) return;
     const updateRecord = async () => {
       try {
         const employee = employees[editIndex]?.original;
         if (!employee) return;
+        const arrayFields = ['education', 'workExperience', 'skills', 'softwareTools', 'languages', 'references'];
+        const parsedArrays = Object.fromEntries(arrayFields.map((field) => [
+          field,
+          parseArrayFromTextarea(formData[field], field),
+        ]));
         await employeeService.update(employee.id, {
           ...employee,
+          employeeCode: formData.employeeId,
           fullName: formData.name,
           email: formData.email,
           jobPosition: formData.department,
           city: formData.group,
-          dateOfBirth: employee.dateOfBirth,
+          dateOfBirth: formData.dob,
           phone: formData.head,
-          pinCode: employee.pinCode,
-          gender: employee.gender,
-          portfolioLink: employee.portfolioLink,
-          education: employee.education,
-          workExperience: employee.workExperience,
-          skills: employee.skills,
-          softwareTools: employee.softwareTools,
-          languages: employee.languages,
-          references: employee.references,
-          consent: employee.consent,
+          pinCode: formData.pinCode,
+          gender: formData.gender,
+          portfolioLink: formData.portfolioLink,
+          ...parsedArrays,
+          consent: formData.consent,
           status: formData.status,
-          resume: null,
+          joiningDate: formData.joiningDate,
+          salary: formData.salary,
+          designation: formData.designation,
+          departmentId: formData.departmentId,
+          resume: formData.resume,
         });
         toast.success('Employee updated successfully.');
         await loadEmployees();
@@ -315,7 +447,7 @@ const Employee = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Details</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position & Location</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salary</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CTA</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                 </tr>
@@ -359,9 +491,18 @@ const Employee = () => {
                         </p>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={getStatusBadge(employee.status)}>
-                          {employee.status}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={getStatusBadge(employee.status)}>
+                            {employee.status}
+                          </span>
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700"
+                            title="Already onboarded"
+                          >
+                            <CheckCircle2 size={13} />
+                            Onboarded
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
@@ -372,13 +513,13 @@ const Employee = () => {
                           >
                             <Eye size={16} />
                           </button>
-                          <button
+                          {canEdit && <button
                             title="Edit employee"
                             onClick={() => handleEdit(employee, index)}
                             className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
                           >
                             <Edit size={16} />
-                          </button>
+                          </button>}
                           {canDelete && (
                             <button
                               title="Delete employee"
@@ -491,6 +632,19 @@ const Employee = () => {
                     </p>
                   </div>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 mt-6 border-t border-gray-200">
+                  {[
+                    ['education', 'Education'],
+                    ['workExperience', 'Work Experience'],
+                    ['softwareTools', 'Software Tools'],
+                    ['references', 'References'],
+                  ].map(([field, label]) => (
+                    <div key={field}>
+                      <label className="text-sm font-medium text-gray-500">{label}</label>
+                      <div className="mt-1 space-y-2">{formatArrayForView(selectedEmployee.original?.[field])}</div>
+                    </div>
+                  ))}
+                </div>
                 <div className="pt-6 mt-6 border-t border-gray-200">
                   <h3 className="text-md font-semibold text-gray-800 mb-3">Documents</h3>
                   {loadingDocuments ? (
@@ -583,6 +737,19 @@ const Employee = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Employee ID <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="employeeId"
+                        value={formData.employeeId}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Full Name <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -666,26 +833,63 @@ const Employee = () => {
                         Date of Birth
                       </label>
                       <input
-                        type="text"
+                        type="date"
                         name="dob"
                         value={formData.dob}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
-                        placeholder="dd mmm yyyy"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Submitted On
+                        Joining Date
                       </label>
                       <input
-                        type="text"
-                        name="doj"
-                        value={formData.doj}
+                        type="date"
+                        name="joiningDate"
+                        value={formData.joiningDate}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
-                        placeholder="dd mmm yyyy"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                      <input type="text" name="designation" value={formData.designation} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Department ID</label>
+                      <input type="number" min="1" name="departmentId" value={formData.departmentId} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Salary</label>
+                      <input type="number" min="0" name="salary" value={formData.salary} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent" />
+                    </div>
+                    {[
+                      ['pinCode', 'PIN Code'],
+                      ['gender', 'Gender'],
+                      ['portfolioLink', 'Portfolio Link'],
+                    ].map(([name, label]) => (
+                      <div key={name}>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                        <input type="text" name={name} value={formData[name]} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent" />
+                      </div>
+                    ))}
+                    {[
+                      ['education', 'Education'],
+                      ['workExperience', 'Work Experience'],
+                      ['skills', 'Skills'],
+                      ['softwareTools', 'Software Tools'],
+                      ['languages', 'Languages'],
+                      ['references', 'References'],
+                    ].map(([name, label]) => (
+                      <div key={name} className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                        <textarea name={name} value={formData[name]} onChange={handleInputChange} rows={3} placeholder={`Enter ${label.toLowerCase()}, one item per line`} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent text-sm" />
+                      </div>
+                    ))}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Resume</label>
+                      <input type="file" name="resume" onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
                     </div>
                     <div className="md:col-span-2">
                       <label className="flex items-center">
@@ -697,6 +901,16 @@ const Employee = () => {
                           className="w-4 h-4 text-gray-700 border-gray-300 rounded focus:ring-gray-400"
                         />
                         <span className="ml-2 text-sm text-gray-700">User account linked</span>
+                      </label>
+                      <label className="flex items-center mt-3">
+                        <input
+                          type="checkbox"
+                          name="consent"
+                          checked={formData.consent}
+                          onChange={handleInputChange}
+                          className="w-4 h-4 text-gray-700 border-gray-300 rounded focus:ring-gray-400"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Employee consent recorded</span>
                       </label>
                     </div>
                   </div>

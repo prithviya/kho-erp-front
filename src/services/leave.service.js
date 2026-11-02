@@ -28,6 +28,10 @@ const leaveService = {
     const query = new URLSearchParams(params).toString();
     return request(`/leaves/requests${query ? `?${query}` : ""}`);
   },
+  getReports(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return request(`/leaves/reports${query ? `?${query}` : ""}`);
+  },
   getRequestById(id) {
     return request(`/leaves/requests/${id}`);
   },

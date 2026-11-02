@@ -17,6 +17,7 @@ export default function VendorOverview() {
 
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
+    const [gstStatusFilter, setGstStatusFilter] = useState("");
 
     const [createOpen, setCreateOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
@@ -76,7 +77,8 @@ export default function VendorOverview() {
             v.vendor_email?.toLowerCase().includes(search.toLowerCase()) ||
             v.vendor_contact?.includes(search);
         const matchesStatus = statusFilter ? v.status === statusFilter : true;
-        return matchesSearch && matchesStatus;
+        const matchesGstStatus = gstStatusFilter ? v.gst_registered === gstStatusFilter : true;
+        return matchesSearch && matchesStatus && matchesGstStatus;
     });
 
     const totalVendors = vendors.length;
@@ -130,6 +132,16 @@ export default function VendorOverview() {
                             <option value="">All Status</option>
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
+                        </select>
+                        <select
+                            value={gstStatusFilter}
+                            onChange={(e) => setGstStatusFilter(e.target.value)}
+                            aria-label="Filter by GST status"
+                            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                        >
+                            <option value="">All GST Status</option>
+                            <option value="yes">Registered</option>
+                            <option value="no">Unregistered</option>
                         </select>
                         <button
                             onClick={() => setCreateOpen(true)}
