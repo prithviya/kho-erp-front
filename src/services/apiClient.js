@@ -44,6 +44,12 @@ const API_MODULES = [
     edit: ["tasks", "task_board", "task_schedule", "assign_board"],
     delete: ["tasks", "task_board", "task_schedule", "assign_board"],
   }],
+  ["/project-library", {
+    view: ["tasks", "task_board", "task_schedule", "assign_board", "project_details", "project_onboard"],
+    create: ["tasks", "task_board", "task_schedule", "assign_board", "project_details", "project_onboard"],
+    edit: ["tasks", "task_board", "task_schedule", "assign_board", "project_details", "project_onboard"],
+    delete: ["tasks", "task_board", "task_schedule", "assign_board", "project_details", "project_onboard"],
+  }],
   ["/project-chat", {
     view: ["project_details", "project_onboard"],
     create: ["project_details", "project_onboard"],
@@ -232,6 +238,40 @@ export async function request(url, options = {}, retry = true) {
   }
 
   return result ?? { success: true, data: null };
+}
+
+export async function requestBlob(url, options = {}, retry = true) {
+  enforceFrontendApiPermission(url, options.method);
+
+  const isFormData = options.body instanceof FormData;
+  const headers = { ...options.headers };
+  if (!isFormData && options.body != null && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+  const response = await fetch(`${BASE_URL}${url}`, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+
+  if (response.status === 401 && retry) {
+    const refreshed = await refreshSession();
+    if (refreshed.ok) return requestBlob(url, options, false);
+
+    clearSession();
+    window.location.href = "/";
+    throw new Error("Session expired. Please log in again.");
+  }
+
+  if (!response.ok) {
+    const result = await parseJsonSafe(response);
+    const error = new Error(result?.message || "Unable to load the requested file.");
+    error.status = response.status;
+    error.errors = result?.errors || null;
+    throw error;
+  }
+
+  return response.blob();
 }
 
 export function getCurrentUserSession() {

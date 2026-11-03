@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { 
   Plus, 
+  FolderOpen,
   MessageSquare, 
   Calendar, 
   Clock, 
@@ -34,6 +35,7 @@ import userManagementService from '../../services/userManagement.service';
 import leadService from '../../services/lead.service';
 import projectChatService from '../../services/projectChat.service';
 import taskChatService from '../../services/taskChat.service';
+import ProjectFileLibrary from './ProjectFileLibrary';
 import { subscribe } from '../../services/realtime.service';
 import { getCanonicalRoles, getCurrentUser, isSuperAdmin } from '../../utils/auth';
 
@@ -201,6 +203,7 @@ function Assignedprojectboard() {
   const [commentText, setCommentText] = useState('');
   const [commentImage, setCommentImage] = useState(null);
   const [showProjectChat, setShowProjectChat] = useState(false);
+  const [projectWorkspaceView, setProjectWorkspaceView] = useState('board');
   const [showProjectMembers, setShowProjectMembers] = useState(false);
   const [projectChatText, setProjectChatText] = useState('');
   const [mentionQuery, setMentionQuery] = useState('');
@@ -220,6 +223,7 @@ function Assignedprojectboard() {
     if (!project) return;
 
     setSelectedProjectId(String(project.id));
+    setProjectWorkspaceView('board');
     if (searchParams.get('chat') === '1') {
       setShowProjectChat(true);
       setProjectUnreadCounts((current) => ({ ...current, [project.id]: 0 }));
@@ -427,7 +431,10 @@ function Assignedprojectboard() {
           hasInitializedProjectSelection.current = true;
           const initialProject = assignedProjects.find((project) => String(project.id) === String(requestedProjectId))
             || assignedProjects[0];
-          if (initialProject) setSelectedProjectId(String(initialProject.id));
+          if (initialProject) {
+            setSelectedProjectId(String(initialProject.id));
+            setProjectWorkspaceView('board');
+          }
         }
         if (userResult.status === 'fulfilled') {
           setEmployeesList((userResult.value?.data || []).filter((user) => user.isActive !== false));
@@ -533,6 +540,7 @@ function Assignedprojectboard() {
 
   const openProjectChat = (projectId = selectedProjectId) => {
     setSelectedProjectId(String(projectId));
+    setProjectWorkspaceView('board');
     setShowProjectChat(true);
     setProjectUnreadCounts((current) => ({ ...current, [projectId]: 0 }));
   };
@@ -1130,7 +1138,7 @@ function Assignedprojectboard() {
           <div className="flex gap-2 overflow-x-auto pb-1 md:block md:max-h-[calc(100vh-150px)] md:space-y-2 md:overflow-y-auto md:pb-0">
             <button
               type="button"
-              onClick={() => setSelectedProjectId('')}
+              onClick={() => { setSelectedProjectId(''); setProjectWorkspaceView('board'); }}
               className={`min-w-44 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition md:w-full ${!selectedProjectId ? 'border-emerald-300 bg-emerald-400/15 text-emerald-100' : 'border-white/10 text-slate-300 hover:border-emerald-300/60 hover:bg-white/5'}`}
             >
               All assigned projects
@@ -1140,7 +1148,7 @@ function Assignedprojectboard() {
               <button
                 type="button"
                 key={`unread-${project.id}`}
-                onClick={() => setSelectedProjectId(String(project.id))}
+                onClick={() => { setSelectedProjectId(String(project.id)); setProjectWorkspaceView('board'); }}
                 className={`min-w-44 rounded-lg border px-3 py-2 text-left transition md:w-full ${String(selectedProjectId) === String(project.id) ? 'border-emerald-300 bg-emerald-400/15' : 'border-white/10 hover:border-emerald-300/60 hover:bg-white/5'}`}
               >
                 <span className="flex items-center gap-2">
@@ -1155,7 +1163,7 @@ function Assignedprojectboard() {
               <button
                 type="button"
                 key={project.id}
-                onClick={() => setSelectedProjectId(String(project.id))}
+                onClick={() => { setSelectedProjectId(String(project.id)); setProjectWorkspaceView('board'); }}
                 className={`min-w-44 rounded-lg border px-3 py-2 text-left transition md:w-full ${String(selectedProjectId) === String(project.id) ? 'border-emerald-300 bg-emerald-400/15' : 'border-white/10 hover:border-emerald-300/60 hover:bg-white/5'}`}
               >
                 <span className="flex items-center gap-2">
@@ -1170,7 +1178,7 @@ function Assignedprojectboard() {
               <button
                 type="button"
                 key={project.id}
-                onClick={() => setSelectedProjectId(String(project.id))}
+                onClick={() => { setSelectedProjectId(String(project.id)); setProjectWorkspaceView('board'); }}
                 className={`min-w-44 rounded-lg border px-3 py-2 text-left transition md:w-full ${String(selectedProjectId) === String(project.id) ? 'border-emerald-300 bg-emerald-400/15' : 'border-white/10 hover:border-emerald-300/60 hover:bg-white/5'}`}
               >
                 <span className="flex items-center gap-2">
@@ -1180,11 +1188,25 @@ function Assignedprojectboard() {
                 <span className="mt-0.5 block truncate text-xs text-slate-400">{project.companyName}</span>
               </button>
             ))}
+            {selectedProject && (
+              <button
+                type="button"
+                onClick={() => { setProjectWorkspaceView('library'); setShowProjectChat(false); }}
+                aria-current={projectWorkspaceView === 'library' ? 'page' : undefined}
+                className={`flex min-w-44 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition md:w-full ${projectWorkspaceView === 'library' ? 'border-emerald-300 bg-emerald-400/15 text-emerald-100' : 'border-white/10 text-slate-300 hover:border-emerald-300/60 hover:bg-white/5'}`}
+              >
+                <FolderOpen size={16} /> Library
+              </button>
+            )}
             {!loading && !projects.length && <p className="min-w-56 rounded-lg bg-gray-50 p-3 text-xs text-gray-500 md:min-w-0">No currently assigned projects.</p>}
           </div>
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-3 sm:p-6">
+        {selectedProject && projectWorkspaceView === 'library' ? (
+          <ProjectFileLibrary key={selectedProject.id} projectId={selectedProject.id} projectName={selectedProject.projectName} />
+        ) : (
+        <>
         {selectedProject && (
           <div className="mb-5 shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1346,7 +1368,9 @@ function Assignedprojectboard() {
           ))}
         </div>
         </div>
-      </div>
+        </>
+        )}
+        </div>
       </div>
 
       {/* --- MODAL: CREATE TASK WITH ASSIGN EMPLOYEE/VENDOR & DATE/TIME/IMAGE --- */}
