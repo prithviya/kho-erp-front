@@ -14,7 +14,8 @@ import {
     Network,
     RotateCwSquare,
     ShieldCheck,
-    ListTree
+    ListTree,
+    History
 } from "lucide-react";
 const menu = [
     {
@@ -185,6 +186,13 @@ const menu = [
                 icon: ListTree,
                 path: "/menu-management",
                 roles: ["SUPER_ADMIN"]
+            },
+            {
+                name: "History Log",
+                title: "Activity History Log",
+                icon: History,
+                path: "/history-log",
+                roles: ["SUPER_ADMIN", "MANAGER"]
             },
             {
                 name: "Master",

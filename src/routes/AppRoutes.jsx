@@ -6,6 +6,7 @@ import Report from "../components/Lead/Report";
 import UserManagement from "../components/UserManagement/UserRole";
 import RolePermissions from "../components/UserManagement/RolePermissions";
 import MenuPermissionManagement from "../components/UserManagement/MenuPermissionManagement";
+import HistoryLog from "../components/UserManagement/HistoryLog";
 import Master from "../components/UserManagement/Master";
 import Vendor from "../components/Vendor/VendorOverview"
 import ProjectOnboarding from "../components/project/onboardingPrjt";
@@ -68,6 +69,7 @@ export default function AppRoutes() {
                 <Route path="/user-management" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]} permissionKey="user_management.view"><UserManagement /></RoleRoute>} />
                 <Route path="/role-permissions" element={<RoleRoute roles={["SUPER_ADMIN"]}><RolePermissions /></RoleRoute>} />
                 <Route path="/menu-management" element={<RoleRoute roles={["SUPER_ADMIN"]}><MenuPermissionManagement /></RoleRoute>} />
+                <Route path="/history-log" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><HistoryLog /></RoleRoute>} />
                 <Route path="/master" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]} permissionKey="master.view"><Master /></RoleRoute>} />
                 <Route path="/vendor-overview" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER"]} permissionKey="vendor_management.view"><Vendor /></RoleRoute>} />
                 <Route path="/applied" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]} permissionKey="applied.view"><Applied /></RoleRoute>} />
