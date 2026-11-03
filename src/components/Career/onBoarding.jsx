@@ -536,7 +536,7 @@ const EmployeeOnboarding = () => {
     }
   };
 
-  const fetchNextEmployeeId = async () => {
+  const fetchNextEmployeeId = async ({ allowCached = true } = {}) => {
     try {
       const response = await request('/onboardings/next-employee-id', { method: 'GET' });
       const backendEmployeeId = sanitizeEmployeeId(response?.data?.employeeId);
@@ -552,7 +552,7 @@ const EmployeeOnboarding = () => {
       console.error('Error fetching next employee ID:', error);
     }
 
-    return generatedEmployeeId;
+    return allowCached ? generatedEmployeeId : '';
   };
 
   const fetchReportingHeads = async () => {
@@ -914,7 +914,41 @@ const EmployeeOnboarding = () => {
       if (response?.success && response?.data?.formData) {
         setHasExistingRecord(true);
         const mergedData = mergeFormDataWithFallback(response.data.formData, fallbackData);
-        const displayData = normalizeLoadedFormData(mergedData);
+        let displayData = normalizeLoadedFormData(mergedData);
+
+        const savedEmployeeId = String(displayData.employeeId || '')
+          .trim()
+          .toUpperCase()
+          .replace(/-/g, '');
+        if (savedEmployeeId) {
+          try {
+            const employeesResponse = await request('/employees', { method: 'GET' });
+            const employees = Array.isArray(employeesResponse?.data)
+              ? employeesResponse.data
+              : Array.isArray(employeesResponse?.data?.employees)
+                ? employeesResponse.data.employees
+                : [];
+            const isAssigned = employees.some((existingEmployee) =>
+              String(existingEmployee?.employeeCode || '')
+                .trim()
+                .toUpperCase()
+                .replace(/-/g, '') === savedEmployeeId
+            );
+
+            if (isAssigned) {
+              const availableEmployeeId = await fetchNextEmployeeId({ allowCached: false });
+              if (availableEmployeeId) {
+                displayData = { ...displayData, employeeId: availableEmployeeId };
+                toast.info(
+                  `${savedEmployeeId} is already assigned. Suggested available ID: ${availableEmployeeId}.`
+                );
+              }
+            }
+          } catch (error) {
+            console.error('Error checking saved employee ID availability:', error);
+          }
+        }
+
         setFormData(displayData);
         syncPermanentAddressFlag(displayData);
         return;
@@ -947,7 +981,7 @@ const EmployeeOnboarding = () => {
     try {
       setIsSaving(true);
       const isUpdate = hasExistingRecord;
-      await request(isUpdate ? `/onboardings/record/${selectedEmployee.id}` : '/onboardings/record', {
+      const response = await request(isUpdate ? `/onboardings/record/${selectedEmployee.id}` : '/onboardings/record', {
         method: isUpdate ? 'PUT' : 'POST',
         body: JSON.stringify({
           cifid: selectedEmployee.id,
@@ -958,6 +992,9 @@ const EmployeeOnboarding = () => {
           },
         }),
       });
+      if (!response?.success) {
+        throw new Error(response?.message || 'Failed to save onboarding details.');
+      }
       setHasExistingRecord(true);
       return true;
     } catch (error) {
@@ -1092,7 +1129,7 @@ const EmployeeOnboarding = () => {
       return;
     }
 
-    toast.success('Onboarding submitted successfully.');
+    toast.success('Onboarding submitted successfully. This employee is no longer in Awaiting Onboarding.');
     setShowOnboardingForm(false);
     setIsViewMode(false);
     setCurrentStep(1);
@@ -1444,9 +1481,15 @@ const EmployeeOnboarding = () => {
     loadOnboardingRecord(employee, fallbackData);
   };
 
-  const handleAddEmployee = (employee) => {
+  const handleAddEmployee = async (employee) => {
     if (!resolveCandidateId(employee)) {
       toast.error('Candidate ID is missing for this row. Please refresh and try again.');
+      return;
+    }
+
+    const nextEmployeeId = await fetchNextEmployeeId({ allowCached: false });
+    if (!nextEmployeeId) {
+      toast.error('Could not generate the next employee ID. Please try again.');
       return;
     }
 
@@ -1455,7 +1498,7 @@ const EmployeeOnboarding = () => {
     setShowOnboardingForm(true);
     setCurrentStep(1);
     const fallbackData = {
-      ...getDefaultFormData(),
+      ...getDefaultFormData(nextEmployeeId),
       fullName: employee.name || '',
       personalEmail: employee.email,
       personalPhone: employee.phone || '',
