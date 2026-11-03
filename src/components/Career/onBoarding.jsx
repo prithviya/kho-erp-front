@@ -33,7 +33,6 @@ const EmployeeOnboarding = () => {
   const [departmentOptions, setDepartmentOptions] = useState([]);
   const [erpRoleOptions, setErpRoleOptions] = useState([]);
   const [existingEmployees, setExistingEmployees] = useState([]);
-  const [assignedEmployeeId, setAssignedEmployeeId] = useState('');
 
   const hasText = (value) => Boolean(String(value || '').trim());
   const hasExperienceDetails = (experience) =>
@@ -49,6 +48,8 @@ const EmployeeOnboarding = () => {
     return digits ? `+${digits}` : '';
   };
   const sanitizeNumericOnly = (value) => String(value ?? '').replace(/\D/g, '');
+  
+  const sanitizeEmployeeId = (value) => String(value ?? '').replace(/-/g, '');
   const isValidPhoneNumber = (value) => {
     const digits = sanitizePhoneNumber(value);
     return digits.length === 10;
@@ -261,16 +262,21 @@ const EmployeeOnboarding = () => {
     .toLowerCase()
     .replace(/[\s_-]+/g, "") === "managingdirector";
 
-  const normalizedEmployeeId = String(formData.employeeId || '').trim().toUpperCase();
-  const currentEmployeeEmails = [formData.officialEmail, formData.personalEmail]
-    .map((email) => String(email || '').trim().toLowerCase())
-    .filter(Boolean);
+  // Hyphens are cosmetic only (the backend strips them before comparing/saving),
+  // so "KHO-043" and "KHO043" must be treated as the same code here too.
+  const normalizedEmployeeId = String(formData.employeeId || '').trim().toUpperCase().replace(/-/g, '');
+  // officialEmail is frequently a shared department alias in this org's data
+  // (e.g. "dm@khosocial.com" reused across every Digital Marketing hire), so it
+  // can't be trusted to identify one specific candidate. personalEmail is the
+  // only field that's actually unique per person.
+  const currentEmployeePersonalEmail = String(formData.personalEmail || '').trim().toLowerCase();
+  // Self-match is email-based only -- trusting "this is what my own draft already
+  // had saved" is exactly how a stale/incorrectly-saved duplicate code (e.g. one
+  // from before this check existed) would keep hiding itself forever.
   const isEmployeeIdTaken = Boolean(normalizedEmployeeId) && existingEmployees.some((employee) => {
-    const employeeCode = String(employee?.employeeCode || '').trim().toUpperCase();
+    const employeeCode = String(employee?.employeeCode || '').trim().toUpperCase().replace(/-/g, '');
     const employeeEmail = String(employee?.email || '').trim().toLowerCase();
-    const alreadyAssignedToCurrentEmployee =
-      normalizedEmployeeId === assignedEmployeeId ||
-      (employeeEmail && currentEmployeeEmails.includes(employeeEmail));
+    const alreadyAssignedToCurrentEmployee = Boolean(currentEmployeePersonalEmail) && employeeEmail === currentEmployeePersonalEmail;
 
     return employeeCode === normalizedEmployeeId && !alreadyAssignedToCurrentEmployee;
   });
@@ -533,7 +539,7 @@ const EmployeeOnboarding = () => {
   const fetchNextEmployeeId = async () => {
     try {
       const response = await request('/onboardings/next-employee-id', { method: 'GET' });
-      const backendEmployeeId = response?.data?.employeeId;
+      const backendEmployeeId = sanitizeEmployeeId(response?.data?.employeeId);
       if (backendEmployeeId) {
         setGeneratedEmployeeId(backendEmployeeId);
         setFormData((prev) => ({
@@ -894,7 +900,6 @@ const EmployeeOnboarding = () => {
 
   const loadOnboardingRecord = async (employee, fallbackData) => {
     setHasExistingRecord(false);
-    setAssignedEmployeeId('');
     const candidateId = resolveCandidateId(employee);
     if (!candidateId) {
       if (fallbackData) {
@@ -908,13 +913,6 @@ const EmployeeOnboarding = () => {
       const response = await request(`/onboardings/record/${candidateId}`, { method: 'GET' });
       if (response?.success && response?.data?.formData) {
         setHasExistingRecord(true);
-        setAssignedEmployeeId(
-          String(
-            response.data.formData.employeeId ||
-            response.data.formData.employeeCode ||
-            ''
-          ).trim().toUpperCase()
-        );
         const mergedData = mergeFormDataWithFallback(response.data.formData, fallbackData);
         const displayData = normalizeLoadedFormData(mergedData);
         setFormData(displayData);
@@ -1100,7 +1098,6 @@ const EmployeeOnboarding = () => {
     setCurrentStep(1);
     setSelectedEmployee(null);
     setHasExistingRecord(false);
-    setAssignedEmployeeId('');
     setIsPermanentAddressSame(false);
     const nextEmployeeId = await fetchNextEmployeeId();
     setFormData(getDefaultFormData(nextEmployeeId));
@@ -1161,7 +1158,9 @@ const EmployeeOnboarding = () => {
       ? sanitizePhoneNumber(value)
       : shouldRestrictNumeric
         ? sanitizeNumericOnly(value)
-        : value;
+        : shouldAutoFillNextEmployeeId
+          ? sanitizeEmployeeId(value)
+          : value;
 
     if (section) {
       if (subSection) {
