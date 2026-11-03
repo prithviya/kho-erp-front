@@ -4,7 +4,7 @@ import { request } from '../../services/apiClient';
 import employeeService from '../../services/employee.service';
 import { canDeleteRecords, hasAnyRole } from '../../utils/auth';
 import { parseArrayFromTextarea } from '../../utils/employeeArrayText';
-import {CheckCircle2, X, Eye, Edit, Trash } from 'lucide-react'
+import { ArrowDown, ArrowUp, CheckCircle2, X, Eye, Edit, Trash } from 'lucide-react'
 
 const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
@@ -89,12 +89,12 @@ const Employee = () => {
 
   const [selectedDepartment, setSelectedDepartment] = useState('All Positions');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: 'employeeId', direction: 'asc' });
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employeeDocuments, setEmployeeDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
-  const [editIndex, setEditIndex] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -161,6 +161,8 @@ const Employee = () => {
     head: employee.phone || '-',
     dob: formatDisplayDate(employee.dateOfBirth),
     doj: formatDisplayDate(employee.createdAt),
+    dobValue: employee.dateOfBirth || '',
+    dojValue: employee.createdAt || '',
     status: employee.status || 'Onboarding',
     userAccount: false,
     phone: employee.phone,
@@ -262,11 +264,10 @@ const Employee = () => {
     await fetchEmployeeDocuments(employee);
   };
 
-  const handleEdit = (employee, index) => {
+  const handleEdit = (employee) => {
     if (!canEdit) return;
     const original = employee.original || {};
     setSelectedEmployee(employee);
-    setEditIndex(index);
     setFormData({
       name: employee.name,
       email: employee.email,
@@ -309,7 +310,7 @@ const Employee = () => {
     if (!canEdit) return;
     const updateRecord = async () => {
       try {
-        const employee = employees[editIndex]?.original;
+        const employee = selectedEmployee?.original;
         if (!employee) return;
         const arrayFields = ['education', 'workExperience', 'skills', 'softwareTools', 'languages', 'references'];
         const parsedArrays = Object.fromEntries(arrayFields.map((field) => [
@@ -341,7 +342,6 @@ const Employee = () => {
         await loadEmployees();
         setShowEditModal(false);
         setSelectedEmployee(null);
-        setEditIndex(null);
       } catch (error) {
         toast.error(error.message || 'Unable to update employee.');
       }
@@ -357,6 +357,40 @@ const Employee = () => {
       emp.id.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesDepartment && matchesSearch;
   });
+  const sortedEmployees = [...filteredEmployees].sort((a, b) => {
+    let comparison = 0;
+    if (sortConfig.key === 'employeeId') {
+      comparison = String(a.employeeId || '').localeCompare(String(b.employeeId || ''), undefined, { numeric: true, sensitivity: 'base' });
+    } else if (sortConfig.key === 'employeeDetails') {
+      comparison = String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' })
+        || String(a.email || '').localeCompare(String(b.email || ''), undefined, { sensitivity: 'base' });
+    } else if (sortConfig.key === 'dates') {
+      comparison = String(a.dojValue || '').localeCompare(String(b.dojValue || ''))
+        || String(a.dobValue || '').localeCompare(String(b.dobValue || ''));
+    } else if (sortConfig.key === 'cta') {
+      comparison = (Number(a.salaryValue) || 0) - (Number(b.salaryValue) || 0);
+    }
+    return sortConfig.direction === 'asc' ? comparison : -comparison;
+  });
+  const toggleSort = (key) => {
+    setSortConfig((current) => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+  const sortHeader = (label, key) => (
+    <button
+      type="button"
+      onClick={() => toggleSort(key)}
+      className="inline-flex items-center gap-1 text-left hover:text-emerald-700"
+      aria-label={`Sort by ${label} ${sortConfig.key === key && sortConfig.direction === 'asc' ? 'descending' : 'ascending'}`}
+    >
+      {label}
+      {sortConfig.key === key
+        ? sortConfig.direction === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />
+        : <ArrowDown size={13} className="opacity-30" />}
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -413,18 +447,18 @@ const Employee = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emp ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Details</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{sortHeader('Emp ID', 'employeeId')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{sortHeader('Employee Details', 'employeeDetails')}</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position & Location</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CTA</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{sortHeader('Dates', 'dates')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{sortHeader('CTA', 'cta')}</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredEmployees.length > 0 ? (
-                  filteredEmployees.map((employee, index) => (
+                  sortedEmployees.map((employee) => (
                     <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
                         <p className="text-sm font-medium text-gray-900">{employee.employeeId}</p>
@@ -485,7 +519,7 @@ const Employee = () => {
                           </button>
                           {canEdit && <button
                             title="Edit employee"
-                            onClick={() => handleEdit(employee, index)}
+                            onClick={() => handleEdit(employee)}
                             className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
                           >
                             <Edit size={16} />
