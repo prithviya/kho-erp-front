@@ -4,6 +4,7 @@ import { setSession } from "../../utils/session";
 import authService from "../../services/auth.service";
 import { toast } from "react-toastify";
 import { getDefaultHomePath } from "../../utils/auth";
+import loginimage from "../../assets/login.png";
 
 export default function Login() {
   const [showModal, setShowModal] = useState(false);
@@ -98,10 +99,7 @@ export default function Login() {
       {/* Right Side - Background Image */}
       <div
         className="hidden lg:block w-1/2 bg-cover bg-left"
-        style={{
-          backgroundImage:
-            "url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1rZbW9GsXD5FRPlSliRR7rXnUvOTBAjlqgpdJNpfJ3mpi9xpK3I0bKvc&s=10')",
-        }}
+        style={{ backgroundImage: `url(${loginimage})`, }}
       />
 
       {/* Forgot Password Modal */}
