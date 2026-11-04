@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { request } from '../../services/apiClient';
 import employeeService from '../../services/employee.service';
+import authService from '../../services/auth.service';
 import { getCanonicalRoles, getCurrentUser } from '../../utils/auth';
 
 const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
@@ -146,9 +147,63 @@ function Profile() {
   const [profile, setProfile] = useState(null);
   const [onboardingData, setOnboardingData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
   const currentUser = getCurrentUser();
   const loggedInEmail = currentUser?.email || '';
   const canViewSensitiveOnboarding = getCanonicalRoles(currentUser).includes('HR');
+
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+
+    if (!passwordForm.oldPassword) {
+      toast.error('Old password is required.');
+      return;
+    }
+    if (!passwordForm.newPassword) {
+      toast.error('New password is required.');
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters.');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('Passwords do not match.');
+      return;
+    }
+    if (passwordForm.oldPassword === passwordForm.newPassword) {
+      toast.error('New password must be different from old password.');
+      return;
+    }
+
+    try {
+      setUpdatingPassword(true);
+      const res = await authService.changePassword({
+        oldPassword: passwordForm.oldPassword,
+        newPassword: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword,
+      });
+
+      if (res?.success || res?.status === 200 || res) {
+        toast.success(res?.message || 'Password changed successfully.');
+        setPasswordForm({
+          oldPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        });
+      }
+    } catch (error) {
+      toast.error(error?.message || 'Failed to update password.');
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
 
   useEffect(() => {
     const fetchLoggedUserProfile = async () => {
@@ -160,12 +215,23 @@ function Profile() {
       try {
         setLoading(true);
         const response = await employeeService.getMyProfile();
-        const currentEmployee = response?.data || null;
+        let currentEmployee = response?.data || null;
 
         if (!currentEmployee) {
-          setProfile(null);
-          setOnboardingData(null);
-          return;
+          if (currentUser) {
+            currentEmployee = {
+              fullName: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.username || currentUser.email || 'Employee',
+              email: currentUser.email,
+              employeeCode: currentUser.employeeRecord || currentUser.employeeCode || '',
+              phone: currentUser.phone || '',
+              jobPosition: currentUser.roles?.[0]?.name || 'Employee',
+              status: 'Active',
+            };
+          } else {
+            setProfile(null);
+            setOnboardingData(null);
+            return;
+          }
         }
 
         setProfile(currentEmployee);
@@ -214,6 +280,13 @@ function Profile() {
       </div>
     );
   }
+
+  const resolvedEmployeeCode =
+    profile?.employeeCode ||
+    profile?.employeeId ||
+    currentUser?.employeeRecord ||
+    currentUser?.employeeCode ||
+    '';
 
   const data = onboardingData || {};
   const employeeEducation = getRecords(profile.education);
@@ -305,8 +378,7 @@ function Profile() {
         profile.jobPosition,
         data.organizationName,
         data.companyName,
-        profile.organizationName,
-        profile.employeeCode,
+        resolvedEmployeeCode,
         profile.status,
         data.dateOfJoining,
         profile.createdAt,
@@ -319,7 +391,7 @@ function Profile() {
           <FieldGrid fields={[
             ['Current Designation', firstValue(data.designation, profile.jobPosition)],
             ['Organization Name', firstValue(data.organizationName, data.companyName, profile.organizationName)],
-            ['Employee Code', profile.employeeCode],
+            ['Employee Code', resolvedEmployeeCode],
             ['Employment Status', profile.status],
             ['Date of Joining', formatDisplayDate(data.dateOfJoining || profile.createdAt)],
             ['Current Salary', formatSalary(firstValue(data.currentSalary, data.salary))],
@@ -554,7 +626,7 @@ function Profile() {
           <div className="min-w-0">
             <h1 className="text-2xl font-bold">{profile.fullName}</h1>
             <p className="text-sm text-gray-300">
-              {displayValue(profile.jobPosition)} <span aria-hidden="true">•</span> {displayValue(profile.employeeCode)}
+              {displayValue(profile.jobPosition)} <span aria-hidden="true">•</span> {displayValue(resolvedEmployeeCode)}
             </p>
           </div>
         </div>
@@ -577,6 +649,99 @@ function Profile() {
               </div>
             </details>
           ))}
+
+          {/* UPDATE PASSWORD SECTION */}
+          <details
+            data-testid="update-password-section"
+            className="group rounded-lg border border-gray-200 bg-white"
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 text-sm font-semibold tracking-wide text-gray-800 hover:bg-gray-50 sm:px-5">
+              UPDATE PASSWORD
+              <span className="text-lg text-gray-400 transition-transform group-open:rotate-180" aria-hidden="true">
+                ▾
+              </span>
+            </summary>
+            <div className="border-t border-gray-100 px-4 py-5 sm:px-5">
+              <form onSubmit={handlePasswordUpdate} className="space-y-4 max-w-md">
+                <div>
+                  <label htmlFor="old-password" className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                    Current Password
+                  </label>
+                  <input
+                    id="old-password"
+                    name="oldPassword"
+                    type="password"
+                    value={passwordForm.oldPassword}
+                    onChange={(e) => setPasswordForm((prev) => ({ ...prev, oldPassword: e.target.value }))}
+                    placeholder="Enter current password"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="new-password" className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                    New Password
+                  </label>
+                  <input
+                    id="new-password"
+                    name="newPassword"
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
+                    placeholder="Enter new password (min. 8 characters)"
+                    minLength={8}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="confirm-password" className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    id="confirm-password"
+                    name="confirmPassword"
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                    placeholder="Confirm new password"
+                    minLength={8}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={updatingPassword}
+                  className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {updatingPassword ? 'Updating...' : 'Update Password'}
+                </button>
+              </form>
+            </div>
+          </details>
+
+          {/* EMPLOYEE CODE FIELD DIRECTLY BELOW UPDATE PASSWORD SECTION */}
+          <div className="rounded-lg border border-gray-200 bg-white px-4 py-5 sm:px-5">
+            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              Employee Code
+            </dt>
+            <dd className="mt-2 max-w-md">
+              <input
+                id="employee-code"
+                name="employeeCode"
+                type="text"
+                value={displayValue(resolvedEmployeeCode)}
+                readOnly
+                disabled
+                aria-readonly="true"
+                className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3.5 py-2.5 text-sm font-semibold text-gray-800 cursor-not-allowed select-none outline-none"
+              />
+              <p className="mt-1.5 text-xs text-gray-500">
+                System-assigned employee identification code (read-only).
+              </p>
+            </dd>
+          </div>
         </div>
       </div>
     </div>
