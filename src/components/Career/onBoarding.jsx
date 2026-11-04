@@ -273,12 +273,19 @@ const EmployeeOnboarding = () => {
   // Self-match is email-based only -- trusting "this is what my own draft already
   // had saved" is exactly how a stale/incorrectly-saved duplicate code (e.g. one
   // from before this check existed) would keep hiding itself forever.
+  const currentCandidateCifId = selectedEmployee?.id;
   const isEmployeeIdTaken = Boolean(normalizedEmployeeId) && existingEmployees.some((employee) => {
     const employeeCode = String(employee?.employeeCode || '').trim().toUpperCase().replace(/-/g, '');
-    const employeeEmail = String(employee?.email || '').trim().toLowerCase();
-    const alreadyAssignedToCurrentEmployee = Boolean(currentEmployeePersonalEmail) && employeeEmail === currentEmployeePersonalEmail;
+    if (employeeCode !== normalizedEmployeeId) return false;
 
-    return employeeCode === normalizedEmployeeId && !alreadyAssignedToCurrentEmployee;
+    const employeeEmail = String(employee?.email || '').trim().toLowerCase();
+    const sameCandidate = currentCandidateCifId != null
+      && employee?.cifid != null
+      && Number(employee.cifid) === Number(currentCandidateCifId);
+    const alreadyAssignedToCurrentEmployee = sameCandidate
+      || (Boolean(currentEmployeePersonalEmail) && employeeEmail === currentEmployeePersonalEmail);
+
+    return !alreadyAssignedToCurrentEmployee;
   });
 
   const validateRequiredFields = () => {
@@ -485,12 +492,13 @@ const EmployeeOnboarding = () => {
 
   const fetchExistingEmployeeCodes = async () => {
     try {
-      const response = await request('/employees', { method: 'GET' });
-      const list = Array.isArray(response?.data)
-        ? response.data
-        : Array.isArray(response?.data?.employees)
-          ? response.data.employees
-          : [];
+      // Pulls from both the Employee table AND in-progress OnboardingInfo
+      // records, matching the two sources saveRecord() checks server-side on
+      // Final Submit -- fetching only /employees here let an OnboardingInfo-only
+      // duplicate (one not yet converted into a full Employee row) slip past
+      // this client-side check and surface only after the last step.
+      const response = await request('/onboardings/employee-codes', { method: 'GET' });
+      const list = Array.isArray(response?.data) ? response.data : [];
       setExistingEmployees(list);
     } catch (error) {
       console.error('Error fetching existing employee codes:', error);
@@ -922,18 +930,19 @@ const EmployeeOnboarding = () => {
           .replace(/-/g, '');
         if (savedEmployeeId) {
           try {
-            const employeesResponse = await request('/employees', { method: 'GET' });
-            const employees = Array.isArray(employeesResponse?.data)
-              ? employeesResponse.data
-              : Array.isArray(employeesResponse?.data?.employees)
-                ? employeesResponse.data.employees
-                : [];
-            const isAssigned = employees.some((existingEmployee) =>
-              String(existingEmployee?.employeeCode || '')
-                .trim()
-                .toUpperCase()
-                .replace(/-/g, '') === savedEmployeeId
-            );
+            // Checks both the Employee table AND in-progress OnboardingInfo
+            // drafts (not just /employees) -- a candidate's own previously
+            // saved draft ID can otherwise collide with another candidate's
+            // equally-stale draft (both suggested the same "next" ID before
+            // either was finalized) and go undetected here.
+            const claimedResponse = await request('/onboardings/employee-codes', { method: 'GET' });
+            const claimedCodes = Array.isArray(claimedResponse?.data) ? claimedResponse.data : [];
+            const isAssigned = claimedCodes.some((entry) => {
+              const entryCode = String(entry?.employeeCode || '').trim().toUpperCase().replace(/-/g, '');
+              if (entryCode !== savedEmployeeId) return false;
+              const sameCandidate = entry?.cifid != null && Number(entry.cifid) === Number(candidateId);
+              return !sameCandidate;
+            });
 
             if (isAssigned) {
               const availableEmployeeId = await fetchNextEmployeeId({ allowCached: false });
@@ -2753,33 +2762,52 @@ const EmployeeOnboarding = () => {
     </div>
   );
 
-  const renderKitAllocation = () => (
-    <div className="space-y-6">
-      <h4 className="text-md font-semibold text-gray-800 mb-4">Asset & Welcome Kit Allocation</h4>
-      <p className="text-sm text-gray-500 mb-4">Please check the items that have been provided to the employee.</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[
-          { key: 'laptop / PC / Mouse', label: 'Laptop / PC / Mouse' },
-          { key: 'entryCard', label: 'ID Card/Biometric' },
-          { key: 'headset', label: 'Headset' },
-          { key: 'Welcome Kit', label: 'Welcome Kit' },
-          { key: 'OfficialSim', label: 'Official Phone Number' },
-        ].map((item) => (
-          <label key={item.key} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+  const renderKitAllocation = () => {
+    const comboProvided = Boolean(formData.kit.laptop && formData.kit.mouse && formData.kit.keyboard);
+    const handleComboChange = (e) => {
+      if (isViewMode) return;
+      const checked = e.target.checked;
+      setFormData(prev => ({
+        ...prev,
+        kit: { ...prev.kit, laptop: checked, mouse: checked, keyboard: checked },
+      }));
+    };
+    return (
+      <div className="space-y-6">
+        <h4 className="text-md font-semibold text-gray-800 mb-4">Asset & Welcome Kit Allocation</h4>
+        <p className="text-sm text-gray-500 mb-4">Please check the items that have been provided to the employee.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
             <input
               type="checkbox"
-              name={item.key}
-              checked={formData.kit[item.key]}
-              onChange={(e) => handleInputChange(e, 'kit')}
+              checked={comboProvided}
+              onChange={handleComboChange}
               disabled={isViewMode}
               className="w-4 h-4 text-gray-700 border-gray-300 rounded focus:ring-gray-400"
             />
-            <span className="ml-3 text-sm text-gray-700">{item.label}</span>
+            <span className="ml-3 text-sm text-gray-700">Laptop / PC / Mouse</span>
           </label>
-        ))}
+          {[
+            { key: 'entryCard', label: 'ID Card/Biometric' },
+            { key: 'headset', label: 'Headset' },
+            { key: 'welcomeKit', label: 'Welcome Kit' },
+          ].map((item) => (
+            <label key={item.key} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                name={item.key}
+                checked={formData.kit[item.key]}
+                onChange={(e) => handleInputChange(e, 'kit')}
+                disabled={isViewMode}
+                className="w-4 h-4 text-gray-700 border-gray-300 rounded focus:ring-gray-400"
+              />
+              <span className="ml-3 text-sm text-gray-700">{item.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-4 px-1 sm:px-6 lg:px-4">

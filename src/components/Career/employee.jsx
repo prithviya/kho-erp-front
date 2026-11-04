@@ -84,6 +84,7 @@ const Employee = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [claimedEmployeeCodes, setClaimedEmployeeCodes] = useState([]);
   const canDelete = canDeleteRecords('employee');
   const canEdit = hasAnyRole(['MANAGER', 'HR', 'SUPER_ADMIN']);
 
@@ -203,9 +204,36 @@ const Employee = () => {
     }
   };
 
+  const fetchClaimedEmployeeCodes = async () => {
+    try {
+      // Same merged source (Employee + in-progress OnboardingInfo drafts) the
+      // Onboarding form uses, so an ID flagged as taken there is flagged here too.
+      const response = await request('/onboardings/employee-codes', { method: 'GET' });
+      const list = Array.isArray(response?.data) ? response.data : [];
+      setClaimedEmployeeCodes(list);
+    } catch (error) {
+      console.error('Error fetching claimed employee codes:', error);
+    }
+  };
+
   useEffect(() => {
     loadEmployees();
+    fetchClaimedEmployeeCodes();
   }, []);
+
+  const normalizedEditEmployeeId = String(formData.employeeId || '').trim().toUpperCase().replace(/-/g, '');
+  const isEditEmployeeIdTaken = Boolean(normalizedEditEmployeeId) && claimedEmployeeCodes.some((entry) => {
+    const entryCode = String(entry?.employeeCode || '').trim().toUpperCase().replace(/-/g, '');
+    if (entryCode !== normalizedEditEmployeeId) return false;
+
+    const currentEmployee = selectedEmployee?.original;
+    const sameEmployeeRow = entry?.employeeRowId != null && currentEmployee?.id != null
+      && Number(entry.employeeRowId) === Number(currentEmployee.id);
+    const sameEmail = Boolean(currentEmployee?.email) && entry?.email
+      && String(entry.email).trim().toLowerCase() === String(currentEmployee.email).trim().toLowerCase();
+
+    return !(sameEmployeeRow || sameEmail);
+  });
 
   const handleDelete = async (employee) => {
     if (!canDelete || deletingId) return;
@@ -307,6 +335,10 @@ const Employee = () => {
   const handleUpdate = (e) => {
     e.preventDefault();
     if (!canEdit) return;
+    if (isEditEmployeeIdTaken) {
+      toast.error('This Employee ID is already assigned to an existing employee.');
+      return;
+    }
     const updateRecord = async () => {
       try {
         const employee = employees[editIndex]?.original;
@@ -339,6 +371,7 @@ const Employee = () => {
         });
         toast.success('Employee updated successfully.');
         await loadEmployees();
+        await fetchClaimedEmployeeCodes();
         setShowEditModal(false);
         setSelectedEmployee(null);
         setEditIndex(null);
@@ -352,9 +385,10 @@ const Employee = () => {
 
   const filteredEmployees = employees.filter(emp => {
     const matchesDepartment = selectedDepartment === 'All Positions' || emp.department === selectedDepartment;
-    const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (emp.name || '').toLowerCase().includes(term) ||
+      (emp.email || '').toLowerCase().includes(term) ||
+      String(emp.employeeId || '').toLowerCase().includes(term);
     return matchesDepartment && matchesSearch;
   });
 
@@ -715,8 +749,11 @@ const Employee = () => {
                         value={formData.employeeId}
                         onChange={handleInputChange}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${isEditEmployeeIdTaken ? 'border-red-500 ring-1 ring-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-gray-400'}`}
                       />
+                      {isEditEmployeeIdTaken && (
+                        <p className="mt-1 text-xs text-red-600">This Employee ID is already assigned to an existing employee.</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
