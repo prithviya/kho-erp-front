@@ -8,6 +8,8 @@ import employeeService from "../../services/employee.service";
 import leadService from "../../services/lead.service";
 import { getCurrentUser, isSuperAdmin, canDeleteRecords } from "../../utils/auth";
 import { filterEmployeeOptions } from "../../utils/employeeOptions";
+import SortableHeader from "../common/SortableHeader";
+import { sortRows } from "../../utils/tableSorting";
 
 const EMPTY_FORM = {
   projectOnboardId: "",
@@ -71,6 +73,7 @@ export default function AssignTask() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tasks, setTasks] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
   const [projects, setProjects] = useState([]);
   const [users, setUsers] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -159,6 +162,18 @@ export default function AssignTask() {
   }, [categories]);
 
   const projectMap = useMemo(() => new Map(projects.map((p) => [Number(p.id), p])), [projects]);
+  const sortedTasks = sortRows(tasks, sortConfig.key, sortConfig.direction, (task) => {
+    if (sortConfig.key === "title") return task.title;
+    if (sortConfig.key === "project") return projectMap.get(Number(task.projectOnboardId))?.projectName;
+    if (sortConfig.key === "assignee") return userName(task.assignee);
+    if (sortConfig.key === "reportingHead") return userName(task.reportingHead);
+    if (sortConfig.key === "status") return task.status;
+    return "";
+  });
+  const toggleSort = (key) => setSortConfig((current) => ({
+    key,
+    direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+  }));
 
   const formProject = selectedProjectDetails || projectMap.get(Number(form.projectOnboardId));
   const formServiceOptions = useMemo(() => {
@@ -440,7 +455,7 @@ function getProjectPeople(project, key) {
   const labelCls = "mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500";
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen px-4 py-4 sm:px-6 lg:px-8 bg-[#f4f5f9]">
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -682,12 +697,15 @@ function getProjectPeople(project, key) {
       {/* Task Table */}
       <div className="overflow-hidden rounded-xl bg-white shadow-lg">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="erp-list-table min-w-full">
             <thead className="bg-gray-50">
               <tr>
-                {["Task Title", "Project", "Assigned To", "Reporting Head", "Status", "Action"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{h}</th>
-                ))}
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Task Title" sortKey="title" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Project" sortKey="project" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Assigned To" sortKey="assignee" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Reporting Head" sortKey="reportingHead" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
@@ -696,7 +714,7 @@ function getProjectPeople(project, key) {
               ) : tasks.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">No tasks found.</td></tr>
               ) : (
-                tasks.map((task) => {
+                sortedTasks.map((task) => {
                   const taskProj = projectMap.get(Number(task.projectOnboardId));
                   return (
                     <tr key={task.id} className="transition-colors hover:bg-gray-50">

@@ -12,18 +12,18 @@ export default function SidebarFooter({ collapsed }) {
     const role = formatRole(getCanonicalRoles(user)[0] || user.role || "TEAM_MEMBER");
 
     return (
-        <div className="border-t border-slate-200 p-4">
+        <div className="border-t border-[#24171a] p-4">
             <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-                    <Shield size={18} className="text-emerald-600"/>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#251619]">
+                    <Shield size={18} className="text-[#d4c6c8]"/>
                 </div>
                 {
                     !collapsed && (
                         <div>
-                            <p className="font-semibold text-sm">
+                            <p className="font-semibold text-sm text-white">
                                 {displayName}
                             </p>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-[#a99da0]">
                                 {role}
                             </p>
                         </div>

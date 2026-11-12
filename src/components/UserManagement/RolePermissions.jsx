@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, KeyRound, Loader2, Pencil, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import { toast } from "react-toastify";
 import userManagementService from "../../services/userManagement.service";
+import SortableHeader from "../common/SortableHeader";
+import { sortRows } from "../../utils/tableSorting";
 
 const EMPTY_ROLE = { name: "", description: "", isActive: true };
 
@@ -78,6 +80,7 @@ function PermissionGroup({ module, selectedIds, onTogglePermission, onToggleModu
 export default function RolePermissions() {
     const navigate = useNavigate();
     const [roles, setRoles] = useState([]);
+    const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
     const [modules, setModules] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
     const [permissionConfigurationEnabled, setPermissionConfigurationEnabled] = useState(false);
@@ -283,6 +286,19 @@ export default function RolePermissions() {
         </div>
     );
 
+    const sortedRoles = sortRows(roles, sortConfig.key, sortConfig.direction, (role) => {
+        if (sortConfig.key === "name") return role.name;
+        if (sortConfig.key === "description") return role.description;
+        if (sortConfig.key === "staff") return role.users?.filter((user) => user.isActive).length || 0;
+        if (sortConfig.key === "permissions") return role.permissions?.length || 0;
+        if (sortConfig.key === "status") return role.isActive === false ? "Inactive" : "Active";
+        return "";
+    });
+    const toggleSort = (key) => setSortConfig((current) => ({
+        key,
+        direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+
     return (
         <div className="space-y-5 p-4 md:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -434,19 +450,19 @@ export default function RolePermissions() {
                         <ShieldCheck size={19} className="text-blue-700" /> Roles &amp; Permissions
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm">
+                        <table className="erp-list-table min-w-full text-sm">
                             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                 <tr>
-                                    <th className="px-5 py-3 text-left">Role</th>
-                                    <th className="px-5 py-3 text-left">Description</th>
-                                    <th className="px-5 py-3 text-center">Active Staff</th>
-                                    <th className="px-5 py-3 text-center">Permissions</th>
-                                    <th className="px-5 py-3 text-center">Status</th>
+                                    <th className="px-5 py-3 text-left"><SortableHeader label="Role" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                                    <th className="px-5 py-3 text-left"><SortableHeader label="Description" sortKey="description" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                                    <th className="px-5 py-3 text-center"><SortableHeader label="Active Staff" sortKey="staff" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                                    <th className="px-5 py-3 text-center"><SortableHeader label="Permissions" sortKey="permissions" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                                    <th className="px-5 py-3 text-center"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={toggleSort} /></th>
                                     <th className="px-5 py-3 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {roles.map((role) => (
+                                {sortedRoles.map((role) => (
                                     <tr key={role.id} className="hover:bg-slate-50">
                                         <td className="px-5 py-3 font-semibold text-slate-800">
                                             {role.name}
@@ -472,8 +488,8 @@ export default function RolePermissions() {
                                         </td>
                                         <td className="px-5 py-3">
                                             <div className="flex justify-end gap-2">
-                                                <button type="button" onClick={() => startEdit(role)} title={isSystemRole(role) ? "Super Admin always has full access" : `Edit permissions for ${role.name}`} className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
-                                                    <Pencil size={13} /> {isSystemRole(role) ? "System Role" : "Edit Permissions"}
+                                                <button type="button" onClick={() => startEdit(role)} title={isSystemRole(role) ? "Super Admin always has full access" : `Edit permissions for ${role.name}`} aria-label={isSystemRole(role) ? "System role has full access" : `Edit permissions for ${role.name}`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500">
+                                                    {isSystemRole(role) ? <ShieldCheck size={16} /> : <Pencil size={16} />}
                                                 </button>
                                                 {!isSystemRole(role) && !role.users?.length && (
                                                     <button type="button" onClick={() => deleteRole(role)} title={`Delete ${role.name}`} aria-label={`Delete ${role.name}`} className="rounded-full bg-red-600 p-1.5 text-white hover:bg-red-700">

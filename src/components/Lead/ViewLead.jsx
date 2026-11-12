@@ -21,16 +21,6 @@ const FALLBACK_STATUSES = [
   "Negotiation", "Converted", "On Hold",
 ];
 
-const AVATAR_COLORS = [
-  "bg-red-500", "bg-orange-500", "bg-amber-500", "bg-green-500",
-  "bg-teal-500", "bg-blue-500", "bg-indigo-500", "bg-purple-500",
-];
-
-function avatarColor(name = "") {
-  const letter = name.trim()[0]?.toUpperCase() ?? "?";
-  return AVATAR_COLORS[letter.charCodeAt(0) % AVATAR_COLORS.length];
-}
-
 function toDateInputValue(dateStr) {
   if (!dateStr) return "";
   return dateStr.slice(0, 10);
@@ -84,16 +74,16 @@ function getHistoryEntries(lead, statuses) {
 
 function DetailRow({ icon: Icon, children }) {
   return (
-    <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-3 text-sm text-gray-700">
-      <Icon size={16} className="shrink-0 text-gray-400" />
-      <span>{children}</span>
+    <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3 text-sm text-slate-700 sm:px-6">
+      <Icon size={16} className="shrink-0 text-[#9c1018]" />
+      <span className="min-w-0 break-words">{children}</span>
     </div>
   );
 }
 
 function SectionLabel({ children }) {
   return (
-    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <p className="mb-3 text-[11px] font-semibold text-slate-600">
       {children}
     </p>
   );
@@ -157,6 +147,7 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
     statuses.find((s) => s.id === Number(statusId))?.name
     || activeLead?.leadStatus?.name
     || "New Lead";
+  const isConverted = currentStatusName.trim().toLowerCase() === "converted";
 
   const progressValue = STATUS_PROGRESS[currentStatusName] || 10;
 
@@ -241,35 +232,38 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="fixed inset-0 z-40 bg-black/40 transition-opacity duration-300"
         onClick={onClose}
       />
       <div
-        className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-md flex-col bg-white shadow-2xl"
+        className="fixed right-0 top-0 z-50 flex h-dvh w-full max-w-[500px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out"
+        onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
-          <h2 className="text-xl font-bold text-gray-900">Lead Details</h2>
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-[#f7f7fa] px-5 py-3.5 sm:px-6">
+          <h2 className="text-sm font-semibold text-[#211d20]">Lead Details</h2>
           <button
+            type="button"
             title="Close"
+            aria-label="Close lead details"
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
           >
             <X size={20} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="flex items-center gap-4 px-6 py-5">
-            <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl font-bold text-white ${avatarColor(activeLead?.companyName)}`}>
+          <div className="flex items-center gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-lg font-semibold text-[#8f1018]">
               {activeLead?.companyName?.trim()[0]?.toUpperCase() ?? "?"}
             </span>
-            <div>
-              <p className="text-lg font-bold text-gray-900">{activeLead?.companyName || "—"}</p>
-              <p className="text-sm text-gray-400">{[activeLead?.salutation, activeLead?.contactPerson].filter(Boolean).join(" ") || "—"}</p>
+            <div className="min-w-0">
+              <p className="break-words text-base font-semibold text-[#211d20]">{activeLead?.companyName || "—"}</p>
+              <p className="mt-0.5 text-sm text-slate-500">{[activeLead?.salutation, activeLead?.contactPerson].filter(Boolean).join(" ") || "—"}</p>
             </div>
           </div>
 
-          <div className="border-t border-gray-100">
+          <div>
             <DetailRow icon={Mail}>{activeLead?.email || "—"}</DetailRow>
             <DetailRow icon={Phone}>{[activeLead?.phoneCountryCode, activeLead?.phone].filter(Boolean).join(" ") || "—"}</DetailRow>
             <DetailRow icon={User}>Source: {activeLead?.leadSource?.name || "—"}</DetailRow>
@@ -287,18 +281,21 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
           </div>
 
           {loadingLead && (
-            <div className="px-6 pb-3 text-xs text-gray-400">Refreshing lead details...</div>
+            <div className="px-5 pb-3 text-xs text-slate-400 sm:px-6">Refreshing lead details...</div>
           )}
 
           {servicePills.length > 0 && (
-            <div className="px-6 py-5">
+            <div className="px-5 py-5 sm:px-6">
               <SectionLabel>Required Services</SectionLabel>
               <div className="flex flex-wrap gap-2">
                 {servicePills.map((svc) => (
                   <span
                     key={svc.id}
-                    style={{ backgroundColor: svc.color }}
-                    className="rounded-full px-3 py-1 text-xs font-semibold text-white"
+                    style={{
+                      color: svc.color,
+                      backgroundColor: `color-mix(in srgb, ${svc.color} 12%, white)`,
+                    }}
+                    className="rounded-full border border-current/20 px-3 py-1 text-xs font-semibold"
                   >
                     {svc.label}
                   </span>
@@ -307,39 +304,39 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
             </div>
           )}
 
-          <div className="px-6 py-5">
+          <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
             <SectionLabel>Status Pipeline</SectionLabel>
             <div className="h-2 rounded-full bg-gray-200">
               <div
-                className="h-2 rounded-full bg-green-500 transition-all duration-500"
+                className="h-2 rounded-full bg-[#9c1018] transition-all duration-500"
                 style={{ width: `${progressValue}%` }}
               />
             </div>
-            <span className="mt-3 inline-block rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-600">
+            <span className="mt-3 inline-block rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-[#8f1018]">
               {currentStatusName}
             </span>
           </div>
 
-          <div className="space-y-4 border-t border-gray-100 px-6 py-5">
+          <div className="grid grid-cols-1 gap-4 border-t border-slate-100 px-5 py-5 sm:px-6">
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 sm:col-span-2">
                 {error}
               </div>
             )}
             {success && (
-              <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">
+              <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 sm:col-span-2">
                 Lead updated successfully.
               </div>
             )}
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                 Update Status
               </label>
               <select
                 value={statusId}
                 onChange={(e) => { setStatusId(e.target.value); setSuccess(false); }}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full rounded-lg border border-gray-200 bg-[#fbfbfc] px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018]"
               >
                 {statuses.length > 0
                   ? statuses.map((s) => (
@@ -353,7 +350,7 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                 Next Follow-up Date
               </label>
               <div className="relative">
@@ -361,14 +358,17 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
                   type="date"
                   value={followupDate}
                   min={getTodayDate()}
+                  disabled={isConverted}
                   onChange={(e) => { setFollowupDate(e.target.value); setSuccess(false); }}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018] ${
+                    isConverted ? "cursor-not-allowed bg-gray-100 text-gray-400" : "bg-gray-50 text-gray-700"
+                  }`}
                 />
               </div>
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                 Internal Notes (Reason for change)
               </label>
               <textarea
@@ -376,17 +376,17 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Why is this being updated?"
-                className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full resize-none rounded-lg border border-gray-200 bg-[#fbfbfc] px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018]"
               />
             </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                 Lead History Tracking
               </label>
-              <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <div className="max-h-64 space-y-3 overflow-y-auto rounded-xl border border-slate-100 bg-[#fbfbfc] p-3">
                 {historyEntries.map((entry) => (
-                  <div key={entry.id} className="relative border-l-2 border-blue-200 pl-4">
-                    <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full bg-blue-500" />
+                  <div key={entry.id} className="relative border-l-2 border-rose-200 pl-4">
+                    <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full bg-[#9c1018]" />
                     <p className="text-sm font-semibold text-gray-700">{entry.title}</p>
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
                       <Clock3 size={12} /> {formatDateTime(entry.date)}
@@ -411,12 +411,12 @@ export default function ViewLead({ open, onClose, lead, onUpdated }) {
           </div>
         </div>
 
-        <div className="shrink-0 border-t bg-white px-6 py-4">
+        <div className="shrink-0 border-t border-slate-100 bg-white px-5 py-3.5 sm:px-6">
           <button
             type="button"
             onClick={handleUpdate}
             disabled={!isChanged || saving}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow-md shadow-blue-500/30 hover:bg-blue-700 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#8f1018] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#780c13] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 size={16} className="animate-spin" />}
             {saving ? "Updating…" : "Update Lead"}

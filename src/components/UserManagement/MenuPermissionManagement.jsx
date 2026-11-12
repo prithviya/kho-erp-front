@@ -7,6 +7,8 @@ import {
 import { toast } from "react-toastify";
 import userManagementService from "../../services/userManagement.service";
 import { MENU_ICONS, getMenuIcon } from "../sidebar/menuIcons";
+import SortableHeader from "../common/SortableHeader";
+import { sortRows } from "../../utils/tableSorting";
 
 const STANDARD_ACTIONS = ["view", "create", "edit", "delete"];
 const EMPTY_MENU = { name: "", parentId: "", route: "", icon: "", displayOrder: "", isActive: true, extraActions: "" };
@@ -174,6 +176,7 @@ function MenuForm({ menu, sections, onClose, onSaved }) {
 
 function MenusTab({ tree, loading, reload }) {
     const [search, setSearch] = useState("");
+    const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
     const [editor, setEditor] = useState(null);
     const [dragId, setDragId] = useState(null);
 
@@ -184,6 +187,17 @@ function MenusTab({ tree, loading, reload }) {
         const children = (section.children || []).filter(matches);
         return matches(section) || children.length ? [section, ...(matches(section) ? section.children : children)] : [];
     });
+    const sortedRows = sortRows(rows, sortConfig.key, sortConfig.direction, (item) => {
+        if (sortConfig.key === "name") return item.name;
+        if (sortConfig.key === "route") return item.route;
+        if (sortConfig.key === "order") return item.displayOrder;
+        if (sortConfig.key === "status") return item.isActive === false ? "Inactive" : "Active";
+        return "";
+    });
+    const toggleSort = (key) => setSortConfig((current) => ({
+        key,
+        direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
 
     const saveOrder = async (items) => {
         try {
@@ -259,14 +273,14 @@ function MenusTab({ tree, loading, reload }) {
                 </button>
             </div>
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                <table className="min-w-[760px] w-full text-sm">
+                <table className="erp-list-table min-w-[760px] w-full text-sm">
                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th className="px-4 py-3 text-left">Menu</th>
-                            <th className="px-4 py-3 text-left">Route / URL</th>
+                            <th className="px-4 py-3 text-left"><SortableHeader label="Menu" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                            <th className="px-4 py-3 text-left"><SortableHeader label="Route / URL" sortKey="route" sortConfig={sortConfig} onSort={toggleSort} /></th>
                             <th className="px-4 py-3 text-center">Icon</th>
-                            <th className="px-4 py-3 text-center">Order</th>
-                            <th className="px-4 py-3 text-center">Status</th>
+                            <th className="px-4 py-3 text-center"><SortableHeader label="Order" sortKey="order" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                            <th className="px-4 py-3 text-center"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={toggleSort} /></th>
                             <th className="px-4 py-3 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -292,7 +306,7 @@ function MenusTab({ tree, loading, reload }) {
                                 </button>
                             </td></tr>
                         )}
-                        {rows.map((item) => {
+                        {sortedRows.map((item) => {
                             const Icon = getMenuIcon(item.icon);
                             return (
                                 <tr

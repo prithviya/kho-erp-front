@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Download, History, RefreshCw, Search, X } from "lucide-react";
 import { toast } from "react-toastify";
 import activityLogService from "../../services/activityLog.service";
+import SortableHeader from "../common/SortableHeader";
 
 const EMPTY_FILTERS = {
   projectId: "",
@@ -54,6 +55,7 @@ export default function HistoryLog() {
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState({ key: "createdAt", direction: "desc" });
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -66,7 +68,13 @@ export default function HistoryLog() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await activityLogService.list({ ...filters, page, limit: 25 });
+      const response = await activityLogService.list({
+        ...filters,
+        page,
+        limit: 25,
+        sortBy: sortConfig.key,
+        sortDirection: sortConfig.direction,
+      });
       setItems(response.data?.items || []);
       setPagination(response.data?.pagination || { page: 1, limit: 25, total: 0, totalPages: 1 });
     } catch (error) {
@@ -74,7 +82,7 @@ export default function HistoryLog() {
     } finally {
       setLoading(false);
     }
-  }, [filters, page]);
+  }, [filters, page, sortConfig]);
 
   useEffect(() => {
     const timer = setTimeout(load, 250);
@@ -84,6 +92,14 @@ export default function HistoryLog() {
   const updateFilter = (key, value) => {
     setPage(1);
     setFilters((current) => ({ ...current, [key]: value }));
+  };
+
+  const toggleSort = (key) => {
+    setPage(1);
+    setSortConfig((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
   };
 
   const setPreset = (fromDate, toDate) => {
@@ -187,15 +203,15 @@ export default function HistoryLog() {
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="erp-list-table w-full min-w-[820px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Time</th>
-                <th className="px-4 py-3">Employee</th>
-                <th className="px-4 py-3">Action</th>
-                <th className="px-4 py-3">Project</th>
-                <th className="px-4 py-3">Details</th>
+                <th className="px-4 py-3"><SortableHeader label="Date" sortKey="createdAt" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Time" sortKey="createdAt" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Employee" sortKey="actorName" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Action" sortKey="action" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Project" sortKey="projectName" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Details" sortKey="description" sortConfig={sortConfig} onSort={toggleSort} /></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

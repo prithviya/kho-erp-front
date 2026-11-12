@@ -61,6 +61,12 @@ const taskService = {
     },
     deleteTask(id) {
         return request(`/tasks/${id}`, { method: "DELETE" });
+    },
+    reorderTasks(payload) {
+        return request("/tasks/reorder", {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
     }
 };
 

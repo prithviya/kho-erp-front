@@ -2,7 +2,7 @@
     import { useNavigate } from "react-router-dom";
     import {
         Users, Phone,
-        Eye, Pencil, Rocket, Search, CalendarDays, Trash2,
+        Eye, Pencil, Rocket, Search, CalendarDays, Trash2, RefreshCw,
     } from "lucide-react";
     import { toast } from "react-toastify";
     import CreateLead from "./CreateLead";
@@ -10,6 +10,8 @@
     import ViewLead from "./ViewLead";
     import leadService from "../../services/lead.service";
     import { hasRole, canDeleteRecords } from "../../utils/auth";
+    import SortableHeader from "../common/SortableHeader";
+    import { sortRows } from "../../utils/tableSorting";
 
     // Source badge colours keyed by source name (case-insensitive match)
     const SOURCE_COLORS = {
@@ -39,6 +41,7 @@
 
         const [search, setSearch] = useState("");
         const [statusFilter, setStatusFilter] = useState("");
+        const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
 
         const [createOpen, setCreateOpen] = useState(false);
         const [editOpen, setEditOpen] = useState(false);
@@ -122,6 +125,19 @@
             return acc;
         }, {});
 
+        const sortedLeads = sortRows(leads, sortConfig.key, sortConfig.direction, (lead) => {
+            if (sortConfig.key === "company") return lead.companyName;
+            if (sortConfig.key === "source") return lead.leadSource?.name;
+            if (sortConfig.key === "status") return lead.leadStatus?.name;
+            if (sortConfig.key === "assigned") return `${lead.assignedUser?.firstName ?? ""} ${lead.assignedUser?.lastName ?? ""}`;
+            if (sortConfig.key === "followUp") return lead.nextFollowupDate;
+            return "";
+        });
+        const toggleSort = (key) => setSortConfig((current) => ({
+            key,
+            direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+        }));
+
         const STAT_CARDS = [
             { label: "Total Leads", value: totalLeads },
             { label: "Converted Deals", value: convertedDeals },
@@ -132,14 +148,14 @@
         ];
 
         return (
-            <div className="p-4 space-y-4">
+            <div className="min-h-full space-y-4 bg-[#f4f5f9] p-3 sm:p-4 lg:p-6">
                 {/* Stat cards */}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                     {STAT_CARDS.map(({ label, value }) => (
-                        <div key={label} className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5">
+                        <div key={label} className="flex min-h-[76px] items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-[0_2px_12px_rgba(15,23,42,0.025)] sm:px-5">
                             <div>
-                                <p className="text-sm font-medium text-gray-500">{label}</p>
-                                <h2 className="mt-2 text-3xl font-bold text-gray-900">{value}</h2>
+                                <p className="text-xs font-medium text-slate-500">{label}</p>
+                                <h2 className="mt-1 text-2xl font-semibold leading-none text-[#211d20]">{value}</h2>
                             </div>
                             {/* <div className={`flex h-14 w-14 items-center justify-center rounded-full ${bg}`}>
                                 <Icon className={`h-7 w-7 ${color}`} />
@@ -149,21 +165,35 @@
                 </div>
 
                 {/* Table card */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_3px_15px_rgba(15,23,42,0.025)] sm:p-5">
                     {/* Toolbar */}
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <h4 className="text-lg font-semibold text-gray-900">Lead Pipeline</h4>
-                            <p className="text-sm text-gray-500">Track and manage your opportunities</p>
+                        <div className="flex items-center gap-3">
+                            <div>
+                                <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[#8f1018]">
+                                    Track and manage your opportunities
+                                </p>
+                                <h4 className="text-base font-semibold text-[#211d20]">Lead Pipeline</h4>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={fetchLeads}
+                                disabled={loading}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-[#8f1018] disabled:cursor-wait disabled:opacity-50"
+                                title="Refresh leads"
+                            >
+                                <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+                                Refresh
+                            </button>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                             {/* Search */}
-                            <div className="relative">
+                            <div className="relative min-w-[180px] flex-1 sm:flex-none">
                                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search leads..." className="rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 w-52" />
+                                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search Leads" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm placeholder:text-slate-400 focus:border-[#9c1018] focus:outline-none focus:ring-2 focus:ring-rose-100 sm:w-52" />
                             </div>
                             {/* Status filter */}
-                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-blue-500" >
+                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="min-w-[118px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-[#9c1018] focus:outline-none focus:ring-2 focus:ring-rose-100">
                                 <option value="">All Status</option>
                                 {statuses.map((s) => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
@@ -171,7 +201,7 @@
                             </select>
                             {/* Add Lead */}
                             {canCreateLead && (
-                                <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition" >
+                                <button type="button" onClick={() => setCreateOpen(true)} className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#8f1018] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#780c13]">
                                     + Add Lead
                                 </button>
                             )}
@@ -179,40 +209,40 @@
                     </div>
 
                     {/* Table */}
-                    <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <div className="overflow-x-auto rounded-xl border border-slate-100">
+                        <table className="erp-list-table min-w-[1000px] w-full text-sm">
+                            <thead className="text-[10px] font-semibold uppercase tracking-wide text-white">
                                 <tr>
-                                    <th className="px-4 py-3">#</th>
-                                    <th className="px-4 py-3 text-left">Company &amp; Contact</th>
-                                    <th className="px-4 py-3 text-left">Source</th>
-                                    <th className="px-4 py-3 text-left">Status</th>
-                                    <th className="px-4 py-3 text-left">Assigned To</th>
-                                    <th className="px-4 py-3 text-left">Next Follow-up</th>
-                                    <th className="px-4 py-3 text-center">Actions</th>
+                                    <th className="w-14 border-r border-white/10 px-3 py-3 text-center">S.no</th>
+                                    <th className="min-w-[280px] border-r border-white/10 px-4 py-3 text-left"><SortableHeader label="Company & Contact" sortKey="company" sortConfig={sortConfig} onSort={toggleSort} className="text-white/90 hover:text-white focus-visible:outline-white" /></th>
+                                    <th className="w-28 border-r border-white/10 px-4 py-3 text-left"><SortableHeader label="Source" sortKey="source" sortConfig={sortConfig} onSort={toggleSort} className="text-white/90 hover:text-white focus-visible:outline-white" /></th>
+                                    <th className="w-32 border-r border-white/10 px-4 py-3 text-left"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={toggleSort} className="text-white/90 hover:text-white focus-visible:outline-white" /></th>
+                                    <th className="w-36 border-r border-white/10 px-4 py-3 text-left"><SortableHeader label="Assigned To" sortKey="assigned" sortConfig={sortConfig} onSort={toggleSort} className="text-white/90 hover:text-white focus-visible:outline-white" /></th>
+                                    <th className="w-36 border-r border-white/10 px-4 py-3 text-left"><SortableHeader label="Next Follow-up" sortKey="followUp" sortConfig={sortConfig} onSort={toggleSort} className="text-white/90 hover:text-white focus-visible:outline-white" /></th>
+                                    <th className="w-36 px-3 py-3 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100 bg-white">
+                            <tbody className="bg-white">
                                 {loading && (
                                     <tr>
-                                        <td colSpan={7} className="py-10 text-center text-sm text-gray-400">
+                                        <td colSpan={7} className="border-t border-slate-100 py-10 text-center text-sm text-gray-400">
                                             Loading leads…
                                         </td>
                                     </tr>
                                 )}
                                 {!loading && error && (
                                     <tr>
-                                        <td colSpan={7} className="py-10 text-center text-sm text-red-500">{error}</td>
+                                        <td colSpan={7} className="border-t border-slate-100 py-10 text-center text-sm text-red-500">{error}</td>
                                     </tr>
                                 )}
                                 {!loading && !error && leads.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="py-10 text-center text-sm text-gray-400">
+                                        <td colSpan={7} className="border-t border-slate-100 py-10 text-center text-sm text-gray-400">
                                             No leads found.
                                         </td>
                                     </tr>
                                 )}
-                                {!loading && !error && leads.map((lead, idx) => {
+                                {!loading && !error && sortedLeads.map((lead, idx) => {
                                     const assignedName = lead.assignedUser
                                         ? `${lead.assignedUser.firstName ?? ""} ${lead.assignedUser.lastName ?? ""}`.trim(): "—";
                                     const followUp = formatDate(lead.nextFollowupDate);
@@ -221,9 +251,9 @@
                                     const isConverted = lead.leadStatus?.name?.toLowerCase() === "converted";
 
                                     return (
-                                        <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-4 py-3 text-center text-gray-500">{idx + 1}</td>
-                                            <td className="px-4 py-3">
+                                        <tr key={lead.id} className="border-t border-slate-100 transition-colors hover:bg-[#fbfafb]">
+                                            <td className="border-r border-slate-100 px-3 py-4 text-center text-xs text-gray-500">{idx + 1}</td>
+                                            <td className="border-r border-slate-100 px-4 py-3.5">
                                                 <p className="font-semibold text-gray-900">{lead.companyName}</p>
                                                 <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
                                                     <span className="flex items-center gap-1">
@@ -234,12 +264,12 @@
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="border-r border-slate-100 px-4 py-3.5">
                                                 <span className={`rounded-md px-2.5 py-1 text-xs font-medium ${sourceBadgeCls(lead.leadSource?.name)}`}>
                                                     {lead.leadSource?.name ?? "—"}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="border-r border-slate-100 px-4 py-3.5">
                                                 {lead.leadStatus ? (
                                                     <span className="rounded-full px-2.5 py-1 text-xs font-medium" style={statusColor
                                                             ? { backgroundColor: `${statusColor}20`, color: statusColor }
@@ -250,15 +280,15 @@
                                                     </span>
                                                 ) : "—"}
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="border-r border-slate-100 px-4 py-3.5">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-gray-700">{assignedName}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="border-r border-slate-100 px-4 py-3.5">
                                                 {followUp ? (
-                                                    <span className={`flex items-center gap-1.5 text-xs font-medium ${isOverdue ? "text-red-600" : "text-gray-700"}`}>
-                                                        <CalendarDays size={13} className={isOverdue ? "text-red-500" : "text-gray-400"} /> {followUp}
+                                                    <span className={`flex items-center gap-1.5 text-xs font-medium ${isOverdue ? "text-red-600" : "text-slate-600"}`}>
+                                                        <CalendarDays size={13} className={isOverdue ? "text-red-500" : "text-[#9c1018]"} /> {followUp}
                                                     </span>
                                                 ) : (
                                                     <span className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -268,25 +298,27 @@
                                             </td>
 
                                             {/* Actions */}
-                                            <td className="px-4 py-3">
+                                            <td className="px-3 py-3.5">
                                                 <div className="flex items-center justify-center gap-1.5">
-                                                    <button title="View" onClick={() => { setSelectedLead(lead); setViewOpen(true); }} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors ">
+                                                    <button type="button" title="View" aria-label="View lead" onClick={() => { setSelectedLead(lead); setViewOpen(true); }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500">
                                                         <Eye size={16} />
                                                     </button>
-                                                    <button title="Edit" onClick={() => { setSelectedLead(lead); setEditOpen(true); }} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors ">
+                                                    <button type="button" title="Edit" aria-label="Edit lead" onClick={() => { setSelectedLead(lead); setEditOpen(true); }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500">
                                                         <Pencil size={16} />
                                                     </button>
                                                     {isConverted && (
                                                         <button
+                                                            type="button"
                                                             title={isLeadOnboarded(lead) ? "Already onboarded" : "Move to Project"}
+                                                            aria-label={isLeadOnboarded(lead) ? "Lead already onboarded" : "Move lead to project"}
                                                             onClick={() => handleMoveToProject(lead)}
-                                                            className={`rounded-md p-1.5 transition ${isLeadOnboarded(lead) ? "text-gray-400 hover:bg-gray-100" : "px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors "}`}
+                                                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${isLeadOnboarded(lead) ? "bg-slate-50 text-slate-400 hover:bg-slate-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
                                                         >
                                                             <Rocket size={16} />
                                                         </button>
                                                     )}
                                                     {canDelete && (
-                                                        <button title="Delete" onClick={() => handleDelete(lead)} disabled={deletingId === lead.id} className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50">
+                                                        <button type="button" title="Delete" aria-label="Delete lead" onClick={() => handleDelete(lead)} disabled={deletingId === lead.id} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500">
                                                             <Trash2 size={16} />
                                                         </button>
                                                     )}

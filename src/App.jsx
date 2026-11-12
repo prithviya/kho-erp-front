@@ -27,22 +27,30 @@ function playNotificationSound() {
   oscillator.addEventListener("ended", () => context.close(), { once: true });
 }
 
+function AppContent() {
+  return (
+    <>
+      <AppRoutes />
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        draggable
+        theme="light"
+        onOpen={playNotificationSound}
+      />
+    </>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          pauseOnHover
-          draggable
-          theme="light"
-          onOpen={playNotificationSound}
-        />
+        <AppContent />
       </AuthProvider>
     </BrowserRouter>
   );

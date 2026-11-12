@@ -43,19 +43,19 @@ export default function SidebarItem({
             ${collapsed ? "justify-center" : "justify-start"}
             gap-3
             px-3
-            py-2.5
-            rounded-xl
+            py-2
+            rounded-lg
             transition-all
             duration-200
             ${active
-                    ? "bg-emerald-50 text-emerald-700 border-l-4 border-emerald-500 shadow-sm"
-                    : "text-slate-600 hover:bg-emerald-50/70 hover:text-emerald-700"}
+                    ? "bg-[#8f1018] text-white"
+                    : "text-[#b8adaf] hover:bg-[#251619] hover:text-white"}
             `}
         >
             <Icon
                 size={19}
                 strokeWidth={2}
-                className="shrink-0"
+                className={`shrink-0 ${active ? "text-[#f4d184]" : ""}`}
             />
             {
                 !collapsed &&
@@ -94,7 +94,7 @@ export default function SidebarItem({
                     group-hover:opacity-100
                     transition-all
                     duration-200
-                    bg-slate-900
+                    bg-[#2b1d20]
                     text-white
                     text-xs
                     rounded-lg

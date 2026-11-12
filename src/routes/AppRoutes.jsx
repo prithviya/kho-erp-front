@@ -24,6 +24,7 @@ import Leave from "../components/SalaryPay/leave";
 import Cif from "../components/cifForm/ciform";
 import Profile from "../components/cifForm/profile";
 import TaskScheduleList from "../components/project/TaskScheduleList";
+import ProjectTaskReport from "../components/project/ProjectTaskReport";
 import MainLayout from "../layouts/MainLayout";
 import PrivateRoute from "./PrivateRoute";
 import PublicRoute from "./PublicRoute";
@@ -61,6 +62,7 @@ export default function AppRoutes() {
                 <Route path="/dashboard" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]} permissionKey="dashboard.view"><Dashboard /></RoleRoute>} />
                 <Route path="/lead-overview" element={<RoleRoute roles={["SUPER_ADMIN", "CRM_EXECUTIVE", "MANAGER"]} permissionKey="lead_management.view"><LeadOverview /></RoleRoute>} />
                 <Route path="/report" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]} permissionKey="reports.view"><Report /></RoleRoute>} />
+                <Route path="/project-task-report" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]}><ProjectTaskReport /></RoleRoute>} />
                 <Route path="/onboard-prjt" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]} permissionKey="project_onboard.view"><ProjectOnboarding /></RoleRoute>} />
                 <Route path="/prjt-details" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER"]} permissionKey="project_details.view"><ProjectDetail /></RoleRoute>} />
                 <Route path="/tasks" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]} permissionKey="tasks.view"><AssignTask /></RoleRoute>} />
@@ -76,7 +78,7 @@ export default function AppRoutes() {
                 <Route path="/job" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]} permissionKey="opening.view"><JobOpening /></RoleRoute>} />
                 <Route path="/assign-board" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]} permissionKey="assign_board.view"><Assignedprojectboard /></RoleRoute>} />
                 <Route path="/recruitment-process" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]} permissionKey="recruitment.view"><RecruitmentProcess /></RoleRoute>} />
-                <Route path="/onboarding" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER"]} permissionKey="onboarding.view"><Onboarding /></RoleRoute>} />
+                <Route path="/onboarding" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER", "CEO"]}><Onboarding /></RoleRoute>} />
                 <Route path="/employee" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER"]} permissionKey="employee.view"><Employee /></RoleRoute>} />
                 <Route path="/payroll" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER"]} permissionKey="payroll_management.view"><Salary /></RoleRoute>} />
                 <Route path="/leave" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER", "CRM_EXECUTIVE", "CEO", "TEAM_MEMBER"]} permissionKey="leave.view"><Leave /></RoleRoute>} />

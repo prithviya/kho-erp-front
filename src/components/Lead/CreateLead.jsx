@@ -289,12 +289,12 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
     }
 
     const inputCls = (field) =>
-        `w-full rounded-lg border bg-white pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition ${
+        `w-full rounded-lg border bg-[#fbfbfc] pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018] transition ${
             fieldErrors[field] ? "border-red-400 bg-red-50/30" : "border-gray-200"
         }`;
 
     const selectCls = (field) =>
-        `w-full rounded-lg border bg-white pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition appearance-none ${
+        `w-full rounded-lg border bg-[#fbfbfc] pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018] transition appearance-none ${
             fieldErrors[field] ? "border-red-400 bg-red-50/30" : "border-gray-200"
         }`;
 
@@ -312,20 +312,21 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
             />
 
             <div
-                className={`fixed right-0 top-0 z-50 flex h-screen w-full max-w-sm flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
+                className={`fixed right-0 top-0 z-50 flex h-dvh w-full max-w-[500px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
                     open ? "translate-x-0" : "translate-x-full"
                 }`}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
-                    <h2 className="text-lg font-semibold text-gray-800">
-                        {isEditMode ? "Edit Lead" : "Create New Lead"}
+                <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-[#f7f7fa] px-5 py-3.5 sm:px-6">
+                    <h2 className="text-sm font-semibold text-[#211d20]">
+                        {isEditMode ? "Edit Lead" : "Creative New Lead"}
                     </h2>
                     <button
                         type="button"
                         title="Close"
+                        aria-label="Close lead form"
                         onClick={onClose}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                     >
                         <X size={20} />
                     </button>
@@ -335,15 +336,15 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                     {loadingData ? (
                         <Skeleton rows={6} />
                     ) : (
-                        <form id="create-lead-form" className="space-y-4 p-6" onSubmit={handleSubmit} noValidate>
+                        <form id="create-lead-form" className="grid grid-cols-1 gap-x-4 gap-y-4 p-5 sm:grid-cols-2 sm:p-6" onSubmit={handleSubmit} noValidate>
                             {serverError && (
-                                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+                                <div className="col-span-full rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                                     {serverError}
                                 </div>
                             )}
 
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     Company Name <span className="text-red-500">*</span>
                                 </label>
                                 <IconInput icon={Building2}>
@@ -360,7 +361,7 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                             </div>
 
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     Contact Person <span className="text-red-500">*</span>
                                 </label>
                                 <div className="flex gap-2">
@@ -368,7 +369,7 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                         name="salutation"
                                         value={form.salutation}
                                         onChange={handleChange}
-                                        className={`w-28 rounded-lg border bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${fieldErrors.salutation ? "border-red-400 bg-red-50/30" : "border-gray-200"}`}
+                                        className={`w-24 rounded-lg border bg-[#fbfbfc] px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018] ${fieldErrors.salutation ? "border-red-400 bg-red-50/30" : "border-gray-200"}`}
                                     >
                                         <option value="" disabled>Select</option>
                                         <option value="Mr.">Mr.</option>
@@ -391,7 +392,7 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                             </div>
 
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     Phone Number <span className="text-red-500">*</span>
                                 </label>
                                 <div className="flex gap-2">
@@ -438,7 +439,7 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                             </div>
 
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     Email Address <span className="text-red-500">*</span>
                                 </label>
                                 <IconInput icon={Mail}>
@@ -454,8 +455,8 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                 <FieldError message={fieldErrors.email} />
                             </div>
 
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <div className="sm:col-span-2">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     Lead Source <span className="text-red-500">*</span>
                                 </label>
                                 <IconInput icon={LogIn}>
@@ -475,8 +476,8 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                             </div>
 
                             {isReferral && (
-                                <div>
-                                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <div className="sm:col-span-2">
+                                    <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                         Referred By
                                     </label>
                                     <IconInput icon={UserCheck}>
@@ -492,25 +493,25 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                 </div>
                             )}
 
-                            <div>
+                            <div className="sm:col-span-2">
                                 <div className="mb-2 flex items-center justify-between">
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    <label className="text-[11px] font-semibold text-slate-600">
                                         Required Services <span className="text-red-500">*</span>
                                     </label>
                                     {selectedCount > 0 && (
-                                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-600">
+                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
                                             {selectedCount} selected
                                         </span>
                                     )}
                                 </div>
-                                <div className={`rounded-xl border bg-gray-50 p-3 space-y-3 ${fieldErrors.serviceIds ? "border-red-400" : "border-gray-200"}`}>
+                                <div className={`max-h-48 overflow-y-auto rounded-xl border bg-white p-3 space-y-3 ${fieldErrors.serviceIds ? "border-red-400" : "border-gray-100"}`}>
                                     {categories.map((cat) => {
                                         const services = cat.Services ?? cat.services ?? [];
                                         if (!services.length) return null;
                                         const color = cat.color || "#6B7280";
                                         return (
                                             <div key={cat.id}>
-                                                <p className="mb-2 text-xs font-semibold text-gray-600">{cat.name}</p>
+                                                <p className="mb-2 text-[11px] font-semibold text-slate-600">{cat.name}</p>
                                                 <div className="flex flex-wrap gap-2">
                                                     {services.map((svc) => {
                                                         const selected = form.serviceIds.includes(svc.id);
@@ -521,10 +522,10 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                                                 onClick={() => toggleService(svc.id)}
                                                                 style={{
                                                                     borderColor: color,
-                                                                    color: selected ? "#fff" : color,
-                                                                    backgroundColor: selected ? color : "transparent",
+                                                                    color,
+                                                                    backgroundColor: selected ? `color-mix(in srgb, ${color} 12%, white)` : "transparent",
                                                                 }}
-                                                                className="rounded-full border px-3 py-1 text-xs font-medium transition-all hover:shadow-sm active:scale-95"
+                                                                className="rounded-full border px-3 py-1 text-[10px] font-semibold transition-all hover:shadow-sm active:scale-95"
                                                             >
                                                                 {svc.name}
                                                             </button>
@@ -542,7 +543,7 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                             </div>
 
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     Estimated Budget (₹)
                                 </label>
                                 <IconInput icon={IndianRupee}>
@@ -560,7 +561,7 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                             </div>
 
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     Next Follow-up Date
                                 </label>
                                 <IconInput icon={CalendarDays}>
@@ -576,27 +577,8 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                 <FieldError message={fieldErrors.nextFollowupDate} />
                             </div>
 
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    Project Name
-                                </label>
-                                <div className="relative">
-                                    <span className="pointer-events-none absolute left-3 top-2.5 text-gray-400">
-                                        <FileText size={16} />
-                                    </span>
-                                    <textarea
-                                        rows={3}
-                                        name="requirement"
-                                        value={form.requirement}
-                                        onChange={handleChange}
-                                        placeholder="Name of the Project"
-                                        className="w-full resize-none rounded-lg border border-gray-200 bg-white pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <div className="sm:col-span-2">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     Assigned CRM Executive
                                 </label>
                                 <IconInput icon={Users}>
@@ -618,9 +600,28 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                 </IconInput>
                             </div>
 
-                            <div>
+                            <div className="sm:col-span-2">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
+                                    Project Name
+                                </label>
+                                <div className="relative">
+                                    <span className="pointer-events-none absolute left-3 top-2.5 text-gray-400">
+                                        <FileText size={16} />
+                                    </span>
+                                    <textarea
+                                        rows={2}
+                                        name="requirement"
+                                        value={form.requirement}
+                                        onChange={handleChange}
+                                        placeholder="Name of the Project"
+                                        className="w-full resize-none rounded-lg border border-gray-200 bg-[#fbfbfc] pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018] transition"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="sm:col-span-2">
                                 <div className="mb-1.5 flex items-center justify-between">
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    <label className="text-[11px] font-semibold text-slate-600">
                                         Internal Notes
                                     </label>
                                     <span className={`text-xs ${form.notes.length > NOTES_MAX * 0.9 ? "text-orange-500" : "text-gray-400"}`}>
@@ -638,7 +639,7 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                                         onChange={handleChange}
                                         maxLength={NOTES_MAX}
                                         placeholder="Private notes for the team..."
-                                        className="w-full resize-none rounded-lg border border-gray-200 bg-white pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                                        className="w-full resize-none rounded-lg border border-gray-200 bg-[#fbfbfc] pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018] transition"
                                     />
                                 </div>
                                 <FieldError message={fieldErrors.notes} />
@@ -650,12 +651,12 @@ export default function CreateLead({ open, onClose, onCreated, leadToEdit = null
                 </div>
 
                 {!loadingData && (
-                    <div className="shrink-0 border-t bg-white px-6 py-4">
+                    <div className="shrink-0 border-t border-slate-100 bg-white px-5 py-3.5 sm:px-6">
                         <button
                             type="submit"
                             form="create-lead-form"
                             disabled={submitting}
-                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3 text-sm font-semibold uppercase tracking-widest text-white shadow-md shadow-blue-500/30 hover:bg-blue-700 active:scale-[0.98] transition disabled:opacity-60"
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#8f1018] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#780c13] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {submitting && <Loader2 size={16} className="animate-spin" />}
                             {submitting

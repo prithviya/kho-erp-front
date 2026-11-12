@@ -125,7 +125,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
     if (!open) return null;
 
     const inputCls = (field) =>
-        `w-full rounded-lg border bg-white pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition ${
+        `w-full rounded-lg border bg-[#fbfbfc] pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018] transition ${
             errors[field] ? "border-red-400 bg-red-50/30" : "border-gray-200"
         }`;
 
@@ -139,16 +139,17 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
     return (
         <>
             <div onClick={() => !submitting && onClose()} className="fixed inset-0 bg-black/40 z-40 transition-opacity" />
-            <div className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out">
+            <div className="fixed right-0 top-0 z-50 flex h-dvh w-full max-w-[500px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out">
                 {/* Header */}
-                <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
-                    <h2 className="text-lg font-semibold text-gray-800">Edit Vendor</h2>
+                <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-[#f7f7fa] px-5 py-3.5 sm:px-6">
+                    <h2 className="text-sm font-semibold text-[#211d20]">Edit Vendor</h2>
                     <button 
                         type="button" 
                         title="Close"
                         disabled={submitting} 
                         onClick={onClose} 
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition disabled:opacity-40"
+                        aria-label="Close vendor form"
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
                     >
                         <X size={20} />
                     </button>
@@ -156,11 +157,11 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
 
                 {/* Form Body */}
                 <div className="flex-1 overflow-y-auto">
-                    <form id="edit-vendor-form" onSubmit={handleSubmit} className="space-y-4 p-6">
+                    <form id="edit-vendor-form" onSubmit={handleSubmit} className="space-y-4 p-5 sm:p-6">
                         <div>
                             <div className="mb-1.5 flex items-center justify-between">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Category / Sub service</label>
-                                <button type="button" onClick={() => setForm((prev) => ({ ...prev, services: [...prev.services, { categoryId: "", serviceId: "", price: "" }] }))} className="flex items-center gap-1 text-xs font-semibold text-blue-600"><Plus size={14} /> Add Service</button>
+                                <label className="block text-[11px] font-semibold text-slate-600">Category / Sub service</label>
+                                <button type="button" onClick={() => setForm((prev) => ({ ...prev, services: [...prev.services, { categoryId: "", serviceId: "", price: "" }] }))} className="flex items-center gap-1 text-xs font-semibold text-[#8f1018]"><Plus size={14} /> Add Service</button>
                             </div>
                             {form.services.map((service, index) => {
                                 const category = categories.find((item) => String(item.id) === String(service.categoryId));
@@ -179,7 +180,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 Vendor Name <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
@@ -200,7 +201,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 Company Name
                             </label>
                             <div className="relative">
@@ -220,7 +221,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 Email <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
@@ -241,7 +242,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 Contact Number <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
@@ -265,7 +266,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
 
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     GST Registered
                                 </label>
                                 <select
@@ -273,14 +274,14 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                                     disabled={submitting}
                                     value={form.gst_registered}
                                     onChange={handleChange}
-                                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    className="w-full rounded-lg border border-gray-200 bg-[#fbfbfc] px-3 py-2.5 text-sm focus:border-[#9c1018] focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15"
                                 >
                                     <option value="no">No</option>
                                     <option value="yes">Yes</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     Status
                                 </label>
                                 <select
@@ -288,7 +289,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                                     disabled={submitting}
                                     value={form.status}
                                     onChange={handleChange}
-                                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    className="w-full rounded-lg border border-gray-200 bg-[#fbfbfc] px-3 py-2.5 text-sm focus:border-[#9c1018] focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15"
                                 >
                                     <option value="active">Active</option>
                                     <option value="inactive">Inactive</option>
@@ -298,7 +299,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
 
                         {form.gst_registered === "yes" && (
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     GST Number <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
@@ -330,7 +331,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                         )}
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 Address
                             </label>
                             <div className="relative">
@@ -344,7 +345,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                                     value={form.vendor_address}
                                     onChange={handleChange}
                                     placeholder="Street, City, Pincode"
-                                    className="w-full resize-none rounded-lg border border-gray-200 bg-white pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                                    className="w-full resize-none rounded-lg border border-gray-200 bg-[#fbfbfc] pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018] transition"
                                 />
                             </div>
                         </div>
@@ -352,7 +353,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                 </div>
 
                 {/* Footer */}
-                <div className="shrink-0 border-t bg-white px-6 py-4 flex gap-3">
+                <div className="shrink-0 flex gap-3 border-t border-slate-100 bg-white px-5 py-3.5 sm:px-6">
                     <button
                         type="button"
                         disabled={submitting}
@@ -365,7 +366,7 @@ export default function EditVendor({ open, onClose, vendor, onUpdated }) {
                         type="submit"
                         form="edit-vendor-form"
                         disabled={submitting}
-                        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-sm font-semibold uppercase tracking-wider text-white hover:bg-blue-700 transition active:scale-[0.98] disabled:opacity-60"
+                        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-[#8f1018] py-3 text-sm font-semibold text-white transition hover:bg-[#780c13] active:scale-[0.99] disabled:opacity-60"
                     >
                         {submitting && <Loader2 size={16} className="animate-spin" />}
                         {submitting ? "Updating…" : "Update Vendor"}

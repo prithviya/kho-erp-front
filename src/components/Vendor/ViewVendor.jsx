@@ -1,4 +1,4 @@
-import { X, Mail, Phone, Building2, MapPin, FileCheck } from "lucide-react";
+import { X, Mail, Phone, Building2, MapPin } from "lucide-react";
 import { getCategoryName, getServiceName, getServicePrice, getVendorServices } from "./vendorServices";
 
 export default function ViewVendor({ open, onClose, vendor }) {
@@ -6,18 +6,18 @@ export default function ViewVendor({ open, onClose, vendor }) {
 
     return (
         <>
-            <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-            <div className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-md flex-col bg-white shadow-2xl">
-                <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
-                    <h2 className="text-lg font-semibold text-gray-800">Vendor Details</h2>
-                    <button title="Close" aria-label="Close" onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100">
+            <div className="fixed inset-0 z-40 bg-black/40 transition-opacity duration-300" onClick={onClose} />
+            <div className="fixed right-0 top-0 z-50 flex h-dvh w-full max-w-[500px] flex-col bg-white shadow-2xl">
+                <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-[#f7f7fa] px-5 py-3.5 sm:px-6">
+                    <h2 className="text-sm font-semibold text-[#211d20]">Vendor Details</h2>
+                    <button type="button" title="Close" aria-label="Close vendor details" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
                         <X size={20} />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 space-y-6 overflow-y-auto p-5 sm:p-6">
                     <div className="flex items-center gap-4">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-xl font-bold text-white uppercase">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-lg font-semibold text-[#8f1018] uppercase">
                             {vendor.vendor_name?.charAt(0) || "V"}
                         </div>
                         <div>
@@ -51,7 +51,7 @@ export default function ViewVendor({ open, onClose, vendor }) {
                     </div>
 
                     <div className="rounded-xl border border-gray-200 p-4">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">GST & Compliance</h4>
+                        <h4 className="mb-2 text-[11px] font-semibold text-slate-600">GST & Compliance</h4>
                         <div className="flex items-center justify-between text-sm py-1">
                             <span className="text-gray-500">GST Status</span>
                             <span className="font-medium text-gray-800 capitalize">{vendor.gst_registered}</span>
@@ -65,7 +65,7 @@ export default function ViewVendor({ open, onClose, vendor }) {
                     </div>
 
                     <div className="rounded-xl border border-gray-200 p-4">
-                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Category / Sub service & Pricing</h4>
+                        <h4 className="mb-3 text-[11px] font-semibold text-slate-600">Category / Sub service & Pricing</h4>
                         {getVendorServices(vendor).length ? (
                             <div className="overflow-x-auto">
                                 <table className="min-w-full text-sm">
@@ -77,10 +77,10 @@ export default function ViewVendor({ open, onClose, vendor }) {
                     </div>
                 </div>
 
-                <div className="shrink-0 border-t bg-white px-6 py-4">
+                <div className="shrink-0 border-t border-slate-100 bg-white px-5 py-3.5 sm:px-6">
                     <button
                         onClick={onClose}
-                        className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                        className="w-full rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                     >
                         Close
                     </button>

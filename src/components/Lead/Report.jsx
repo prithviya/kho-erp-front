@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 
 import leadService from "../../services/lead.service";
+import SortableHeader from "../common/SortableHeader";
+import { sortRows } from "../../utils/tableSorting";
 // import ViewLead from "./ViewLead";
 function Report() {
   const [leads, setLeads] = useState([]);
@@ -18,6 +20,7 @@ function Report() {
   const [contactSearch, setContactSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
+  const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
 
   const normalizeList = (payload) => {
     if (Array.isArray(payload)) return payload;
@@ -156,6 +159,21 @@ function Report() {
     const sourceMatch = !sourceFilter || source === sourceFilter.toLowerCase();
     return contactMatch && sourceMatch;
   });
+  const sortedLeads = sortRows(filteredLeads, sortConfig.key, sortConfig.direction, (lead) => {
+    if (sortConfig.key === "contact") return getContactName(lead);
+    if (sortConfig.key === "company") return getCompanyName(lead);
+    if (sortConfig.key === "phone") return getPhone(lead);
+    if (sortConfig.key === "email") return getEmail(lead);
+    if (sortConfig.key === "source") return getSource(lead);
+    if (sortConfig.key === "budget") return lead.budget ?? lead.amount ?? lead.dealValue ?? lead.deal_value;
+    if (sortConfig.key === "createdAt") return lead.createdAt ?? lead.created_at;
+    if (sortConfig.key === "status") return getStatus(lead);
+    return "";
+  });
+  const toggleSort = (key) => setSortConfig((current) => ({
+    key,
+    direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+  }));
 
   const handleSearch = () => { fetchLeads(); };
 
@@ -222,18 +240,18 @@ function Report() {
         {/* TABLE */}
         <div className="mt-3 overflow-hidden rounded-lg border border-gray-200 bg-white">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="erp-list-table min-w-full">
               <thead className="bg-gray-50">
                 <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"> # </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"> Lead Name </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"> Company Name </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"> Phone No</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"> Email </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"> Source </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"> Budget </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"> Created Date </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"> Status </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Lead Name" sortKey="contact" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Company Name" sortKey="company" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Phone No" sortKey="phone" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Email" sortKey="email" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Source" sortKey="source" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Budget" sortKey="budget" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Created Date" sortKey="createdAt" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={toggleSort} /></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
@@ -265,7 +283,7 @@ function Report() {
 
                 {/* Dynamic Leads */}
                 {!loading && !error &&
-                  filteredLeads.map((lead, index) => {
+                  sortedLeads.map((lead, index) => {
                     const company = getCompanyName(lead);
                     const contact = getContactName(lead);
                     const email = getEmail(lead);

@@ -1,18 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Banknote, Eye } from 'lucide-react';
+import { Banknote, Eye, EyeOff } from 'lucide-react';
 import { request } from '../../services/apiClient';
 import employeeService from '../../services/employee.service';
+import SortableHeader from '../common/SortableHeader';
+import { sortRows } from '../../utils/tableSorting';
 
 function Salary() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' });
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showSalaryModal, setShowSalaryModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [visibleBankAccountId, setVisibleBankAccountId] = useState(null);
   const [totalWorkingDays, setTotalWorkingDays] = useState(26);
   const [paymentData, setPaymentData] = useState({
     employeeId: null,
@@ -46,6 +50,7 @@ function Salary() {
 
           return {
             id: employee.id,
+            employeeCode,
             name: onboardingData.fullName || employee.fullName || '-',
             designation: onboardingData.designation || employee.jobPosition || '-',
             department: onboardingData.department || employee.department || '-',
@@ -54,6 +59,7 @@ function Salary() {
             clTaken: 0,
             isBestPerformer: false,
             joinedDate: onboardingData.dateOfJoining || employee.createdAt || '',
+            bankDetails: onboardingData.bankDetails || {},
             salaryPaid: false,
             paymentDate: '',
           };
@@ -187,11 +193,45 @@ function Salary() {
     }).format(amount);
   };
 
+  const formatDate = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const maskAccountNumber = (value) => {
+    const accountNumber = String(value || '').trim();
+    if (!accountNumber) return '';
+    const visibleDigits = accountNumber.slice(-4);
+    return `${'•'.repeat(Math.max(4, accountNumber.length - visibleDigits.length))}${visibleDigits}`;
+  };
+
   const getStatusBadge = (status) => {
     return status ? 
       'bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium' : 
       'bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium';
   };
+
+  const sortedEmployees = sortRows(employees, sortConfig.key, sortConfig.direction, (employee) => {
+    if (sortConfig.key === 'employee') return employee.name;
+    if (sortConfig.key === 'joinedDate') return employee.joinedDate;
+    if (sortConfig.key === 'bank') return employee.bankDetails.accountHolder || employee.bankDetails.bankName;
+    if (sortConfig.key === 'salary') return employee.monthlySalary;
+    if (sortConfig.key === 'clTaken') return employee.clTaken;
+    if (sortConfig.key === 'lopDays') return employee.lopDays;
+    if (sortConfig.key === 'status') return employee.salaryPaid ? 1 : 0;
+    if (sortConfig.key === 'paymentDate') return employee.paymentDate;
+    return '';
+  });
+  const toggleSort = (key) => setSortConfig((current) => ({
+    key,
+    direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
+  }));
 
   return (
     <div className="min-h-screen bg-gray-50 py-4 px-4 sm:px-6 lg:px-8">
@@ -247,39 +287,72 @@ function Salary() {
         {/* Salary Table */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="erp-list-table min-w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly Salary</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CL Taken</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LOP Days</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Employee" sortKey="employee" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Date of Joining" sortKey="joinedDate" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Bank Details" sortKey="bank" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Monthly Salary" sortKey="salary" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="CL Taken" sortKey="clTaken" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="LOP Days" sortKey="lopDays" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Payment Date" sortKey="paymentDate" sortConfig={sortConfig} onSort={toggleSort} /></th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading && (
                   <tr>
-                    <td colSpan="7" className="px-4 py-8 text-center text-sm text-gray-500">
+                    <td colSpan="9" className="px-4 py-8 text-center text-sm text-gray-500">
                       Loading salary details from onboarding records...
                     </td>
                   </tr>
                 )}
                 {!loading && employees.length === 0 && (
                   <tr>
-                    <td colSpan="7" className="px-4 py-8 text-center text-sm text-gray-500">
+                    <td colSpan="9" className="px-4 py-8 text-center text-sm text-gray-500">
                       No employee salary details are available in onboarding records.
                     </td>
                   </tr>
                 )}
-                {!loading && employees.map((employee) => (
+                {!loading && sortedEmployees.map((employee) => (
                     <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
                         <div>
                           <p className="text-sm font-medium text-gray-900">{employee.name}</p>
+                          <p className="text-xs font-medium text-gray-500">{employee.employeeCode || 'Employee code unavailable'}</p>
                           <p className="text-xs text-gray-500">{employee.designation}</p>
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <p className="text-sm text-gray-700">{formatDate(employee.joinedDate)}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="min-w-52 space-y-0.5 text-xs">
+                          <p><span className="font-medium text-gray-600">Account Holder:</span> <span className="text-gray-800">{employee.bankDetails.accountHolder || '-'}</span></p>
+                          <p className="flex items-center gap-1">
+                            <span className="font-medium text-gray-600">Account No:</span>
+                            <span className="text-gray-800">
+                              {visibleBankAccountId === employee.id
+                                ? employee.bankDetails.accountNumber || '-'
+                                : maskAccountNumber(employee.bankDetails.accountNumber) || '-'}
+                            </span>
+                            {employee.bankDetails.accountNumber && (
+                              <button
+                                type="button"
+                                onClick={() => setVisibleBankAccountId((current) => current === employee.id ? null : employee.id)}
+                                title={visibleBankAccountId === employee.id ? 'Hide account number' : 'Show account number'}
+                                aria-label={`${visibleBankAccountId === employee.id ? 'Hide' : 'Show'} bank account number for ${employee.name}`}
+                                className="rounded p-0.5 text-slate-400 hover:bg-rose-50 hover:text-[#8f1018]"
+                              >
+                                {visibleBankAccountId === employee.id ? <EyeOff size={13} /> : <Eye size={13} />}
+                              </button>
+                            )}
+                          </p>
+                          <p><span className="font-medium text-gray-600">IFSC:</span> <span className="text-gray-800">{employee.bankDetails.ifscCode || '-'}</span></p>
+                          <p><span className="font-medium text-gray-600">Bank:</span> <span className="text-gray-800">{employee.bankDetails.bankName || '-'}</span></p>
+                          <p><span className="font-medium text-gray-600">Branch:</span> <span className="text-gray-800">{employee.bankDetails.branchName || '-'}</span></p>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -317,13 +390,13 @@ function Salary() {
                         <p className="text-sm text-gray-700">{employee.paymentDate || '-'}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleViewSalary(employee)}
                             title="View salary details"
                             aria-label={`View salary details for ${employee.name}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
                           >
                             <Eye size={14} strokeWidth={2.2} />
                             
@@ -334,7 +407,7 @@ function Salary() {
                               onClick={() => handleOpenPaymentModal(employee)}
                               title="Pay salary"
                               aria-label={`Pay salary for ${employee.name}`}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
                             >
                               <Banknote size={14} strokeWidth={2.2} />
                             

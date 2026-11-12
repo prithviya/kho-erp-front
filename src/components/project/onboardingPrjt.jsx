@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import leadService from "../../services/lead.service";
@@ -87,6 +87,8 @@ export default function ProjectOnboarding() {
   const [saving, setSaving] = useState(false);
   const [showManagerDropdown, setShowManagerDropdown] = useState(false);
   const [showSpocDropdown, setShowSpocDropdown] = useState(false);
+  const managerDropdownRef = useRef(null);
+  const spocDropdownRef = useRef(null);
 
   const [users, setUsers] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -96,6 +98,20 @@ export default function ProjectOnboarding() {
   const [alreadyOnboarded, setAlreadyOnboarded] = useState(false);
 
   const ALREADY_ONBOARDED_MSG = "This lead is already onboarded with a project. If needed, create a new lead.";
+
+  useEffect(() => {
+    const handleOutsidePointerDown = (event) => {
+      if (showManagerDropdown && !managerDropdownRef.current?.contains(event.target)) {
+        setShowManagerDropdown(false);
+      }
+      if (showSpocDropdown && !spocDropdownRef.current?.contains(event.target)) {
+        setShowSpocDropdown(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    return () => document.removeEventListener("pointerdown", handleOutsidePointerDown);
+  }, [showManagerDropdown, showSpocDropdown]);
 
   useEffect(() => {
     let mounted = true;
@@ -609,8 +625,8 @@ export default function ProjectOnboarding() {
     }
   };
 
-  const UserSelect = ({ selected, setSelected, show, setShow, placeholder, tone = "blue", options = users }) => (
-    <div className="relative">
+  const UserSelect = ({ selected, setSelected, show, setShow, placeholder, tone = "blue", options = users, containerRef }) => (
+    <div ref={containerRef} className="relative">
       <div
         className="min-h-10.5 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2"
         onClick={() => setShow(!show)}
@@ -682,7 +698,7 @@ export default function ProjectOnboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#f4f5f9] px-4 py-4 sm:px-6 lg:px-8">
       <div className="flex gap-4">
         <div className="w-64 shrink-0">
           <div className="sticky top-4 max-h-[calc(80vh-100px)] overflow-y-auto rounded-xl bg-white p-4 shadow-lg">
@@ -758,6 +774,7 @@ export default function ProjectOnboarding() {
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Reporting Head <span className="text-red-500">*</span></label>
                   <UserSelect
+                    containerRef={managerDropdownRef}
                     selected={selectedManagers}
                     setSelected={(members) => setFormData((prev) => ({ ...prev, projectManagerIds: members.map((m) => m.id) }))}
                     show={showManagerDropdown}
@@ -770,6 +787,7 @@ export default function ProjectOnboarding() {
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">SPOC <span className="text-red-500">*</span></label>
                   <UserSelect
+                    containerRef={spocDropdownRef}
                     selected={selectedSpocs}
                     setSelected={(members) => setFormData((prev) => ({ ...prev, spocIds: members.map((m) => m.id) }))}
                     show={showSpocDropdown}

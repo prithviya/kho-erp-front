@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { request } from '../../services/apiClient';
 import employeeService from '../../services/employee.service';
 import authService from '../../services/auth.service';
 import { getCanonicalRoles, getCurrentUser } from '../../utils/auth';
+import { getProfileImageUrl } from '../../utils/profileImage';
 
 const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
@@ -145,6 +146,10 @@ function RecordList({ records, fields, emptyLabel }) {
 
 function Profile() {
   const [profile, setProfile] = useState(null);
+  const [profileImage, setProfileImage] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [onboardingData, setOnboardingData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [passwordForm, setPasswordForm] = useState({
@@ -153,10 +158,58 @@ function Profile() {
     confirmPassword: '',
   });
   const [updatingPassword, setUpdatingPassword] = useState(false);
+  const imageInputRef = useRef(null);
 
   const currentUser = getCurrentUser();
   const loggedInEmail = currentUser?.email || '';
   const canViewSensitiveOnboarding = getCanonicalRoles(currentUser).includes('HR');
+
+  useEffect(() => {
+    if (!selectedImage) {
+      setImagePreviewUrl('');
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(selectedImage);
+    setImagePreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [selectedImage]);
+
+  const handleImageSelection = (event) => {
+    const image = event.target.files?.[0];
+    event.target.value = '';
+    if (!image) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(image.type)) {
+      toast.error('Choose a JPEG, PNG, or WebP image.');
+      return;
+    }
+    if (image.size > 5 * 1024 * 1024) {
+      toast.error('The profile photo must be 5 MB or smaller.');
+      return;
+    }
+    setSelectedImage(image);
+  };
+
+  const handleProfileImageUpload = async () => {
+    if (!selectedImage) return;
+
+    try {
+      setUploadingImage(true);
+      const response = await authService.uploadProfileImage(selectedImage);
+      const uploadedImage = response?.data?.profileImage;
+      if (!uploadedImage) throw new Error('The server did not return the saved profile photo.');
+
+      setProfileImage(uploadedImage);
+      setSelectedImage(null);
+      window.dispatchEvent(new CustomEvent('profile-image-updated', { detail: uploadedImage }));
+      toast.success(response?.message || 'Profile photo updated successfully.');
+    } catch (error) {
+      toast.error(error?.message || 'Unable to upload the profile photo.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handlePasswordUpdate = async (e) => {
     e.preventDefault();
@@ -206,6 +259,19 @@ function Profile() {
   };
 
   useEffect(() => {
+    if (window.location.hash === '#password') {
+      const timer = setTimeout(() => {
+        const detailsEl = document.getElementById('update-password-section');
+        if (detailsEl) {
+          detailsEl.open = true;
+          detailsEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
+
+  useEffect(() => {
     const fetchLoggedUserProfile = async () => {
       if (!loggedInEmail) {
         setLoading(false);
@@ -214,6 +280,13 @@ function Profile() {
 
       try {
         setLoading(true);
+        try {
+          const userResponse = await authService.getProfile();
+          setProfileImage(userResponse?.data?.profileImage || '');
+        } catch (error) {
+          toast.error(error?.message || 'Unable to load the profile photo.');
+        }
+
         const response = await employeeService.getMyProfile();
         let currentEmployee = response?.data || null;
 
@@ -620,8 +693,37 @@ function Profile() {
     <div className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl overflow-hidden rounded-xl bg-white shadow-md">
         <div className="flex items-center gap-4 bg-gradient-to-r from-gray-800 to-gray-900 p-6 text-white">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-500 text-2xl font-bold">
-            {profile.fullName?.charAt(0).toUpperCase() || 'U'}
+          <div className="relative h-16 w-16 shrink-0">
+            {imagePreviewUrl || profileImage ? (
+              <img
+                src={imagePreviewUrl || getProfileImageUrl(profileImage)}
+                alt="Profile"
+                className="h-16 w-16 rounded-full object-cover"
+                onError={() => {
+                  setSelectedImage(null);
+                  setProfileImage('');
+                }}
+              />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-500 text-2xl font-bold">
+                {profile.fullName?.charAt(0).toUpperCase() || 'U'}
+              </div>
+            )}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleImageSelection}
+            />
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={uploadingImage}
+              className="absolute -bottom-1 -right-1 rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-gray-800 shadow"
+            >
+              Change
+            </button>
           </div>
           <div className="min-w-0">
             <h1 className="text-2xl font-bold">{profile.fullName}</h1>
@@ -630,6 +732,28 @@ function Profile() {
             </p>
           </div>
         </div>
+
+        {selectedImage && (
+          <div className="flex items-center justify-end gap-3 border-b border-gray-100 px-6 py-3">
+            <span className="mr-auto text-xs text-gray-500">Photo selected. Maximum file size: 5 MB.</span>
+            <button
+              type="button"
+              onClick={() => setSelectedImage(null)}
+              disabled={uploadingImage}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleProfileImageUpload}
+              disabled={uploadingImage}
+              className="rounded-md bg-gray-800 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {uploadingImage ? 'Uploading...' : 'Save photo'}
+            </button>
+          </div>
+        )}
 
         <div className="space-y-3 p-4 sm:p-6">
           {sections.filter((section) => section.hasData).map((section, index) => (
@@ -652,6 +776,7 @@ function Profile() {
 
           {/* UPDATE PASSWORD SECTION */}
           <details
+            id="update-password-section"
             data-testid="update-password-section"
             className="group rounded-lg border border-gray-200 bg-white"
           >

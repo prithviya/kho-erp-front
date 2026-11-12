@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Plus, 
+  Search,
   FolderOpen,
   MessageSquare, 
   Calendar, 
@@ -26,7 +27,11 @@ import {
   FileText,
   Pencil,
   Download,
-  Trash2
+  Trash2,
+  GripVertical,
+  RefreshCw,
+  ClipboardCheck,
+  ChartNoAxesCombined
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import taskService from '../../services/task.service';
@@ -35,9 +40,11 @@ import userManagementService from '../../services/userManagement.service';
 import leadService from '../../services/lead.service';
 import projectChatService from '../../services/projectChat.service';
 import taskChatService from '../../services/taskChat.service';
+import authService from '../../services/auth.service';
 import ProjectFileLibrary from './ProjectFileLibrary';
 import { subscribe } from '../../services/realtime.service';
 import { getCanonicalRoles, getCurrentUser, isSuperAdmin } from '../../utils/auth';
+import { getProfileImageUrl } from '../../utils/profileImage';
 
 const formatTime12 = (value) => {
   const [hour, minute] = String(value || '').split(':').map(Number);
@@ -113,10 +120,64 @@ function getAttachmentKind(attachment) {
   return 'document';
 }
 
+function ProfileAvatar({ profileImage, size, className }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [profileImage]);
+
+  if (profileImage && !imageFailed) {
+    return (
+      <img
+        src={getProfileImageUrl(profileImage)}
+        alt=""
+        className={`shrink-0 rounded-full object-cover ${className || ''}`}
+        style={{ width: size, height: size }}
+        onError={() => setImageFailed(true)}
+      />
+    );
+  }
+
+  return <UserCircle2 size={size} className={className} />;
+}
+
 function Assignedprojectboard() {
+  const navigate = useNavigate();
   const currentUser = getCurrentUser();
+  const [currentProfileImage, setCurrentProfileImage] = useState(currentUser?.profileImage || '');
   const superAdmin = isSuperAdmin();
   const isManager = getCanonicalRoles(currentUser).includes('MANAGER');
+  const isProjectAdmin = (currentUser?.roles || []).some((role) => (
+    [role?.code, role?.name]
+      .filter(Boolean)
+      .some((value) => ['admin', 'administrator', 'systemadmin'].includes(
+        String(value).trim().toLowerCase().replace(/[\s_-]+/g, '')
+      ))
+  ));
+
+  useEffect(() => {
+    let active = true;
+    const fetchProfileImage = async () => {
+      try {
+        const response = await authService.getProfile();
+        if (active) setCurrentProfileImage(response?.data?.profileImage || '');
+      } catch (error) {
+        console.error('Unable to load the profile photo for chat.', error);
+      }
+    };
+    const handleProfileImageUpdate = (event) => {
+      setCurrentProfileImage(event.detail || '');
+    };
+
+    fetchProfileImage();
+    window.addEventListener('profile-image-updated', handleProfileImageUpdate);
+    return () => {
+      active = false;
+      window.removeEventListener('profile-image-updated', handleProfileImageUpdate);
+    };
+  }, []);
+
   const getMessageSender = (senderId, sender) => {
     if (Number(senderId) === Number(currentUser?.id)) return 'Me';
     return sender ? `${sender.firstName || ''} ${sender.lastName || ''}`.trim() || sender.email : 'User';
@@ -145,6 +206,9 @@ function Assignedprojectboard() {
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [allTasks, setAllTasks] = useState([]);
+  const [myTasksFilter, setMyTasksFilter] = useState('all');
+  const [myTasksLoading, setMyTasksLoading] = useState(false);
 
   // Columns & Tasks State
   const [columns, setColumns] = useState([]);
@@ -200,6 +264,9 @@ function Assignedprojectboard() {
   const [newTaskFiles, setNewTaskFiles] = useState([]);
   const [isDraggingNewTask, setIsDraggingNewTask] = useState(false);
   const [attachmentViewer, setAttachmentViewer] = useState(null);
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
+  const isDraggingTaskRef = useRef(false);
   const [commentText, setCommentText] = useState('');
   const [commentImage, setCommentImage] = useState(null);
   const [showProjectChat, setShowProjectChat] = useState(false);
@@ -214,22 +281,80 @@ function Assignedprojectboard() {
   const [unreadMentionCount, setUnreadMentionCount] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedProjectId = searchParams.get('projectId');
+  const requestedTaskId = searchParams.get('taskId');
   const hasInitializedProjectSelection = useRef(false);
 
+  // Open Task Details & Communication Chat Drawer
+  const openTaskDetails = (task, colId, tab) => {
+    const updatedTask = { ...task, columnId: colId };
+    setTaskViewTab(tab);
+    setTaskDetailsDraft({
+      dueDate: task.dueDate || '',
+      priority: String(task.priority || 'MEDIUM').toUpperCase(),
+      reminderAt: toDateTimeLocalValue(task.reminderAt)
+    });
+    setTaskUnreadCounts((current) => ({ ...current, [task.id]: 0 }));
+    taskChatAttachments.forEach(({ preview }) => preview && URL.revokeObjectURL(preview));
+    setTaskChatAttachments([]);
+    setActiveTask(updatedTask);
+    return updatedTask;
+  };
+
   useEffect(() => {
-    if (!requestedProjectId || !projects.length) return;
+    if (requestedTaskId) {
+      const openTaskWithComments = (task) => {
+        const normalized = normalizeTask(task);
+        const projectId = normalized.projectOnboardId || normalized.project?.id || requestedProjectId;
+        if (projectId) setSelectedProjectId(String(projectId));
+        setProjectWorkspaceView('board');
+        setShowProjectChat(false);
+        openTaskDetails(normalized, normalized.serviceId, 'comments');
+        setSearchParams({}, { replace: true });
+      };
 
-    const project = projects.find((item) => String(item.id) === String(requestedProjectId));
-    if (!project) return;
+      const task = allTasks.find((item) => String(item.id) === String(requestedTaskId));
+      if (task) {
+        openTaskWithComments(task);
+        return;
+      }
 
-    setSelectedProjectId(String(project.id));
-    setProjectWorkspaceView('board');
+      let active = true;
+      taskService.getTaskById(requestedTaskId)
+        .then((response) => {
+          if (!active) return;
+          const loadedTask = response?.data;
+          if (loadedTask) {
+            openTaskWithComments(loadedTask);
+          }
+        })
+        .catch(() => {});
+
+      return () => {
+        active = false;
+      };
+    }
+
+    if (!projects.length) return;
+
+    if (requestedProjectId) {
+      const project = projects.find((item) => String(item.id) === String(requestedProjectId));
+      if (project) {
+        setSelectedProjectId(String(project.id));
+        setProjectWorkspaceView('board');
+      }
+    }
+
     if (searchParams.get('chat') === '1') {
       setShowProjectChat(true);
-      setProjectUnreadCounts((current) => ({ ...current, [project.id]: 0 }));
+      if (requestedProjectId) {
+        setProjectUnreadCounts((current) => ({ ...current, [requestedProjectId]: 0 }));
+      }
     }
-    setSearchParams({}, { replace: true });
-  }, [projects, searchParams, setSearchParams]);
+
+    if (requestedProjectId || searchParams.get('chat')) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [allTasks, projects, searchParams, setSearchParams, requestedProjectId, requestedTaskId]);
 
   useEffect(() => {
     if (!selectedProjectId) return;
@@ -405,6 +530,23 @@ function Assignedprojectboard() {
     });
   }), []);
 
+  useEffect(() => subscribe('task-reordered', (payload) => {
+    if (!payload?.projectOnboardId || !Array.isArray(payload?.taskOrders)) return;
+    if (String(payload.projectOnboardId) !== String(selectedProjectId)) return;
+
+    setColumns((current) => {
+      const orderMap = new Map(payload.taskOrders.map((o) => [Number(o.id), { sortOrder: o.sortOrder, serviceId: o.serviceId }]));
+      return current.map((col) => {
+        const matchingTasks = col.tasks.map((t) => {
+          const orderInfo = orderMap.get(Number(t.id));
+          return orderInfo ? { ...t, sortOrder: orderInfo.sortOrder, serviceId: orderInfo.serviceId ?? t.serviceId } : t;
+        });
+        matchingTasks.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+        return { ...col, tasks: matchingTasks };
+      });
+    });
+  }), [selectedProjectId]);
+
   useEffect(() => {
     let mounted = true;
     Promise.allSettled([taskService.getTasks(), projectOnboardService.list(), userManagementService.getDirectory(), leadService.getCategoriesWithServices()])
@@ -412,6 +554,7 @@ function Assignedprojectboard() {
         if (!mounted) return;
 
         const records = taskResult.status === 'fulfilled' ? taskResult.value?.data || [] : [];
+        setAllTasks(records.map(normalizeTask));
         const taskProjects = [...new Map(
           records
             .map((task) => task.project)
@@ -422,9 +565,12 @@ function Assignedprojectboard() {
           ? projectResult.value?.data || []
           : taskProjects;
         const visibleTaskProjectIds = new Set(records.map((task) => Number(task.projectOnboardId)));
-        const assignedProjects = superAdmin || isManager
+        const assignedProjects = superAdmin || isManager || isProjectAdmin
           ? availableProjects
-          : availableProjects.filter((project) => visibleTaskProjectIds.has(Number(project.id)) || parseIds(project.spocIds).some((id) => Number(getId(id)) === Number(currentUser?.id)));
+          : availableProjects.filter((project) => visibleTaskProjectIds.has(Number(project.id))
+            || parseIds(project.spocIds).some((id) => Number(getId(id)) === Number(currentUser?.id))
+            || parseIds(project.projectManagerIds).some((id) => Number(getId(id)) === Number(currentUser?.id))
+            || (project.reportingHeadId && Number(project.reportingHeadId) === Number(currentUser?.id)));
 
         setProjects(assignedProjects);
         if (!hasInitializedProjectSelection.current) {
@@ -452,7 +598,7 @@ function Assignedprojectboard() {
         const serviceColumns = requiredServices.map((service, index) => ({
           id: String(service.id),
           title: service.name,
-          headerColor: ['bg-blue-400', 'bg-pink-500', 'bg-amber-400', 'bg-emerald-400', 'bg-purple-400'][index % 5],
+          headerColor: ['bg-emerald-400', 'bg-amber-400', 'bg-rose-400', 'bg-blue-400', 'bg-purple-400'][index % 5],
           tasks: records.filter((task) => (!selectedProjectId || Number(task.projectOnboardId) === Number(selectedProjectId)) && Number(task.serviceId) === Number(service.id)).map(normalizeTask)
         }));
         setColumns(serviceColumns);
@@ -474,37 +620,68 @@ function Assignedprojectboard() {
   );
 
   const selectedProjectPeople = useMemo(() => {
-    const findUsers = (ids, resolvedUsers = []) => resolvedUsers.length
-      ? resolvedUsers
-      : parseIds(ids).map(getId).map((id) => employeesList.find((user) => Number(user.id) === Number(id))).filter(Boolean);
+    const findUsers = (ids, resolvedUsers = []) => {
+      const parsed = parseIds(ids).map(getId).map(Number).filter(Boolean);
+      const existingUsers = Array.isArray(resolvedUsers) ? resolvedUsers.filter(Boolean) : (resolvedUsers ? [resolvedUsers] : []);
+      const combined = [
+        ...existingUsers,
+        ...parsed.map((id) => employeesList.find((user) => Number(user.id) === Number(id))).filter(Boolean)
+      ];
+      return combined.filter((user, index, list) => user?.id && list.findIndex((item) => Number(item.id) === Number(user.id)) === index);
+    };
     const projectTasks = columns.flatMap((column) => column.tasks);
     const assigned = projectTasks
       .map((task) => task.assignee)
       .filter((name, index, names) => name && name !== 'Unassigned' && names.indexOf(name) === index);
+
+    const reportingHeadIds = [
+      ...parseIds(selectedProject?.projectManagerIds),
+      ...parseIds(selectedProject?.reportingHeadIds),
+      ...(selectedProject?.reportingHeadId ? [selectedProject.reportingHeadId] : [])
+    ];
+    const initialReportingHeadUsers = [
+      ...(Array.isArray(selectedProject?.reportingHeadUsers) ? selectedProject.reportingHeadUsers : []),
+      ...(selectedProject?.reportingHeadUser ? [selectedProject.reportingHeadUser] : [])
+    ];
+
     return {
       spocs: findUsers(selectedProject?.spocIds, selectedProject?.spocUsers),
-      reportingHeads: selectedProject?.reportingHeadUser
-        ? [selectedProject.reportingHeadUser]
-        : findUsers(selectedProject?.reportingHeadId ? [selectedProject.reportingHeadId] : selectedProject?.projectManagerIds),
+      reportingHeads: findUsers(reportingHeadIds, initialReportingHeadUsers),
       assigned
     };
   }, [columns, employeesList, selectedProject]);
 
   const isSelectedProjectSpoc = Boolean(selectedProject && parseIds(selectedProject.spocIds)
     .some((id) => Number(getId(id)) === Number(currentUser?.id)));
+  const isSelectedProjectReportingHead = Boolean(selectedProject && (
+    parseIds(selectedProject.projectManagerIds).some((id) => Number(getId(id)) === Number(currentUser?.id))
+    || parseIds(selectedProject.reportingHeadIds).some((id) => Number(getId(id)) === Number(currentUser?.id))
+    || Number(selectedProject.reportingHeadId) === Number(currentUser?.id)
+    || selectedProjectPeople.reportingHeads.some((rh) => Number(rh.id) === Number(currentUser?.id))
+  ));
+  const canReorderTasks = Boolean(selectedProject && (
+    superAdmin || isManager || isSelectedProjectSpoc || isSelectedProjectReportingHead
+  ));
   const canCreateTasks = superAdmin || isManager || isSelectedProjectSpoc;
   const canDeleteTask = (task) => {
     if (currentUser?.canDelete === false) return false;
     if (superAdmin) return true;
     const userId = Number(currentUser?.id);
     const project = task.project || selectedProject;
+    const projectReportingHeadIds = [
+      ...parseIds(project?.projectManagerIds),
+      ...parseIds(project?.reportingHeadIds),
+      ...(project?.reportingHeadId ? [project.reportingHeadId] : [])
+    ].map(getId).map(Number).filter(Boolean);
+
     return Number(task.reportingHeadId) === userId
-      || Number(project?.reportingHeadId) === userId
+      || projectReportingHeadIds.includes(userId)
       || parseIds(project?.spocIds).some((id) => Number(getId(id)) === userId);
   };
   const canManageActiveTask = Boolean(activeTask && (superAdmin || (isManager
     && (Number(activeTask.reportingHeadId) === Number(currentUser?.id)
-      || Number(activeTask.createdBy) === Number(currentUser?.id)))));
+      || Number(activeTask.createdBy) === Number(currentUser?.id)
+      || selectedProjectPeople.reportingHeads.some((rh) => Number(rh.id) === Number(currentUser?.id))))));
   const canEditTaskDetails = Boolean(activeTask && (
     superAdmin || isManager || Number(activeTask.createdBy) === Number(currentUser?.id)
   ));
@@ -837,22 +1014,135 @@ function Assignedprojectboard() {
     }
   };
 
-  // Open Task Details & Communication Chat Drawer
+
   const handleOpenTaskDetails = (task, colId) => {
-    const updatedTask = { ...task, columnId: colId };
-    setTaskViewTab('activities');
-    setTaskDetailsDraft({
-      dueDate: task.dueDate || '',
-      priority: String(task.priority || 'MEDIUM').toUpperCase(),
-      reminderAt: toDateTimeLocalValue(task.reminderAt)
-    });
-    setTaskUnreadCounts((current) => ({ ...current, [task.id]: 0 }));
-    taskChatAttachments.forEach(({ preview }) => preview && URL.revokeObjectURL(preview));
-    setTaskChatAttachments([]);
-    setActiveTask(updatedTask);
+    if (isDraggingTaskRef.current) return;
+    const updatedTask = openTaskDetails(task, colId, 'activities');
     if (updatedTask.status === 'TODO') {
       void handleStatusChange('IN_PROGRESS', updatedTask);
     }
+  };
+
+  const handleOpenMyTask = (task) => {
+    const projectId = task.projectOnboardId || task.project?.id;
+    if (projectId) setSelectedProjectId(String(projectId));
+    setProjectWorkspaceView('board');
+    setShowProjectChat(false);
+    openTaskDetails(task, task.serviceId, 'comments');
+  };
+
+  const handleDragStart = (e, task, columnId, index) => {
+    if (!canReorderTasks) return;
+    isDraggingTaskRef.current = true;
+    setDraggedItem({ task, sourceColumnId: columnId, sourceIndex: index });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(task.id));
+  };
+
+  const handleDragOverTask = (e, targetTask, targetColumnId) => {
+    if (!canReorderTasks || !draggedItem) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedItem.task.id === targetTask.id) {
+      setDropTarget(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    const position = offsetY < rect.height / 2 ? 'before' : 'after';
+    setDropTarget({ targetTaskId: targetTask.id, targetColumnId, position });
+  };
+
+  const handleDragOverColumn = (e, targetColumnId) => {
+    if (!canReorderTasks || !draggedItem) return;
+    e.preventDefault();
+    setDropTarget((prev) => (prev?.targetColumnId === targetColumnId && prev?.targetTaskId ? prev : { targetColumnId, targetTaskId: null, position: 'end' }));
+  };
+
+  const handleDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDropTarget(null);
+    }
+  };
+
+  const handleDrop = async (e, targetColumnId) => {
+    if (!canReorderTasks || !draggedItem) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const { task: movingTask, sourceColumnId } = draggedItem;
+    const finalDropTarget = dropTarget;
+
+    setDraggedItem(null);
+    setDropTarget(null);
+    setTimeout(() => { isDraggingTaskRef.current = false; }, 150);
+
+    if (finalDropTarget?.targetTaskId === movingTask.id) return;
+
+    setColumns((previousColumns) => {
+      const sourceCol = previousColumns.find((col) => col.id === sourceColumnId);
+      const targetCol = previousColumns.find((col) => col.id === targetColumnId);
+      if (!sourceCol || !targetCol) return previousColumns;
+
+      const sourceTasks = sourceCol.tasks.filter((t) => t.id !== movingTask.id);
+      const updatedMovingTask = {
+        ...movingTask,
+        serviceId: Number(targetColumnId)
+      };
+
+      let targetTasks = sourceColumnId === targetColumnId ? [...sourceTasks] : [...targetCol.tasks];
+
+      if (finalDropTarget?.targetTaskId) {
+        const targetIndex = targetTasks.findIndex((t) => t.id === finalDropTarget.targetTaskId);
+        if (targetIndex !== -1) {
+          const insertIndex = finalDropTarget.position === 'before' ? targetIndex : targetIndex + 1;
+          targetTasks.splice(insertIndex, 0, updatedMovingTask);
+        } else {
+          targetTasks.push(updatedMovingTask);
+        }
+      } else {
+        targetTasks.push(updatedMovingTask);
+      }
+
+      targetTasks = targetTasks.map((t, idx) => ({ ...t, sortOrder: idx }));
+
+      const nextColumns = previousColumns.map((col) => {
+        if (col.id === sourceColumnId && sourceColumnId === targetColumnId) {
+          return { ...col, tasks: targetTasks };
+        }
+        if (col.id === sourceColumnId) {
+          return { ...col, tasks: sourceTasks.map((t, idx) => ({ ...t, sortOrder: idx })) };
+        }
+        if (col.id === targetColumnId) {
+          return { ...col, tasks: targetTasks };
+        }
+        return col;
+      });
+
+      const taskOrders = targetTasks.map((t, index) => ({
+        id: t.id,
+        sortOrder: index,
+        serviceId: Number(targetColumnId)
+      }));
+
+      if (selectedProjectId) {
+        taskService.reorderTasks({
+          projectOnboardId: Number(selectedProjectId),
+          taskOrders
+        }).catch((err) => {
+          toast.error(err.message || 'Failed to update task order.');
+          setColumns(previousColumns);
+        });
+      }
+
+      return nextColumns;
+    });
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDropTarget(null);
+    setTimeout(() => { isDraggingTaskRef.current = false; }, 150);
   };
 
   const handleDeleteTask = async (event, task) => {
@@ -1106,6 +1396,54 @@ function Assignedprojectboard() {
     const dueDateTime = new Date(`${dueDate}T${dueTime || '23:59'}`);
     return new Date() > dueDateTime;
   };
+  const loadMyTasks = async () => {
+    try {
+      setMyTasksLoading(true);
+      const response = await taskService.getTasks();
+      setAllTasks((response?.data || []).map(normalizeTask));
+    } catch (error) {
+      toast.error(error.message || 'Failed to load your tasks.');
+    } finally {
+      setMyTasksLoading(false);
+    }
+  };
+  const todayDate = new Date();
+  const todayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+  const taskBucket = (task) => {
+    if (task.status === 'COMPLETED') return 'completed';
+    if (!task.dueDate) return 'unscheduled';
+    const dueDateKey = String(task.dueDate).slice(0, 10);
+    if (dueDateKey < todayKey || isOverdue(task.dueDate, task.dueTime)) return 'overdue';
+    if (dueDateKey === todayKey) return 'today';
+    return 'upcoming';
+  };
+  const myTaskBuckets = allTasks.map((task) => ({ ...task, bucket: taskBucket(task) }));
+  const myTaskFilters = [
+    { key: 'all', label: 'All' },
+    { key: 'overdue', label: 'Overdue' },
+    { key: 'today', label: 'Today' },
+    { key: 'upcoming', label: 'Upcoming' },
+    { key: 'completed', label: 'Completed' }
+  ];
+  const myTaskCounts = myTaskBuckets.reduce((counts, task) => {
+    counts.all += 1;
+    if (counts[task.bucket] !== undefined) counts[task.bucket] += 1;
+    return counts;
+  }, { all: 0, overdue: 0, today: 0, upcoming: 0, completed: 0 });
+  const visibleMyTasks = myTaskBuckets
+    .filter((task) => myTasksFilter === 'all' || task.bucket === myTasksFilter)
+    .sort((left, right) => {
+      const leftDate = left.dueDate ? String(left.dueDate).slice(0, 10) : '9999-12-31';
+      const rightDate = right.dueDate ? String(right.dueDate).slice(0, 10) : '9999-12-31';
+      return leftDate.localeCompare(rightDate) || String(left.title || '').localeCompare(String(right.title || ''));
+    });
+  const formatTaskDate = (value) => {
+    if (!value) return 'No due date';
+    const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+    return Number.isNaN(date.getTime())
+      ? 'No due date'
+      : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
   const activeTaskMessages = activeTask
     ? taskChatMessages[activeTask.id] ?? activeTask.commentsList
@@ -1122,70 +1460,78 @@ function Assignedprojectboard() {
   ));
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-x-hidden bg-[#f5f7f5] font-sans text-slate-800">
+    <div className="assign-board-page flex h-full min-h-0 flex-col overflow-x-hidden bg-[#f5f7f5] font-sans text-slate-800">
       
       
       {/* Assigned Projects + Kanban Board Workspace */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
-        <aside className="w-full shrink-0 border-b border-slate-200 bg-[#10251f] p-3 text-white sm:p-4 md:w-72 md:border-b-0 md:border-r">
-          <div className="mb-4 flex items-center justify-between">
+      <div className="assign-board-workspace flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+        <aside aria-label="Project workspace" className="assign-board-projects w-full shrink-0 border-b border-slate-200 p-3 sm:p-4 md:w-56 md:border-b-0 md:border-r lg:ml-[14px] lg:my-[10px] lg:rounded-2xl">
+          <div className="assign-board-workspace-heading mb-4 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Workspace</p>
-              <h2 className="text-base font-bold text-white">My Projects</h2>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em]">Workspace</p>
+              <h2 className="text-base font-bold">My Projects</h2>
             </div>
-            <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-semibold text-emerald-200">{projects.length}</span>
+            <span className="assign-board-project-count rounded-full px-2.5 py-1 text-xs font-semibold">{projects.length}</span>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 md:block md:max-h-[calc(100vh-150px)] md:space-y-2 md:overflow-y-auto md:pb-0">
+          <div className="assign-board-project-list flex gap-2 overflow-x-auto pb-1 md:block md:max-h-[calc(100vh-150px)] md:space-y-2 md:overflow-y-auto md:pb-0">
             <button
               type="button"
               onClick={() => { setSelectedProjectId(''); setProjectWorkspaceView('board'); }}
-              className={`min-w-44 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition md:w-full ${!selectedProjectId ? 'border-emerald-300 bg-emerald-400/15 text-emerald-100' : 'border-white/10 text-slate-300 hover:border-emerald-300/60 hover:bg-white/5'}`}
+              className={`assign-board-all-projects flex min-w-44 items-center justify-between rounded-lg border px-3 py-3 text-left text-sm font-semibold transition md:w-full ${projectWorkspaceView === 'board' && !selectedProjectId ? 'is-selected' : ''}`}
             >
-              All assigned projects
+              <span className="flex min-w-0 items-center gap-2"><Search size={15} className="shrink-0" />All assigned projects</span>
             </button>
-            {!!unreadProjects.length && <p className="mt-4 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-rose-300">New messages</p>}
+            <button
+              type="button"
+              onClick={() => { setProjectWorkspaceView('myTasks'); setShowProjectChat(false); void loadMyTasks(); }}
+              aria-current={projectWorkspaceView === 'myTasks' ? 'page' : undefined}
+              className={`assign-board-my-tasks mt-2 flex min-w-44 items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm font-semibold transition md:w-full ${projectWorkspaceView === 'myTasks' ? 'is-selected' : ''}`}
+            >
+              <ClipboardCheck size={17} /> My Tasks
+            </button>
+            {!!unreadProjects.length && <p className="assign-board-list-label mt-4 px-1 text-[10px] font-bold uppercase tracking-[0.16em]">New messages</p>}
             {unreadProjects.map((project) => (
               <button
                 type="button"
                 key={`unread-${project.id}`}
                 onClick={() => { setSelectedProjectId(String(project.id)); setProjectWorkspaceView('board'); }}
-                className={`min-w-44 rounded-lg border px-3 py-2 text-left transition md:w-full ${String(selectedProjectId) === String(project.id) ? 'border-emerald-300 bg-emerald-400/15' : 'border-white/10 hover:border-emerald-300/60 hover:bg-white/5'}`}
+                className={`assign-board-project-card min-w-44 rounded-lg border px-3 py-3 text-left transition md:w-full ${projectWorkspaceView === 'board' && String(selectedProjectId) === String(project.id) ? 'is-selected' : ''}`}
               >
                 <span className="flex items-center gap-2">
-                  <span className="block min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">{project.projectName}</span>
-                  <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{combinedProjectUnreadCounts[project.id]}</span>
+                  <span className="block min-w-0 flex-1 truncate text-sm font-semibold">{project.projectName}</span>
+                  <span className="assign-board-unread inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold">{combinedProjectUnreadCounts[project.id]}</span>
                 </span>
-                <span className="mt-0.5 block truncate text-xs text-slate-400">{project.companyName}</span>
+                <span className="mt-0.5 block truncate text-xs opacity-70">{project.companyName}</span>
               </button>
             ))}
-            {!!spocProjects.length && <p className="mt-4 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-300">SPOC Projects</p>}
+            {!!spocProjects.length && <p className="assign-board-list-label mt-4 px-1 text-[10px] font-bold uppercase tracking-[0.16em]">SPOC Projects</p>}
             {sortedSpocProjects.map((project) => (
               <button
                 type="button"
                 key={project.id}
                 onClick={() => { setSelectedProjectId(String(project.id)); setProjectWorkspaceView('board'); }}
-                className={`min-w-44 rounded-lg border px-3 py-2 text-left transition md:w-full ${String(selectedProjectId) === String(project.id) ? 'border-emerald-300 bg-emerald-400/15' : 'border-white/10 hover:border-emerald-300/60 hover:bg-white/5'}`}
+                className={`assign-board-project-card min-w-44 rounded-lg border px-3 py-3 text-left transition md:w-full ${projectWorkspaceView === 'board' && String(selectedProjectId) === String(project.id) ? 'is-selected' : ''}`}
               >
                 <span className="flex items-center gap-2">
-                  <span className="block min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">{project.projectName}</span>
-                  {!!combinedProjectUnreadCounts[project.id] && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{combinedProjectUnreadCounts[project.id]}</span>}
+                  <span className="block min-w-0 flex-1 truncate text-sm font-semibold">{project.projectName}</span>
+                  {!!combinedProjectUnreadCounts[project.id] && <span className="assign-board-unread inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold">{combinedProjectUnreadCounts[project.id]}</span>}
                 </span>
-                <span className="mt-0.5 block truncate text-xs text-slate-400">{project.companyName}</span>
+                <span className="mt-0.5 block truncate text-xs opacity-70">{project.companyName}</span>
               </button>
             ))}
-            {!!assignedProjects.length && <p className="mt-4 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Assigned Projects</p>}
+            {!!assignedProjects.length && <p className="assign-board-list-label mt-4 px-1 text-[10px] font-bold uppercase tracking-[0.16em]">Assigned Projects</p>}
             {sortedAssignedProjects.map((project) => (
               <button
                 type="button"
                 key={project.id}
                 onClick={() => { setSelectedProjectId(String(project.id)); setProjectWorkspaceView('board'); }}
-                className={`min-w-44 rounded-lg border px-3 py-2 text-left transition md:w-full ${String(selectedProjectId) === String(project.id) ? 'border-emerald-300 bg-emerald-400/15' : 'border-white/10 hover:border-emerald-300/60 hover:bg-white/5'}`}
+                className={`assign-board-project-card min-w-44 rounded-lg border px-3 py-3 text-left transition md:w-full ${projectWorkspaceView === 'board' && String(selectedProjectId) === String(project.id) ? 'is-selected' : ''}`}
               >
                 <span className="flex items-center gap-2">
-                  <span className="block min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">{project.projectName}</span>
-                  {!!combinedProjectUnreadCounts[project.id] && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{combinedProjectUnreadCounts[project.id]}</span>}
+                  <span className="block min-w-0 flex-1 truncate text-sm font-semibold">{project.projectName}</span>
+                  {!!combinedProjectUnreadCounts[project.id] && <span className="assign-board-unread inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold">{combinedProjectUnreadCounts[project.id]}</span>}
                 </span>
-                <span className="mt-0.5 block truncate text-xs text-slate-400">{project.companyName}</span>
+                <span className="mt-0.5 block truncate text-xs opacity-70">{project.companyName}</span>
               </button>
             ))}
             {selectedProject && (
@@ -1193,114 +1539,243 @@ function Assignedprojectboard() {
                 type="button"
                 onClick={() => { setProjectWorkspaceView('library'); setShowProjectChat(false); }}
                 aria-current={projectWorkspaceView === 'library' ? 'page' : undefined}
-                className={`flex min-w-44 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition md:w-full ${projectWorkspaceView === 'library' ? 'border-emerald-300 bg-emerald-400/15 text-emerald-100' : 'border-white/10 text-slate-300 hover:border-emerald-300/60 hover:bg-white/5'}`}
+                className={`assign-board-project-action mt-2 flex min-w-44 items-center gap-2 rounded-lg border px-3 py-3 text-left text-sm font-semibold transition md:w-full ${projectWorkspaceView === 'library' ? 'is-selected' : ''}`}
               >
                 <FolderOpen size={16} /> Library
               </button>
             )}
-            {!loading && !projects.length && <p className="min-w-56 rounded-lg bg-gray-50 p-3 text-xs text-gray-500 md:min-w-0">No currently assigned projects.</p>}
+            {/* {selectedProject && (
+              <button
+                type="button"
+                onClick={() => navigate(`/project-task-report?projectId=${encodeURIComponent(selectedProject.id)}`)}
+                className="assign-board-project-action mt-2 flex min-w-44 items-center gap-2 rounded-lg border px-3 py-3 text-left text-sm font-semibold transition md:w-full"
+              >
+                <ChartNoAxesCombined size={16} /> Report
+              </button>
+            )} */}
+            {!loading && !projects.length && <p className="assign-board-empty-projects min-w-56 rounded-lg p-3 text-xs md:min-w-0">No currently assigned projects.</p>}
           </div>
         </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-3 sm:p-6">
+        <div className="assign-board-content flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#f4f5f9] p-3 sm:p-6 bottom-0 md:bottom-auto md:top-0">
         {selectedProject && projectWorkspaceView === 'library' ? (
           <ProjectFileLibrary key={selectedProject.id} projectId={selectedProject.id} projectName={selectedProject.projectName} />
         ) : (
         <>
-        {selectedProject && (
-          <div className="mb-5 shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+        {projectWorkspaceView === 'myTasks' ? (
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)] sm:p-5">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-4 border-b border-slate-100 px-1 pb-4">
               <div>
+                <span className="inline-flex rounded-full bg-[#a90919] px-4 py-2 text-[10px] font-bold tracking-[0.2em] text-white shadow-sm">TASK MANAGEMENT</span>
+                <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">My Tasks</h2>
+                <p className="mt-1 text-sm text-slate-500">Tasks across all your assigned projects.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadMyTasks()}
+                disabled={myTasksLoading}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+              >
+                <RefreshCw size={17} className={myTasksLoading ? 'animate-spin' : ''} />
+                {myTasksLoading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+            <div className="mb-4 flex gap-2 overflow-x-auto border-b border-slate-100 px-1 pb-4">
+              {myTaskFilters.map((filter) => (
+                <button
+                  type="button"
+                  key={filter.key}
+                  onClick={() => setMyTasksFilter(filter.key)}
+                  aria-pressed={myTasksFilter === filter.key}
+                  className={`whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold transition ${myTasksFilter === filter.key ? 'bg-[#a90919] text-white shadow-sm' : 'bg-[#f1f2f6] text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {filter.label}<span className={`ml-2 inline-flex min-w-5 justify-center rounded-full px-1 ${myTasksFilter === filter.key ? 'bg-white/15 text-white' : 'bg-white text-slate-600'}`}>{myTaskCounts[filter.key]}</span>
+                </button>
+              ))}
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 shadow-sm">
+              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                <thead className="sticky top-0 z-10 bg-[#18090c] text-xs uppercase tracking-wide text-white">
+                  <tr>
+                    <th className="px-5 py-4 font-semibold">Task</th>
+                    <th className="px-5 py-4 font-semibold">Project</th>
+                    <th className="px-5 py-4 font-semibold">Due date</th>
+                    <th className="px-5 py-4 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {myTasksLoading && !allTasks.length ? (
+                    <tr><td colSpan="4" className="px-4 py-12 text-center text-slate-500">Loading tasks…</td></tr>
+                  ) : visibleMyTasks.length ? visibleMyTasks.map((task) => {
+                    const project = task.project || projects.find((item) => Number(item.id) === Number(task.projectOnboardId));
+                    const statusStyle = {
+                      TODO: 'bg-slate-100 text-slate-700',
+                      IN_PROGRESS: 'bg-rose-50 text-[#b4232f]',
+                      REVIEW: 'bg-amber-50 text-amber-700',
+                      COMPLETED: 'bg-emerald-50 text-emerald-700'
+                    }[task.status] || 'bg-slate-100 text-slate-700';
+                    return (
+                      <tr
+                        key={task.id}
+                        onClick={() => handleOpenMyTask(task)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            handleOpenMyTask(task);
+                          }
+                        }}
+                        tabIndex={0}
+                        className="cursor-pointer border-b border-slate-100 transition hover:bg-rose-50/30 focus:bg-rose-50/30 focus:outline-none"
+                      >
+                        <td className="px-5 py-4 font-semibold text-slate-800">{task.title || 'Untitled task'}</td>
+                        <td className="px-5 py-4 text-slate-600">{project?.projectName || 'Unknown project'}</td>
+                        <td className="px-5 py-4 text-slate-700">
+                          {formatTaskDate(task.dueDate)}
+                          {task.dueTime && <span className="ml-1.5 text-xs text-slate-400">{formatTime12(task.dueTime)}</span>}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold uppercase ${statusStyle}`}>
+                            {task.status?.replaceAll('_', ' ') || 'TODO'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr><td colSpan="4" className="px-4 py-12 text-center text-slate-500">No tasks in this view.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : (
+        <>
+        {selectedProject && (
+          <div className="assign-board-project-summary mb-5 shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+            <div className="assign-board-project-summary-grid">
+            <div className="assign-board-project-identity">
                 
                 <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-600">Selected project</p>
                 <h2 className="text-xl font-bold tracking-tight text-slate-900">{selectedProject.projectName}</h2>
                 <p className="text-xs text-slate-500">{selectedProject.companyName}</p>
               </div>
-              <div className="flex flex-wrap gap-6 text-xs">
-                <div>
-                  <p className="font-semibold uppercase tracking-wide text-slate-400">SPOC</p>
-                  <p className="mt-1 text-gray-700">{selectedProjectPeople.spocs.map((user) => `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email).join(', ') || 'Not assigned'}</p>
-                </div>
-                <div>
-                  <p className="font-semibold uppercase tracking-wide text-slate-400">Reporting Head</p>
-                  <p className="mt-1 text-gray-700">{selectedProjectPeople.reportingHeads.map((user) => `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email).join(', ') || 'Not assigned'}</p>
-                </div>
-                <div>
-                  <p className="font-semibold uppercase tracking-wide text-slate-400">Assigned to</p>
-                  <p className="mt-1 text-gray-700">
-                    {projectAssignedPeople
-                      .map((person) => {
-                        const name = person.personType === 'Vendor'
-                          ? person.vendor_name || person.vendor_company_name || person.vendor_email
-                          : `${person.firstName || ''} ${person.lastName || ''}`.trim() || person.fullName || person.email;
-                        return name ? `${name} (${person.personType})` : '';
-                      })
-                      .filter(Boolean)
-                      .join(', ') || 'Not assigned'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 self-start">
-                  <button
-                    type="button"
-                    onClick={() => setShowProjectMembers(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 font-semibold text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
-                  >
-                    <UsersRound size={15} /> Members
-                  </button>
-                </div>
+              <div className="assign-board-summary-reporting text-xs">
+                <p className="font-semibold uppercase tracking-wide text-slate-400">Reporting Head</p>
+                <p className="mt-1 text-gray-700">{selectedProjectPeople.reportingHeads.map((user) => `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.fullName || user.email).join(', ') || 'Not assigned'}</p>
+              </div>
+              <div className="assign-board-summary-spoc text-xs">
+                <p className="font-semibold uppercase tracking-wide text-slate-400">SPOC</p>
+                <p className="mt-1 text-gray-700">{selectedProjectPeople.spocs.map((user) => `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.fullName || user.email).join(', ') || 'Not assigned'}</p>
+              </div>
+              <div className="assign-board-summary-assigned text-xs">
+                <p className="font-semibold uppercase tracking-wide text-slate-400">Assigned to</p>
+                <p className="mt-1 text-gray-700">
+                  {projectAssignedPeople
+                    .map((person) => {
+                      const name = person.personType === 'Vendor'
+                        ? person.vendor_name || person.vendor_company_name || person.vendor_email
+                        : `${person.firstName || ''} ${person.lastName || ''}`.trim() || person.fullName || person.email;
+                      return name ? `${name} (${person.personType})` : '';
+                    })
+                    .filter(Boolean)
+                    .join(', ') || 'Not assigned'}
+                </p>
+              </div>
+              <div className="assign-board-summary-actions flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowProjectMembers(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 font-semibold text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
+                >
+                  <UsersRound size={15} /> Members
+                </button>
               </div>
             </div>
           </div>
         )}
         <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-3">
-        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="assign-board-columns grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {columns.map((col) => (
-            <div key={col.id}  className="flex min-w-0 max-h-[calc(100vh-12rem)] w-full flex-col rounded-2xl border border-slate-200 bg-slate-100/80 shadow-sm" >
+            <div key={col.id} data-tone={col.headerColor.replace('bg-', '').replace(/-\d+$/, '')} className="assign-board-column flex min-w-0 max-h-[calc(100vh-12rem)] w-full flex-col rounded-2xl border border-slate-200 bg-slate-100/80 shadow-sm" >
               
               {/* Column Header */}
-              <div className="flex items-center justify-between rounded-t-2xl border-b border-slate-200 bg-white p-3.5">
+              <div className="assign-board-column-header flex items-center justify-between rounded-t-2xl border-b border-slate-200 bg-white p-3.5">
                 <div className="flex items-center space-x-2">
                   <div className={`w-3 h-3 rounded-full ${col.headerColor}`}></div>
-                  <span className="text-sm font-bold text-slate-800">{col.title}</span>
+                  <span className="text-sm font-bold">{col.title}</span>
                 </div>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
-                  {col.tasks.length}
-                </span>
-              </div>
-
-              {/* Column Content Area */}
-              <div className="p-3 flex-1 overflow-y-auto space-y-3">
-                
-                {/* Add Task Button */}
-                <div className="flex justify-center my-1">
+                <div className="assign-board-column-tools flex items-center gap-2">
                   {canCreateTasks && selectedProject && (
-                    <button 
+                    <button
                       onClick={() => handleOpenAddModal(col.id)}
-                      className="bg-white hover:bg-gray-50 text-gray-500 p-1.5 rounded-full shadow-sm border border-gray-200"
+                      className="assign-board-add-task rounded-full p-1.5"
                       title="Create task"
                     >
                       <Plus size={14} />
                     </button>
                   )}
+                  <span className="assign-board-column-count rounded-full px-2.5 py-1 text-xs font-bold">
+                    {col.tasks.length}
+                  </span>
                 </div>
+              </div>
 
+              {/* Column Content Area */}
+              <div
+                onDragOver={(e) => handleDragOverColumn(e, col.id)}
+                onDrop={(e) => handleDrop(e, col.id)}
+                className={`p-3 flex-1 overflow-y-auto space-y-3 transition-colors ${
+                  canReorderTasks && dropTarget?.targetColumnId === col.id && !dropTarget?.targetTaskId
+                    ? 'bg-indigo-50/50 ring-2 ring-inset ring-indigo-300/60 rounded-b-2xl'
+                    : ''
+                }`}
+              >
+                
                 {/* Task Cards */}
                 {col.tasks.length > 0 ? (
-                  col.tasks.map((task) => {
+                  col.tasks.map((task, taskIndex) => {
                     const overdue = isOverdue(task.dueDate, task.dueTime) && task.status !== 'COMPLETED';
                     const isCompleted = task.status === 'COMPLETED';
+                    const isDragged = draggedItem?.task?.id === task.id;
+                    const isTargetBefore = dropTarget?.targetTaskId === task.id && dropTarget?.position === 'before';
+                    const isTargetAfter = dropTarget?.targetTaskId === task.id && dropTarget?.position === 'after';
 
                     return (
                       <div 
                         key={task.id} 
+                        draggable={canReorderTasks}
+                        onDragStart={(e) => handleDragStart(e, task, col.id, taskIndex)}
+                        onDragOver={(e) => handleDragOverTask(e, task, col.id)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, col.id)}
+                        onDragEnd={handleDragEnd}
                         onClick={() => handleOpenTaskDetails(task, col.id)}
-                        className="cursor-pointer space-y-2 rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_3px_10px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md"
+                        className={`assign-board-task-card space-y-2 rounded-xl border bg-white p-3.5 shadow-[0_3px_10px_rgba(15,23,42,0.04)] transition-all ${
+                          canReorderTasks ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                        } ${
+                          isDragged
+                            ? 'opacity-40 border-dashed border-indigo-400 bg-indigo-50/40 scale-[0.98]'
+                            : 'hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md border-slate-200'
+                        } ${
+                          isTargetBefore ? 'border-t-4 !border-t-indigo-600 shadow-[0_-3px_8px_rgba(79,70,229,0.25)]' : ''
+                        } ${
+                          isTargetAfter ? 'border-b-4 !border-b-indigo-600 shadow-[0_3px_8px_rgba(79,70,229,0.25)]' : ''
+                        }`}
                       >
                         <div className="flex justify-between overflow-hidden">
-                          <h4 className={`text-sm font-bold leading-5 text-slate-800 ${isCompleted ? 'line-through text-gray-400' : ''}`}>
-                            {task.title}
-                          </h4>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-start gap-1.5 min-w-0 flex-1 pr-2">
+                            {canReorderTasks && (
+                              <span
+                                className="mt-0.5 text-slate-300 hover:text-slate-600 shrink-0 cursor-grab active:cursor-grabbing"
+                                title="Drag to reorder"
+                              >
+                                <GripVertical size={14} />
+                              </span>
+                            )}
+                            <h4 className={`assign-board-task-title text-sm font-bold leading-5 break-words ${isCompleted ? 'line-through text-gray-400' : ''}`}>
+                              {task.title}
+                            </h4>
+                          </div>
+                          <div className="assign-board-task-actions flex items-center gap-1.5 shrink-0">
                             {canDeleteTask(task) && (
                               <button
                                 type="button"
@@ -1314,17 +1789,10 @@ function Assignedprojectboard() {
                               </button>
                             )}
                             {taskUnreadCounts[task.id] > 0 && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{taskUnreadCounts[task.id]}</span>}
-                            {(() => {
-                              if (task.assignee === 'Unassigned') {
-                                return <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Unassigned</span>;
-                              }
-                              const names = [task.assignee, ...extraAssigneeNames(task)].map((name) => name.split(' ')[0]);
-                              const chipClass = 'rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700';
-                              if (names.length <= 2) {
-                                return names.map((name, index) => <span key={`${name}-${index}`} className={chipClass}>{name}</span>);
-                              }
-                              return <span className={`${chipClass} cursor-default`} title={names.join(', ')}>{names.length} assignees</span>;
-                            })()}
+                            <span className="assign-board-comment-count inline-flex items-center gap-1 text-[10px]">
+                              <MessageSquare size={12} />
+                              {taskChatMessages[task.id]?.length ?? Math.max((task.commentsCount || 0) + (taskCommentCounts[task.id] || 0), 0)}
+                            </span>
                           </div>
                         </div>
                         {!selectedProject && task.project?.projectName && (
@@ -1338,14 +1806,21 @@ function Assignedprojectboard() {
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between text-xs pt-1">
-                          <span className="flex items-center space-x-1 text-gray-400">
-                            <MessageSquare size={12} />
-                            <span>{taskChatMessages[task.id]?.length ?? Math.max((task.commentsCount || 0) + (taskCommentCounts[task.id] || 0), 0)}</span>
-                          </span>
+                        <div className="assign-board-task-meta flex items-center justify-start gap-2 text-xs pt-1">
+                          {(() => {
+                            if (task.assignee === 'Unassigned') {
+                              return <span className="assign-board-assignee rounded-full px-2 py-0.5 text-[10px] font-semibold">Unassigned</span>;
+                            }
+                            const names = [task.assignee, ...extraAssigneeNames(task)].map((name) => name.split(' ')[0]);
+                            const chipClass = 'assign-board-assignee rounded-full px-2 py-0.5 text-[10px] font-semibold';
+                            if (names.length <= 2) {
+                              return names.map((name, index) => <span key={`${name}-${index}`} className={chipClass}>{name}</span>);
+                            }
+                            return <span className={`${chipClass} cursor-default`} title={names.join(', ')}>{names.length} assignees</span>;
+                          })()}
 
                           {task.dueDate && (
-                            <span className={`flex items-center space-x-1 px-1.5 py-0.5 rounded font-medium ${
+                            <span                             className={`assign-board-due-date flex items-center space-x-1 px-1.5 py-0.5 rounded font-medium ${
                               overdue ? 'bg-red-100 text-red-600 border border-red-200' : 'bg-orange-50 text-orange-600'
                             }`}>
                               <Calendar size={12} />
@@ -1368,6 +1843,8 @@ function Assignedprojectboard() {
           ))}
         </div>
         </div>
+        </>
+        )}
         </>
         )}
         </div>
@@ -1525,10 +2002,10 @@ function Assignedprojectboard() {
 
       {showProjectChat && selectedProject && (
         <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/35 backdrop-blur-[2px]">
-          <div className="flex h-full w-full max-w-lg flex-col border-l border-slate-200 bg-[#f6f8f7] shadow-2xl">
+          <div className="flex h-full w-full max-w-lg flex-col border-l border-slate-200 bg-[#f7f7fa] shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-600">Project conversation</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8f1018]">Project conversation</p>
                 <h2 className="mt-1 text-lg font-bold text-slate-900">{selectedProject.projectName}</h2>
                 <p className="text-xs text-slate-500">{projectMembers.length} project members</p>
               </div>
@@ -1542,19 +2019,19 @@ function Assignedprojectboard() {
                 (() => {
                   const isOwnMessage = Number(message.senderId) === Number(currentUser?.id);
                   if (message.system) {
-                    return <div key={message.id} className="rounded-xl border border-emerald-100 bg-emerald-50 p-3.5 text-center shadow-sm"><p className="text-sm leading-6 text-emerald-800">{message.text}</p></div>;
+                    return <div key={message.id} className="rounded-xl border border-rose-100 bg-rose-50 p-3.5 text-center shadow-sm"><p className="text-sm leading-6 text-[#780c13]">{message.text}</p></div>;
                   }
                   return (
                     <div key={message.id} className={`flex items-end gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                      {!isOwnMessage && <UserCircle2 size={28} className="shrink-0 text-emerald-600" />}
-                      <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 shadow-sm ${isOwnMessage ? 'rounded-br-md bg-emerald-600 text-white' : 'rounded-bl-md border border-slate-200 bg-white text-slate-700'}`}>
+                      {!isOwnMessage && <UserCircle2 size={28} className="shrink-0 text-[#9c1018]" />}
+                      <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 shadow-sm ${isOwnMessage ? 'rounded-br-md bg-[#8f1018] text-white' : 'rounded-bl-md border border-slate-200 bg-white text-slate-700'}`}>
                         <div className="flex items-center justify-between gap-4 text-[11px]">
-                          <span className={`font-semibold ${isOwnMessage ? 'text-emerald-50' : 'text-emerald-700'}`}>{isOwnMessage ? 'You' : message.sender}</span>
+                          <span className={`font-semibold ${isOwnMessage ? 'text-rose-50' : 'text-[#8f1018]'}`}>{isOwnMessage ? 'You' : message.sender}</span>
                           <span className={isOwnMessage ? 'text-emerald-100' : 'text-slate-400'}>{message.time}</span>
                         </div>
                         <p className="mt-1.5 text-sm leading-6">{message.text}</p>
                       </div>
-                      {isOwnMessage && <UserCircle2 size={28} className="shrink-0 text-emerald-600" />}
+                      {isOwnMessage && <ProfileAvatar profileImage={currentProfileImage} size={100} className="text-[#9c1018]" />}
                     </div>
                   );
                 })()
@@ -1565,7 +2042,7 @@ function Assignedprojectboard() {
                 <div className="absolute bottom-full left-4 right-4 mb-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
                   {mentionOptions.map((member) => {
                     const name = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.fullName || member.email;
-                    return <button type="button" key={member.id} onClick={() => insertMention(member)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-emerald-50"><UserCircle2 size={17} className="text-emerald-600" /><span>{name}</span><span className="ml-auto text-[10px] text-slate-400">{member.memberRole}</span></button>;
+                    return <button type="button" key={member.id} onClick={() => insertMention(member)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-rose-50"><UserCircle2 size={17} className="text-[#9c1018]" /><span>{name}</span><span className="ml-auto text-[10px] text-slate-400">{member.memberRole}</span></button>;
                   })}
                 </div>
               )}
@@ -1580,11 +2057,11 @@ function Assignedprojectboard() {
                   setMentionActive(Boolean(match));
                 }}
                 placeholder="Write a project update or use @ to mention someone..."
-                className="w-full resize-none rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                className="w-full resize-none rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-[#9c1018] focus:ring-2 focus:ring-rose-100"
               />
               <div className="mt-3 flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-xs text-slate-400"><AtSign size={15} /> Mention a member</span>
-                <button type="button" onClick={handleProjectChatSubmit} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"><Send size={14} /> Send</button>
+                <button type="button" onClick={handleProjectChatSubmit} className="inline-flex items-center gap-1.5 rounded-lg bg-[#8f1018] px-4 py-2 text-xs font-semibold text-white hover:bg-[#780c13]"><Send size={14} /> Send</button>
               </div>
             </div>
           </div>
@@ -1602,15 +2079,21 @@ function Assignedprojectboard() {
 
       {/* --- TASK DETAILS & CHAT DRAWER (Communication & Comments View) --- */}
       {activeTask && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/35 backdrop-blur-[2px]">
-          <div className="flex h-full w-full max-w-5xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+        <div
+          onClick={() => setActiveTask(null)}
+          className="fixed inset-0 z-50 flex justify-end bg-slate-950/40 backdrop-blur-[2px]"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex h-dvh w-full max-w-5xl flex-col border-l border-slate-200 bg-white shadow-2xl"
+          >
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-3">
               <div className="flex items-center gap-2">
                 <select
                   value={activeTask.status}
                   onChange={(e) => handleStatusChange(e.target.value)}
                   disabled={!canCreateTasks}
-                  className="rounded-md bg-slate-600 px-3 py-2 text-xs font-semibold text-white outline-none"
+                  className="rounded-md bg-[#8f1018] px-3 py-2 text-xs font-semibold text-white outline-none"
                 >
                   <option value="TODO">Open</option>
                   <option value="IN_PROGRESS">In Progress</option>
@@ -1627,7 +2110,7 @@ function Assignedprojectboard() {
                     value=""
                     onChange={handleReassignTaskAssignee}
                     disabled={isReassigningTask || isRemovingAssignee}
-                    className="max-w-28 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none hover:border-indigo-300 focus:border-indigo-400 disabled:cursor-wait disabled:opacity-50"
+                    className="max-w-28 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none hover:border-rose-300 focus:border-[#9c1018] disabled:cursor-wait disabled:opacity-50"
                     aria-label="Reassign task"
                     title="Reassign task"
                   >
@@ -1665,7 +2148,7 @@ function Assignedprojectboard() {
                 </div>
 
                 <div className="flex items-center gap-5 border-b border-slate-200 px-7 pt-4">
-                  {['activities', 'comments'].map((tab) => <button key={tab} type="button" onClick={() => setTaskViewTab(tab)} className={`border-b-2 pb-3 text-sm font-medium capitalize ${taskViewTab === tab ? 'border-indigo-500 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>{tab}</button>)}
+                  {['activities', 'comments'].map((tab) => <button key={tab} type="button" onClick={() => setTaskViewTab(tab)} className={`border-b-2 pb-3 text-sm font-medium capitalize ${taskViewTab === tab ? 'border-[#9c1018] text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>{tab}</button>)}
                   <span className="ml-auto pb-3 text-xs text-slate-400">{taskViewTab === 'activities' ? activeTaskActivities.length + activeTaskMessages.length : activeTaskMessages.length} updates</span>
                 </div>
 
@@ -1695,14 +2178,14 @@ function Assignedprojectboard() {
                           : activity.action === 'STATUS_CHANGED'
                         ? <>has changed the Task status from <strong className="font-semibold text-slate-700">{activity.previousValue}</strong> to <strong className="font-semibold text-slate-700">{activity.newValue}</strong>.</>
                         : activity.action === 'ASSIGNEE_REMOVED'
-                          ? <>has removed the assignee <strong className="font-semibold text-indigo-600">{activity.newValue}</strong> from this Task.</>
+                          ? <>has removed the assignee <strong className="font-semibold text-[#8f1018]">{activity.newValue}</strong> from this Task.</>
                           : activity.action === 'DUE_DATE_CHANGED'
                             ? <>has rescheduled the Task due date from <strong className="font-semibold text-slate-700">{activity.previousValue}</strong> to <strong className="font-semibold text-slate-700">{activity.newValue}</strong>.</>
                             : activity.action === 'PRIORITY_CHANGED'
                               ? <>has changed the Task priority from <strong className="font-semibold text-slate-700">{activity.previousValue}</strong> to <strong className="font-semibold text-slate-700">{activity.newValue}</strong>.</>
                               : activity.action === 'REMINDER_CHANGED'
                                 ? <>has changed the Task reminder from <strong className="font-semibold text-slate-700">{formatActivityValue(activity.previousValue, true)}</strong> to <strong className="font-semibold text-slate-700">{formatActivityValue(activity.newValue, true)}</strong>.</>
-                                : <>has assigned the Task to <strong className="font-semibold text-indigo-600">{activity.newValue}</strong>.</>;
+                                : <>has assigned the Task to <strong className="font-semibold text-[#8f1018]">{activity.newValue}</strong>.</>;
                       const matchingAssignees = activity.action === 'ASSIGNEE_REMOVED'
                         ? employeesList.filter((employee) =>
                           `${employee.firstName || ''} ${employee.lastName || ''}`.trim().toLowerCase()
@@ -1712,7 +2195,7 @@ function Assignedprojectboard() {
                         || (matchingAssignees.length === 1 ? matchingAssignees[0].id : null);
                       return (
                         <div key={entry.id} className="flex items-start gap-3 border-b border-slate-100 pb-4">
-                          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+                          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-50 text-[#8f1018]">
                             {activity.action === 'STATUS_CHANGED' ? <CheckCircle2 size={17} />
                               : activity.action === 'TASK_CREATED' ? <Plus size={17} />
                               : activity.action === 'DUE_DATE_CHANGED' || activity.action === 'DUE_DATE_SET' ? <Calendar size={17} />
@@ -1722,7 +2205,7 @@ function Assignedprojectboard() {
                           </span>
                           <div className="min-w-0 pt-1">
                             <p className="text-sm leading-6 text-slate-600">
-                              <strong className="font-semibold text-indigo-600">{actorName}</strong> {activityText}
+                              <strong className="font-semibold text-[#8f1018]">{actorName}</strong> {activityText}
                             </p>
                             <p className="mt-1 text-[11px] text-slate-400">
                               {activityTimestamp !== null
@@ -1733,7 +2216,7 @@ function Assignedprojectboard() {
                               type="button"
                               onClick={() => handleUndoAssigneeRemoval(activity, Number(undoAssigneeId))}
                               disabled={undoingActivityId !== null}
-                              className="mt-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:cursor-wait disabled:opacity-50"
+                              className="mt-1 text-xs font-medium text-[#8f1018] hover:text-[#780c13] disabled:cursor-wait disabled:opacity-50"
                             >{Number(undoingActivityId) === Number(activity.id) ? 'Undoing…' : 'Undo'}</button>}
                           </div>
                         </div>
@@ -1744,15 +2227,17 @@ function Assignedprojectboard() {
                     const attachments = normalizeAttachments(comm.attachments);
                     return (
                     <div key={entry.id} className={`flex gap-3 pb-4 ${isOwnMessage ? 'flex-row-reverse justify-start' : 'justify-start'}`}>
-                      <UserCircle2 size={30} className={`mt-1 shrink-0 ${isOwnMessage ? 'text-emerald-500' : 'text-slate-400'}`} />
-                      <div className={`min-w-0 max-w-[78%] rounded-2xl border px-3.5 py-2.5 shadow-sm ${isOwnMessage ? 'border-emerald-100 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+                      {isOwnMessage
+                        ? <ProfileAvatar profileImage={currentProfileImage} size={65} className="mt-1 text-[#9c1018]" />
+                        : <UserCircle2 size={30} className="mt-1 shrink-0 text-slate-400" />}
+                      <div className={`min-w-0 max-w-[78%] rounded-2xl border px-3.5 py-2.5 shadow-sm ${isOwnMessage ? 'border-rose-100 bg-rose-50' : 'border-slate-200 bg-white'}`}>
                         <div className={`flex flex-wrap items-baseline gap-3 ${isOwnMessage ? 'justify-end' : 'justify-between'}`}>
-                          <p className={`text-sm font-semibold ${isOwnMessage ? 'text-emerald-700' : 'text-indigo-600'}`}>{comm.sender}</p>
+                          <p className="text-sm font-semibold text-[#8f1018]">{comm.sender}</p>
                           <p className="text-[11px] text-slate-400">{comm.time}</p>
                         </div>
                         {editingMessageId === comm.id ? (
                           <div
-                            className={`mt-2 rounded-lg ${isDraggingEdit ? 'ring-2 ring-indigo-300' : ''}`}
+                            className={`mt-2 rounded-lg ${isDraggingEdit ? 'ring-2 ring-rose-300' : ''}`}
                             onDragOver={(e) => { e.preventDefault(); setIsDraggingEdit(true); }}
                             onDragLeave={() => setIsDraggingEdit(false)}
                             onDrop={(e) => { e.preventDefault(); setIsDraggingEdit(false); addEditingFiles(e.dataTransfer.files, comm); }}
@@ -1766,19 +2251,19 @@ function Assignedprojectboard() {
                                 </span>
                               ))}
                               {editingNewFiles.map((file, index) => (
-                                <span key={`${file.name}-${index}`} className="flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[11px] text-indigo-700 ring-1 ring-indigo-100">
+                                <span key={`${file.name}-${index}`} className="flex items-center gap-1 rounded bg-rose-50 px-2 py-1 text-[11px] text-[#8f1018] ring-1 ring-rose-100">
                                   <span className="max-w-[140px] truncate">{file.name}</span>
                                   <button type="button" title="Remove file" onClick={() => setEditingNewFiles((current) => current.filter((_f, i) => i !== index))} className="text-red-500 hover:text-red-700"><X size={12} /></button>
                                 </span>
                               ))}
                             </div>
-                            <label title="Drag and drop files here or click to browse" className={`mt-2 flex cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-dashed px-2 py-2 text-[11px] ${isDraggingEdit ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-slate-300 text-slate-500 hover:bg-white'}`}>
+                            <label title="Drag and drop files here or click to browse" className={`mt-2 flex cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-dashed px-2 py-2 text-[11px] ${isDraggingEdit ? 'border-rose-400 bg-rose-50 text-[#8f1018]' : 'border-slate-300 text-slate-500 hover:bg-white'}`}>
                               <Paperclip size={12} /> Drag &amp; drop files here, or click to browse
                               <input type="file" multiple className="hidden" onChange={(e) => { addEditingFiles(e.target.files, comm); e.target.value = ''; }} />
                             </label>
                             <div className="mt-1 flex justify-end gap-2 text-xs">
                               <button type="button" title="Cancel editing" onClick={cancelEditingMessage} className="text-slate-500 hover:text-slate-700">Cancel</button>
-                              <button type="button" title="Save edited comment" onClick={() => handleSaveEditedMessage(comm)} className="font-medium text-indigo-600 hover:text-indigo-800">Save</button>
+                              <button type="button" title="Save edited comment" onClick={() => handleSaveEditedMessage(comm)} className="font-medium text-[#8f1018] hover:text-[#780c13]">Save</button>
                             </div>
                           </div>
                         ) : comm.text && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{comm.text}{comm.editedAt && <span className="ml-1 text-[10px] text-slate-400">(edited)</span>}</p>}
@@ -1793,18 +2278,18 @@ function Assignedprojectboard() {
                               </button>;
                             }
                             if (kind === 'video') {
-                              return <button type="button" key={attachment.url} onClick={() => setAttachmentViewer({ ...attachment, kind, url })} className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-indigo-600 hover:bg-indigo-50">
+                              return <button type="button" key={attachment.url} onClick={() => setAttachmentViewer({ ...attachment, kind, url })} className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-[#8f1018] hover:bg-rose-50">
                                 <Play size={15} fill="currentColor" /> {attachment.name || 'Play video'}
                               </button>;
                             }
-                            return <button type="button" key={attachment.url} onClick={() => setAttachmentViewer({ ...attachment, kind, url })} className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-indigo-600 hover:bg-indigo-50">
+                            return <button type="button" key={attachment.url} onClick={() => setAttachmentViewer({ ...attachment, kind, url })} className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-[#8f1018] hover:bg-rose-50">
                               <FileText size={15} /> {attachment.name || 'Preview document'}
                             </button>;
                           })}
                         </div>}
                         {isOwnMessage && editingMessageId !== comm.id && <div className="mt-2 flex justify-end gap-2">
                           {comm.createdAt && Date.now() - new Date(comm.createdAt).getTime() <= 15 * 60 * 1000 && (
-                            <button type="button" title="Edit comment (available for 15 minutes)" aria-label="Edit comment" onClick={() => startEditingMessage(comm)} className="rounded p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"><Pencil size={14} /></button>
+                            <button type="button" title="Edit comment (available for 15 minutes)" aria-label="Edit comment" onClick={() => startEditingMessage(comm)} className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-[#8f1018]"><Pencil size={14} /></button>
                           )}
                           <button type="button" title="Delete your comment" aria-label="Delete comment" onClick={() => setMessageToDelete(comm)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={14} /></button>
                         </div>}
@@ -1817,7 +2302,7 @@ function Assignedprojectboard() {
                 </div>
 
                 <div
-                  className={`border-t border-slate-200 px-5 py-4 ${isDraggingChat ? 'bg-indigo-50 ring-2 ring-inset ring-indigo-300' : 'bg-slate-50'}`}
+                  className={`border-t border-slate-200 px-5 py-4 ${isDraggingChat ? 'bg-rose-50 ring-2 ring-inset ring-rose-300' : 'bg-slate-50'}`}
                   onDragOver={(e) => { e.preventDefault(); setIsDraggingChat(true); }}
                   onDragLeave={() => setIsDraggingChat(false)}
                   onDrop={(e) => { e.preventDefault(); setIsDraggingChat(false); addChatFiles(e.dataTransfer.files); }}
@@ -1827,7 +2312,7 @@ function Assignedprojectboard() {
                       {taskMentionOptions.map((member) => {
                         const name = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.fullName || member.email;
                         const displayName = Number(member.id) === Number(currentUser?.id) ? 'Me' : name;
-                        return <button type="button" key={member.id} onClick={() => insertTaskMention(member)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-indigo-50"><UserCircle2 size={17} className="text-indigo-500" /><span>{displayName}</span><span className="ml-auto text-[10px] text-slate-400">{member.memberRole}</span></button>;
+                        return <button type="button" key={member.id} onClick={() => insertTaskMention(member)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-rose-50"><UserCircle2 size={17} className="text-[#9c1018]" /><span>{displayName}</span><span className="ml-auto text-[10px] text-slate-400">{member.memberRole}</span></button>;
                       })}
                     </div>
                   )}
@@ -1850,17 +2335,17 @@ function Assignedprojectboard() {
                       setTaskMentionActive(Boolean(match));
                     }}
                     placeholder="Write a task update or use @ to mention someone..."
-                    className="w-full resize-none rounded-lg border border-slate-300 bg-white p-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    className="w-full resize-none rounded-lg border border-slate-300 bg-white p-3 text-sm outline-none focus:border-[#9c1018] focus:ring-2 focus:ring-rose-100"
                   />
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400 hover:text-[#8f1018]">
                         <Paperclip size={15} /> Attach
                         <input type="file" multiple onChange={handleTaskAttachmentChange} className="hidden" />
                       </label>
                       <span className="flex items-center gap-1.5 text-xs text-slate-400"><AtSign size={15} /> Mention a member</span>
                     </div>
-                    <button type="button" onClick={handleTaskChatSubmit} className="rounded-md bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700">Send Message</button>
+                    <button type="button" onClick={handleTaskChatSubmit} className="rounded-md bg-[#8f1018] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#780c13]">Send Message</button>
                   </div>
                 </div>
               </div>
@@ -1875,7 +2360,7 @@ function Assignedprojectboard() {
                       value={taskDetailsDraft.dueDate}
                       onChange={(event) => setTaskDetailsDraft((current) => ({ ...current, dueDate: event.target.value }))}
                       disabled={!canEditTaskDetails || isSavingTaskDetails}
-                      className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-400 disabled:border-transparent disabled:bg-transparent disabled:px-0 disabled:py-0"
+                      className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-[#9c1018] disabled:border-transparent disabled:bg-transparent disabled:px-0 disabled:py-0"
                     />
                     {!taskDetailsDraft.dueDate && <span className="mt-1 block text-xs text-slate-500">Not set</span>}
                   </label>
@@ -1886,7 +2371,7 @@ function Assignedprojectboard() {
                       value={taskDetailsDraft.reminderAt}
                       onChange={(event) => setTaskDetailsDraft((current) => ({ ...current, reminderAt: event.target.value }))}
                       disabled={!canEditTaskDetails || isSavingTaskDetails}
-                      className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-400 disabled:border-transparent disabled:bg-transparent disabled:px-0 disabled:py-0"
+                      className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-[#9c1018] disabled:border-transparent disabled:bg-transparent disabled:px-0 disabled:py-0"
                     />
                     {!taskDetailsDraft.reminderAt && <span className="mt-1 block text-xs text-slate-500">Not set</span>}
                   </label>
@@ -1896,7 +2381,7 @@ function Assignedprojectboard() {
                       value={taskDetailsDraft.priority}
                       onChange={(event) => setTaskDetailsDraft((current) => ({ ...current, priority: event.target.value }))}
                       disabled={!canEditTaskDetails || isSavingTaskDetails}
-                      className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-400 disabled:border-transparent disabled:bg-transparent disabled:px-0 disabled:py-0"
+                      className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-[#9c1018] disabled:border-transparent disabled:bg-transparent disabled:px-0 disabled:py-0"
                     >
                       <option value="LOW">LOW</option>
                       <option value="MEDIUM">MEDIUM</option>
@@ -1907,7 +2392,7 @@ function Assignedprojectboard() {
                     type="button"
                     onClick={handleSaveTaskDetails}
                     disabled={isSavingTaskDetails}
-                    className="w-full rounded-md bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60"
+                    className="w-full rounded-md bg-[#8f1018] px-3 py-2 text-xs font-semibold text-white hover:bg-[#780c13] disabled:cursor-wait disabled:opacity-60"
                   >{isSavingTaskDetails ? 'Saving…' : 'Save changes'}</button>}
                   <div><p className="text-xs text-slate-500">Category</p><p className="mt-1 font-medium text-slate-800">{activeTask.service?.name || 'Uncategorized'}</p></div>
                 </div>
@@ -1953,8 +2438,8 @@ function Assignedprojectboard() {
               {attachmentViewer.kind === 'document' && <iframe src={attachmentViewer.url} title={attachmentViewer.name || 'Document preview'} className="h-[75vh] w-full rounded border border-slate-200 bg-white" />}
             </div>
             <div className="flex items-center justify-end gap-4 border-t border-slate-200 px-4 py-3">
-              <button type="button" title="Download this file" onClick={() => downloadAttachment(attachmentViewer)} className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800"><Download size={14} /> Download</button>
-              <a href={attachmentViewer.url} target="_blank" rel="noreferrer" title="Open file in a new browser tab" className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Open in new tab</a>
+              <button type="button" title="Download this file" onClick={() => downloadAttachment(attachmentViewer)} className="flex items-center gap-1 text-xs font-semibold text-[#8f1018] hover:text-[#780c13]"><Download size={14} /> Download</button>
+              <a href={attachmentViewer.url} target="_blank" rel="noreferrer" title="Open file in a new browser tab" className="text-xs font-semibold text-[#8f1018] hover:text-[#780c13]">Open in new tab</a>
             </div>
           </div>
         </div>

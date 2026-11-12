@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { Pencil, Trash2 } from "lucide-react";
 import leadService from "../../services/lead.service";
 import departmentService from "../../services/department.service";
 import { getSession } from "../../utils/session";
 import { canDeleteRecords } from "../../utils/auth";
+import SortableHeader from "../common/SortableHeader";
+import { sortRows } from "../../utils/tableSorting";
 
 const initialCategoryForm = {
   name: "",
@@ -162,6 +165,20 @@ function Master() {
   const canDelete = canDeleteRecords('master');
   const [servicePage, setServicePage] = useState(1);
   const servicesPerPage = 5;
+  const [sortConfigs, setSortConfigs] = useState({
+    categories: { key: "", direction: "asc" },
+    services: { key: "", direction: "asc" },
+    statuses: { key: "", direction: "asc" },
+    sources: { key: "", direction: "asc" },
+    departments: { key: "", direction: "asc" },
+  });
+  const toggleSort = (table, key) => setSortConfigs((current) => ({
+    ...current,
+    [table]: {
+      key,
+      direction: current[table].key === key && current[table].direction === "asc" ? "desc" : "asc",
+    },
+  }));
 
   const allServices = useMemo(
     () =>
@@ -174,12 +191,49 @@ function Master() {
       ),
     [categories]
   );
+  const sortedCategories = sortRows(categories, sortConfigs.categories.key, sortConfigs.categories.direction, (item) => {
+    if (sortConfigs.categories.key === "name") return item.name;
+    if (sortConfigs.categories.key === "code") return item.code;
+    if (sortConfigs.categories.key === "order") return item.displayOrder;
+    if (sortConfigs.categories.key === "services") return item.services?.length;
+    if (sortConfigs.categories.key === "status") return item.isActive ? "Active" : "Inactive";
+    return "";
+  });
+  const sortedServices = sortRows(allServices, sortConfigs.services.key, sortConfigs.services.direction, (item) => {
+    if (sortConfigs.services.key === "name") return item.name;
+    if (sortConfigs.services.key === "code") return item.code;
+    if (sortConfigs.services.key === "category") return item.categoryName;
+    if (sortConfigs.services.key === "order") return item.displayOrder;
+    if (sortConfigs.services.key === "status") return item.isActive ? "Active" : "Inactive";
+    return "";
+  });
+  const sortedStatuses = sortRows(leadStatuses, sortConfigs.statuses.key, sortConfigs.statuses.direction, (item) => {
+    if (sortConfigs.statuses.key === "name") return item.name;
+    if (sortConfigs.statuses.key === "code") return item.code;
+    if (sortConfigs.statuses.key === "order") return item.displayOrder;
+    if (sortConfigs.statuses.key === "default") return item.isDefault ? "Yes" : "No";
+    if (sortConfigs.statuses.key === "closed") return item.isClosed ? "Yes" : "No";
+    if (sortConfigs.statuses.key === "status") return item.isActive ? "Active" : "Inactive";
+    return "";
+  });
+  const sortedSources = sortRows(leadSources, sortConfigs.sources.key, sortConfigs.sources.direction, (item) => {
+    if (sortConfigs.sources.key === "name") return item.name;
+    if (sortConfigs.sources.key === "code") return item.code;
+    if (sortConfigs.sources.key === "order") return item.displayOrder;
+    if (sortConfigs.sources.key === "status") return item.isActive ? "Active" : "Inactive";
+    return "";
+  });
+  const sortedDepartments = sortRows(departments, sortConfigs.departments.key, sortConfigs.departments.direction, (item) => {
+    if (sortConfigs.departments.key === "name") return item.name;
+    if (sortConfigs.departments.key === "status") return item.isActive ? "Active" : "Inactive";
+    return "";
+  });
 
   const totalServicePages = Math.max(1, Math.ceil(allServices.length / servicesPerPage));
   const paginatedServices = useMemo(() => {
     const start = (servicePage - 1) * servicesPerPage;
-    return allServices.slice(start, start + servicesPerPage);
-  }, [allServices, servicePage]);
+    return sortedServices.slice(start, start + servicesPerPage);
+  }, [sortedServices, servicePage]);
 
   useEffect(() => {
     if (servicePage > totalServicePages) {
@@ -308,11 +362,13 @@ function Master() {
     canDelete ? (
       <button
         type="button"
+        title={`Delete ${record.name || type}`}
+        aria-label={`Delete ${record.name || type}`}
         onClick={() => handleDelete(type, record)}
         disabled={deletingKey === `${type}-${record.id}`}
-        className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
       >
-        Delete
+        <Trash2 size={16} />
       </button>
     ) : null
   );
@@ -522,19 +578,19 @@ function Master() {
           countClass="bg-blue-50 text-blue-700"
           onAdd={() => openCreateModal("category")}
         >
-          <table className="min-w-full text-sm">
+          <table className="erp-list-table min-w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Order</th>
-                <th className="px-4 py-3">Services</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3"><SortableHeader label="Name" sortKey="name" sortConfig={sortConfigs.categories} onSort={(key) => toggleSort("categories", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Code" sortKey="code" sortConfig={sortConfigs.categories} onSort={(key) => toggleSort("categories", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Order" sortKey="order" sortConfig={sortConfigs.categories} onSort={(key) => toggleSort("categories", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Services" sortKey="services" sortConfig={sortConfigs.categories} onSort={(key) => toggleSort("categories", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfigs.categories} onSort={(key) => toggleSort("categories", key)} /></th>
                 <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
             <tbody>
-              {categories.length ? categories.map((category) => (
+              {sortedCategories.length ? sortedCategories.map((category) => (
                 <tr key={category.id} className="border-t border-slate-200">
                   <td className="px-4 py-3 font-medium text-slate-800">
                     <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: category.color || "#2563EB" }} />
@@ -549,8 +605,8 @@ function Master() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => openEditModal("category", category)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
+                    <div className="flex items-center gap-2">
+                      <button type="button" title={`Edit ${category.name}`} aria-label={`Edit ${category.name}`} onClick={() => openEditModal("category", category)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"><Pencil size={16} /></button>
                       <DeleteButton type="category" record={category} />
                     </div>
                   </td>
@@ -569,14 +625,14 @@ function Master() {
           countClass="bg-emerald-50 text-emerald-700"
           onAdd={() => openCreateModal("service")}
         >
-          <table className="min-w-full text-sm">
+          <table className="erp-list-table min-w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Order</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3"><SortableHeader label="Name" sortKey="name" sortConfig={sortConfigs.services} onSort={(key) => toggleSort("services", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Code" sortKey="code" sortConfig={sortConfigs.services} onSort={(key) => toggleSort("services", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Category" sortKey="category" sortConfig={sortConfigs.services} onSort={(key) => toggleSort("services", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Order" sortKey="order" sortConfig={sortConfigs.services} onSort={(key) => toggleSort("services", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfigs.services} onSort={(key) => toggleSort("services", key)} /></th>
                 <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
@@ -593,8 +649,8 @@ function Master() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => openEditModal("service", service)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
+                    <div className="flex items-center gap-2">
+                      <button type="button" title={`Edit ${service.name}`} aria-label={`Edit ${service.name}`} onClick={() => openEditModal("service", service)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"><Pencil size={16} /></button>
                       <DeleteButton type="service" record={service} />
                     </div>
                   </td>
@@ -640,20 +696,20 @@ function Master() {
           onAdd={() => openCreateModal("status")}
         >
           {fetchIssues.statuses ? <div className="mx-4 mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">{fetchIssues.statuses}</div> : null}
-          <table className="min-w-full text-sm">
+          <table className="erp-list-table min-w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Order</th>
-                <th className="px-4 py-3">Default</th>
-                <th className="px-4 py-3">Closed</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3"><SortableHeader label="Name" sortKey="name" sortConfig={sortConfigs.statuses} onSort={(key) => toggleSort("statuses", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Code" sortKey="code" sortConfig={sortConfigs.statuses} onSort={(key) => toggleSort("statuses", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Order" sortKey="order" sortConfig={sortConfigs.statuses} onSort={(key) => toggleSort("statuses", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Default" sortKey="default" sortConfig={sortConfigs.statuses} onSort={(key) => toggleSort("statuses", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Closed" sortKey="closed" sortConfig={sortConfigs.statuses} onSort={(key) => toggleSort("statuses", key)} /></th>
+                <th className="px-4 py-3"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfigs.statuses} onSort={(key) => toggleSort("statuses", key)} /></th>
                 <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
             <tbody>
-              {leadStatuses.length ? leadStatuses.map((status) => (
+              {sortedStatuses.length ? sortedStatuses.map((status) => (
                 <tr key={status.id} className="border-t border-slate-200">
                   <td className="px-4 py-3 font-medium text-slate-800">
                     <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: status.color || "#2563EB" }} />
@@ -669,8 +725,8 @@ function Master() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => openEditModal("status", status)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
+                    <div className="flex items-center gap-2">
+                      <button type="button" title={`Edit ${status.name}`} aria-label={`Edit ${status.name}`} onClick={() => openEditModal("status", status)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"><Pencil size={16} /></button>
                       <DeleteButton type="status" record={status} />
                     </div>
                   </td>
@@ -685,19 +741,19 @@ function Master() {
         <div className="grid grid-cols-2 gap-5">
           <TableSection title="Lead Source" subtitle="Manage lead source lookup" count={leadSources.length} countClass="bg-violet-50 text-violet-700" onAdd={() => openCreateModal("source")}>
               {fetchIssues.sources ? <div className="mx-4 mt-3 rounded-md bg-violet-50 px-3 py-2 text-xs text-violet-700">{fetchIssues.sources}</div> : null}
-            <table className="min-w-full text-sm">
+            <table className="erp-list-table min-w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Code</th>
+                  <th className="px-4 py-3"><SortableHeader label="Name" sortKey="name" sortConfig={sortConfigs.sources} onSort={(key) => toggleSort("sources", key)} /></th>
+                  <th className="px-4 py-3"><SortableHeader label="Code" sortKey="code" sortConfig={sortConfigs.sources} onSort={(key) => toggleSort("sources", key)} /></th>
                   
-                  <th className="px-4 py-3">Order</th>
-                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3"><SortableHeader label="Order" sortKey="order" sortConfig={sortConfigs.sources} onSort={(key) => toggleSort("sources", key)} /></th>
+                  <th className="px-4 py-3"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfigs.sources} onSort={(key) => toggleSort("sources", key)} /></th>
                   <th className="px-4 py-3">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {leadSources.length ? leadSources.map((source) => (
+                {sortedSources.length ? sortedSources.map((source) => (
                   <tr key={source.id} className="border-t border-slate-200">
                     <td className="px-4 py-3 font-medium text-slate-800">{source.name}</td>
                     <td className="px-4 py-3 text-slate-600">{source.code}</td>
@@ -709,8 +765,8 @@ function Master() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => openEditModal("source", source)} className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
+                      <div className="flex items-center gap-2">
+                        <button type="button" title={`Edit ${source.name}`} aria-label={`Edit ${source.name}`} onClick={() => openEditModal("source", source)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"><Pencil size={16} /></button>
                         <DeleteButton type="source" record={source} />
                       </div>
                     </td>
@@ -734,18 +790,18 @@ function Master() {
                 </div>
               ) : null}
 
-              <table className="min-w-full text-sm">
+              <table className="erp-list-table min-w-full text-sm">
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3"><SortableHeader label="Name" sortKey="name" sortConfig={sortConfigs.departments} onSort={(key) => toggleSort("departments", key)} /></th>
+                    <th className="px-4 py-3"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfigs.departments} onSort={(key) => toggleSort("departments", key)} /></th>
                     <th className="px-4 py-3">Action</th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {departments.length ? (
-                    departments.map((department) => (
+                    sortedDepartments.map((department) => (
                       <tr
                         key={department.id}
                         className="border-t border-slate-200"
@@ -767,15 +823,17 @@ function Master() {
                         </td>
 
                         <td className="px-4 py-3">
-                          <div className="flex gap-2">
+                          <div className="flex items-center gap-2">
                             <button
                               type="button"
+                              title={`Edit ${department.name}`}
+                              aria-label={`Edit ${department.name}`}
                               onClick={() =>
                                 openEditModal("department", department)
                               }
-                              className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                             >
-                              Edit
+                              <Pencil size={16} />
                             </button>
                             <DeleteButton type="department" record={department} />
                           </div>

@@ -3,9 +3,12 @@ import { toast } from 'react-toastify';
 import { request } from '../../services/apiClient';
 import { RefreshCcw, X, Eye, Check, FileUser, Trash2 } from 'lucide-react'
 import { canDeleteRecords } from '../../utils/auth';
+import SortableHeader from '../common/SortableHeader';
+import { sortRows } from '../../utils/tableSorting';
 
 const Applied = () => {
   const [applications, setApplications] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' });
   const [loading, setLoading] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -261,6 +264,18 @@ const Applied = () => {
 
       return normalizeStatus(app.status) === filterStatus.toLowerCase();
     });
+  const sortedApplications = sortRows(filteredApplications, sortConfig.key, sortConfig.direction, (app) => {
+    if (sortConfig.key === 'name') return app.personal?.fullName || app.fullName;
+    if (sortConfig.key === 'phone') return app.personal?.phoneNumber || app.phoneNumber;
+    if (sortConfig.key === 'position') return getJobTitle(app);
+    if (sortConfig.key === 'appliedDate') return app.createdAt || app.appliedDate;
+    if (sortConfig.key === 'status') return app.status;
+    return '';
+  });
+  const toggleSort = (key) => setSortConfig((current) => ({
+    key,
+    direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
+  }));
 
   const applicationPersonal = selectedApplication?.personal || selectedApplication || {};
   const applicationValue = (...keys) => {
@@ -357,16 +372,16 @@ const Applied = () => {
 
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="erp-list-table min-w-full">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">S.No</th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate Name</th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Applied Position</th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Candidate Name" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Phone" sortKey="phone" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Applied Position" sortKey="position" sortConfig={sortConfig} onSort={toggleSort} /></th>
                   <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio Link</th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Applied Date</th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Applied Date" sortKey="appliedDate" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={toggleSort} /></th>
                   <th className="px-4 py-3 text-center align-middle whitespace-nowrap text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -383,7 +398,7 @@ const Applied = () => {
                     <td colSpan="8" className="px-4 py-8 text-center text-gray-500" >No applications found.</td>
                   </tr>
                 ) : (
-                  filteredApplications.map(
+                  sortedApplications.map(
                     (app, index) => {
                       const candidateId = resolveCandidateId(app);
 
@@ -418,71 +433,54 @@ const Applied = () => {
                         </td>
 
                         <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex items-center justify-center gap-2">
                             <button
+                              type="button"
                               onClick={() => viewApplication(candidateId)}
-                              className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors "
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
                               title="View application"
                               aria-label="View application"
                             >
                               <Eye size={15} />
                             </button>
                             <button
+                              type="button"
                               onClick={() => openResume(app)}
-                              className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors "
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                               title="View Resume"
                               aria-label="View resume"
                             >
                               <FileUser size={15} />
                             </button>
                             <button
+                              type="button"
                               onClick={() => updateStatus(candidateId, 'Shortlisted')}
-                              disabled={
-                                updating ||
-                                normalizeStatus(app.status) === 'shortlisted' ||
-                                normalizeStatus(app.status) === 'rejected' ||
-                                normalizeStatus(app.status) === 'selected'
-                              }
+                              disabled={updating || ['shortlisted', 'rejected', 'selected'].includes(normalizeStatus(app.status))}
                               title="Shortlist"
                               aria-label="Shortlist"
-                              className={`flex items-center justify-center rounded-md transition-colors ${
-                                normalizeStatus(app.status) === 'shortlisted'
-                                  ? 'border-emerald-200 bg-emerald-100 text-emerald-600 cursor-not-allowed'
-                                  : normalizeStatus(app.status) === 'rejected' ||
-                                    normalizeStatus(app.status) === 'selected'
-                                  ? 'px-2 py-1 bg-green-700 text-white rounded text-xs font-medium hover:bg-green-200 transition-colors cursor-not-allowed'
-                                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800'
-                              }`}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
                             >
                               <Check size={15} />
                             </button>
 
                             <button
+                              type="button"
                               onClick={() => updateStatus(candidateId, 'Rejected')}
-                              disabled={
-                                updating ||
-                                normalizeStatus(app.status) === 'rejected' ||
-                                normalizeStatus(app.status) === 'selected'
-                              }
+                              disabled={updating || ['rejected', 'selected'].includes(normalizeStatus(app.status))}
                               title="Reject"
                               aria-label="Reject"
-                              className={`flex items-center justify-center rounded-md transition-colors ${
-                                normalizeStatus(app.status) === 'rejected'
-                                  ? 'border-rose-200 bg-rose-100 text-rose-600 cursor-not-allowed'
-                                  : normalizeStatus(app.status) === 'selected'
-                                  ? 'px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium hover:bg-orange-200 transition-colors cursor-not-allowed'
-                                  : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800'
-                              }`}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500"
                             >
                               <X size={15} />
                             </button>
                             {canDelete && (
                               <button
+                                type="button"
                                 onClick={() => deleteApplication(candidateId, app.personal?.fullName || app.fullName)}
                                 disabled={deletingId === candidateId}
                                 title="Delete"
                                 aria-label="Delete application"
-                                className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
                               >
                                 <Trash2 size={15} />
                               </button>

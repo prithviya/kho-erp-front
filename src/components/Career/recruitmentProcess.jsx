@@ -4,6 +4,8 @@ import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { Rocket, Eye, X, Trash2 } from 'lucide-react';
 import { canDeleteRecords } from '../../utils/auth';
+import SortableHeader from '../common/SortableHeader';
+import { sortRows } from '../../utils/tableSorting';
 
 const getInterviewParts = (dateTime, time) => {
   if (!dateTime) return null;
@@ -88,6 +90,7 @@ const RecruitmentPipeline = () => {
   );
 
   const [candidates, setCandidates] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' });
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const canDelete = canDeleteRecords('recruitment');
@@ -321,6 +324,20 @@ const RecruitmentPipeline = () => {
     );
   };
 
+  const sortedCandidates = sortRows(candidates, sortConfig.key, sortConfig.direction, (candidate) => {
+    if (sortConfig.key === 'name') return candidate.fullName;
+    if (sortConfig.key === 'phone') return candidate.phoneNumber;
+    if (sortConfig.key === 'email') return candidate.email;
+    if (sortConfig.key === 'opening') return candidate.opening?.jobTitle;
+    if (sortConfig.key === 'interview') return getInterviewDateTime(candidate);
+    if (sortConfig.key === 'status') return candidate.appliedStatus;
+    return '';
+  });
+  const toggleSort = (key) => setSortConfig((current) => ({
+    key,
+    direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
+  }));
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div>
@@ -329,15 +346,15 @@ const RecruitmentPipeline = () => {
         </div>
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="erp-list-table min-w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone No</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email id</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Opening</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interview Info</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Candidate Name" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Phone No" sortKey="phone" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Email id" sortKey="email" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Job Opening" sortKey="opening" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Interview Info" sortKey="interview" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Current Status" sortKey="status" sortConfig={sortConfig} onSort={toggleSort} /></th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
@@ -354,7 +371,7 @@ const RecruitmentPipeline = () => {
                     <td colSpan="7" className="px-4 py-8 text-center text-gray-500">No shortlisted candidates found.</td>
                   </tr>
                 ) : (
-                  candidates.map((candidate) => (
+                  sortedCandidates.map((candidate) => (
                     <tr key={candidate.cifid} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
                         <p className="text-sm font-medium text-gray-900">{candidate.fullName || '-'}</p>
@@ -385,20 +402,41 @@ const RecruitmentPipeline = () => {
                       <td className="px-4 py-3">
                         {getStatusBadge(candidate.appliedStatus)}
                       </td>
-                      <td className="px-4 py-3 flex items-center space-x-3">
-                        <button onClick={() => handleViewDetails(candidate)} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors " title="View Details">
-                          <Eye size={'16'} />
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleViewDetails(candidate)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                          title="View Details"
+                          aria-label="View candidate details"
+                        >
+                          <Eye size={16} />
                         </button>
                         {candidate.appliedStatus === 'Selected' && (
-                          <button onClick={() => handleLaunchToOnboarding(candidate)} className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors " title="Launch to Onboarding">
-                            <Rocket size={'16'} />
+                          <button
+                            type="button"
+                            onClick={() => handleLaunchToOnboarding(candidate)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+                            title="Launch to Onboarding"
+                            aria-label="Launch candidate to onboarding"
+                          >
+                            <Rocket size={16} />
                           </button>
                         )}
                         {canDelete && (
-                          <button onClick={() => handleDeleteCandidate(candidate)} disabled={deletingId === resolveCandidateId(candidate)} className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors " title="Delete">
-                            <Trash2 size={'16'} />
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCandidate(candidate)}
+                            disabled={deletingId === resolveCandidateId(candidate)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+                            title="Delete"
+                            aria-label="Delete candidate"
+                          >
+                            <Trash2 size={16} />
                           </button>
                         )}
+                        </div>
                       </td>
                     </tr>
                   ))

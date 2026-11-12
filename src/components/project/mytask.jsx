@@ -99,7 +99,7 @@ export default function MyTask() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen px-4 py-4 sm:px-6 lg:px-8 bg-[#f4f5f9]">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Task Board</h1>

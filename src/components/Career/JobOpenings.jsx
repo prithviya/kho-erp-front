@@ -4,9 +4,12 @@ import { PlusSquare, Edit3, X, Link2, Link2Off, Eye, Trash2 } from 'lucide-react
 import jobOpeningServices from "../../services/opening.service";
 import departmentService from "../../services/department.service";
 import { canDeleteRecords } from "../../utils/auth";
+import SortableHeader from "../common/SortableHeader";
+import { sortRows } from "../../utils/tableSorting";
 
 const JobOpenings = () => {
     const [jobOpenings, setJobOpenings] = useState([]);
+    const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
     const [departments, setDepartments] = useState([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
@@ -208,6 +211,21 @@ const JobOpenings = () => {
         }
     };
 
+    const sortedJobOpenings = sortRows(jobOpenings, sortConfig.key, sortConfig.direction, (job) => {
+        if (sortConfig.key === "code") return job.code;
+        if (sortConfig.key === "title") return job.jobTitle;
+        if (sortConfig.key === "department") return job.department?.name;
+        if (sortConfig.key === "skills") return job.requiredSkills;
+        if (sortConfig.key === "experience") return job.minExperience;
+        if (sortConfig.key === "openings") return job.openingCount;
+        if (sortConfig.key === "status") return job.isActive ? "Active" : "Inactive";
+        return "";
+    });
+    const toggleSort = (key) => setSortConfig((current) => ({
+        key,
+        direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
             <div>
@@ -221,7 +239,7 @@ const JobOpenings = () => {
 
                 <div className="bg-white rounded-lg shadow-lg overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="min-w-275 w-full table-fixed divide-y divide-gray-200">
+                        <table className="erp-list-table min-w-275 w-full table-fixed">
                             <colgroup>
                                 <col className="w-[8%]" /><col className="w-[17%]" /><col className="w-[14%]" />
                                 <col className="w-[18%]" /><col className="w-[9%]" /><col className="w-[8%]" />
@@ -230,29 +248,29 @@ const JobOpenings = () => {
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        CODE
+                                        <SortableHeader label="CODE" sortKey="code" sortConfig={sortConfig} onSort={toggleSort} />
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        JOB TITLE
+                                        <SortableHeader label="JOB TITLE" sortKey="title" sortConfig={sortConfig} onSort={toggleSort} />
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        DEPARTMENT
-                                    </th>
-
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        REQUIRED SKILLS
+                                        <SortableHeader label="DEPARTMENT" sortKey="department" sortConfig={sortConfig} onSort={toggleSort} />
                                     </th>
 
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        MIN. EXP
+                                        <SortableHeader label="REQUIRED SKILLS" sortKey="skills" sortConfig={sortConfig} onSort={toggleSort} />
                                     </th>
 
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        OPENINGS
+                                        <SortableHeader label="MIN. EXP" sortKey="experience" sortConfig={sortConfig} onSort={toggleSort} />
                                     </th>
 
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        STATUS
+                                        <SortableHeader label="OPENINGS" sortKey="openings" sortConfig={sortConfig} onSort={toggleSort} />
+                                    </th>
+
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <SortableHeader label="STATUS" sortKey="status" sortConfig={sortConfig} onSort={toggleSort} />
                                     </th>
 
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -273,7 +291,7 @@ const JobOpenings = () => {
                                         <td colSpan="9" className="px-4 py-8 text-center text-gray-500"> No openings found. </td>
                                     </tr>
                                 ) : (
-                                    jobOpenings.map((job) => (
+                                    sortedJobOpenings.map((job) => (
                                         <tr key={job.jobid} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-4 py-3 text-sm font-medium text-gray-900"> {job.code} </td>
                                             <td className="px-4 py-3 text-sm text-gray-700"> {job.jobTitle} </td>

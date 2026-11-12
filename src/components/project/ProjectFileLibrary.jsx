@@ -5,7 +5,6 @@ import {
   FileImage,
   FileText,
   Folder,
-  FolderPlus,
   LockKeyhole,
   Pencil,
   RefreshCw,
@@ -31,6 +30,32 @@ function fileKind(file) {
   if (mimeType.startsWith("video/")) return "video";
   if (mimeType === "application/pdf" || /\.pdf$/i.test(file.name || file.originalName || "")) return "pdf";
   return "other";
+}
+
+function fileTypeLabel(file) {
+  const filename = String(file.name || file.originalName || "");
+  const extension = filename.match(/\.([^.]+)$/)?.[1];
+  if (extension) return extension.toUpperCase();
+
+  const mimeType = String(file.mimeType || "").toLowerCase();
+  const mimeLabels = {
+    "image/jpeg": "JPEG",
+    "image/svg+xml": "SVG",
+    "application/msword": "DOC",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOCX",
+    "application/vnd.ms-excel": "XLS",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
+    "application/vnd.ms-powerpoint": "PPT",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PPTX",
+    "text/plain": "TXT",
+    "text/csv": "CSV",
+    "application/zip": "ZIP",
+  };
+  if (mimeLabels[mimeType]) return mimeLabels[mimeType];
+  if (mimeType === "application/pdf") return "PDF";
+  if (mimeType.startsWith("image/")) return mimeType.slice("image/".length).toUpperCase();
+  if (mimeType.startsWith("video/")) return mimeType.slice("video/".length).toUpperCase();
+  return "FILE";
 }
 
 function createDownload(blob, filename) {
@@ -104,6 +129,8 @@ export default function ProjectFileLibrary({ projectId, projectName }) {
   }), [files, folderFilter, monthFilter]);
 
   const selectedFileCannotBeDeleted = selectedFiles.some((file) => !file.deletable);
+  const allVisibleFilesSelected = visibleFiles.length > 0
+    && visibleFiles.every((file) => selectedFiles.some((selected) => selected.id === file.id));
 
   const toggleFile = (file) => {
     const isSelected = selectedFiles.some((item) => item.id === file.id);
@@ -114,6 +141,21 @@ export default function ProjectFileLibrary({ projectId, projectName }) {
     setSelectedFiles((current) => isSelected
       ? current.filter((item) => item.id !== file.id)
       : [...current, file]);
+  };
+
+  const toggleVisibleFiles = () => {
+    const visibleIds = new Set(visibleFiles.map((file) => file.id));
+    if (allVisibleFilesSelected) {
+      setSelectedFiles((current) => current.filter((file) => !visibleIds.has(file.id)));
+      return;
+    }
+
+    const selectedOutsideView = selectedFiles.filter((file) => !visibleIds.has(file.id));
+    if (selectedOutsideView.length + visibleFiles.length > 100) {
+      toast.error("You can select up to 100 files at a time.");
+      return;
+    }
+    setSelectedFiles([...selectedOutsideView, ...visibleFiles]);
   };
 
   const openFile = async (file, download = false) => {
@@ -234,15 +276,15 @@ export default function ProjectFileLibrary({ projectId, projectName }) {
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-600">Project files</p>
           <h2 className="mt-1 text-xl font-bold text-slate-900">Library</h2>
-          <p className="mt-1 text-sm text-slate-500">{projectName} · Images, videos, and PDFs</p>
+          <p className="mt-1 text-sm text-slate-500">{projectName} · Images, videos, and documents</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => { setFolderEditor({}); setFolderName(""); }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          {/* <button type="button" onClick={() => { setFolderEditor({}); setFolderName(""); }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <FolderPlus size={16} /> New folder
-          </button>
+          </button> */}
           <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 ${uploading ? "pointer-events-none opacity-60" : ""}`}>
             <Upload size={16} /> {uploading ? "Uploading…" : "Upload files"}
-            <input type="file" multiple accept="image/*,video/*,application/pdf,.pdf" className="hidden" onChange={uploadFiles} disabled={uploading} />
+            <input type="file" multiple accept="image/*,video/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp" className="hidden" onChange={uploadFiles} disabled={uploading} />
           </label>
           <button type="button" onClick={loadLibrary} disabled={loading} title="Refresh library" className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
@@ -281,19 +323,30 @@ export default function ProjectFileLibrary({ projectId, projectName }) {
         </select>
       </div>
 
-      {selectedFiles.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-3">
-          <span className="mr-auto text-sm font-medium text-slate-700">{selectedFiles.length} selected</span>
-          <button type="button" onClick={downloadSelected} disabled={busy} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"><Archive size={14} /> Download ZIP</button>
-          <button type="button" onClick={deleteSelected} disabled={busy || selectedFileCannotBeDeleted} title={selectedFileCannotBeDeleted ? "You can only delete files you uploaded." : "Delete selected files"} className="inline-flex items-center gap-1.5 rounded-md border border-red-100 bg-white px-3 py-2 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 size={14} /> Delete</button>
-          <button type="button" onClick={() => setSelectedFiles([])} className="rounded-md p-2 text-slate-500 hover:bg-slate-200" aria-label="Clear selection"><X size={15} /></button>
-        </div>
-      )}
-
       {loading ? (
         <div className="py-16 text-center text-sm text-slate-500">Loading library…</div>
       ) : visibleFiles.length ? (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <>
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-3">
+          <label className="mr-auto inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={allVisibleFilesSelected}
+              onChange={toggleVisibleFiles}
+              aria-label={allVisibleFilesSelected ? "Deselect all visible files" : "Select all visible files"}
+              className="h-4 w-4 accent-emerald-600"
+            />
+            {selectedFiles.length ? `${selectedFiles.length} selected` : "Select all visible"}
+          </label>
+          <button type="button" onClick={downloadSelected} disabled={busy || !selectedFiles.length} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"><Archive size={14} /> Download selected{selectedFiles.length ? ` (${selectedFiles.length})` : ""} as ZIP</button>
+          {selectedFiles.length > 0 && (
+            <>
+              <button type="button" onClick={deleteSelected} disabled={busy || selectedFileCannotBeDeleted} title={selectedFileCannotBeDeleted ? "You can only delete files you uploaded." : "Delete selected files"} className="inline-flex items-center gap-1.5 rounded-md border border-red-100 bg-white px-3 py-2 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 size={14} /> Delete</button>
+              <button type="button" onClick={() => setSelectedFiles([])} className="rounded-md p-2 text-slate-500 hover:bg-slate-200" aria-label="Clear selection"><X size={15} /></button>
+            </>
+          )}
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {visibleFiles.map((file) => {
             const kind = fileKind(file);
             const Icon = kind === "image" ? FileImage : kind === "video" ? Video : FileText;
@@ -305,6 +358,7 @@ export default function ProjectFileLibrary({ projectId, projectName }) {
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-emerald-700"><Icon size={20} /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-slate-800">{file.name}</span>
+                    <span className="mt-1 inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-slate-600">{fileTypeLabel(file)}</span>
                     <span className="mt-1 block text-[11px] text-slate-500">{formatBytes(file.size)} · {new Date(file.createdAt).toLocaleDateString()}</span>
                   </span>
                 </button>
@@ -314,11 +368,12 @@ export default function ProjectFileLibrary({ projectId, projectName }) {
             );
           })}
         </div>
+        </>
       ) : (
         <div className="mt-4 rounded-xl border border-dashed border-slate-300 px-4 py-14 text-center">
           <Folder size={28} className="mx-auto text-slate-300" />
           <p className="mt-3 text-sm font-semibold text-slate-700">{selectedFolder ? `No files in ${selectedFolder.name}` : "No files found"}</p>
-          <p className="mt-1 text-xs text-slate-500">Upload images, videos, or PDFs to this project library.</p>
+          <p className="mt-1 text-xs text-slate-500">Upload images, videos, or documents to this project library.</p>
         </div>
       )}
 

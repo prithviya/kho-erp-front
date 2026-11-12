@@ -113,7 +113,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
     };
 
     const inputCls = (field) =>
-        `w-full rounded-lg border bg-white pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition ${
+        `w-full rounded-lg border bg-[#fbfbfc] pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018] transition ${
             errors[field] ? "border-red-400 bg-red-50/30" : "border-gray-200"
         }`;
 
@@ -144,28 +144,29 @@ export default function CreateVendor({ open, onClose, onCreated }) {
 
             {/* Slide-in Panel */}
             <div
-                className={`fixed right-0 top-0 z-50 flex h-screen w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
+                className={`fixed right-0 top-0 z-50 flex h-dvh w-full max-w-[500px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
                     open ? "translate-x-0" : "translate-x-full"
                 }`}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
-                    <h2 className="text-lg font-semibold text-gray-800">Add New Vendor</h2>
+                <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-[#f7f7fa] px-5 py-3.5 sm:px-6">
+                    <h2 className="text-sm font-semibold text-[#211d20]">Add New Vendor</h2>
                     <button 
                         type="button" 
                         title="Close"
                         disabled={submitting} 
                         onClick={onClose} 
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition disabled:opacity-40"
+                        aria-label="Close vendor form"
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
                     >
                         <X size={20} />
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                    <form id="create-vendor-form" onSubmit={handleSubmit} className="space-y-4 p-6">
+                    <form id="create-vendor-form" onSubmit={handleSubmit} className="space-y-4 p-5 sm:p-6">
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 Vendor Name <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
@@ -186,7 +187,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 Company Name
                             </label>
                             <div className="relative">
@@ -206,7 +207,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 Email <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
@@ -227,7 +228,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 Contact Number <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
@@ -251,8 +252,8 @@ export default function CreateVendor({ open, onClose, onCreated }) {
 
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Category / Sub service</label>
-                                <button type="button" onClick={addService} disabled={submitting || loadingCategories} className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-50">
+                                <label className="block text-[11px] font-semibold text-slate-600">Category / Sub service</label>
+                                <button type="button" onClick={addService} disabled={submitting || loadingCategories} className="flex items-center gap-1 text-xs font-semibold text-[#8f1018] hover:text-[#780c13] disabled:opacity-50">
                                     <Plus size={14} /> Add Service
                                 </button>
                             </div>
@@ -263,17 +264,17 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                                 return (
                                     <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
                                         <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                                            <select value={service.categoryId} disabled={submitting || loadingCategories} onChange={(e) => updateService(index, "categoryId", e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                                            <select value={service.categoryId} disabled={submitting || loadingCategories} onChange={(e) => updateService(index, "categoryId", e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm focus:border-[#9c1018] focus:outline-none">
                                                 <option value="">Category</option>
                                                 {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                                             </select>
-                                            <select value={service.serviceId} disabled={submitting || !service.categoryId} onChange={(e) => updateService(index, "serviceId", e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                                            <select value={service.serviceId} disabled={submitting || !service.categoryId} onChange={(e) => updateService(index, "serviceId", e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm focus:border-[#9c1018] focus:outline-none">
                                                 <option value="">Sub service</option>
                                                 {availableServices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                                             </select>
                                             <button type="button" title="Remove service" onClick={() => removeService(index)} disabled={submitting} className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"><Trash2 size={16} /></button>
                                         </div>
-                                        <input type="number" min="0" step="0.01" value={service.price} disabled={submitting || !service.serviceId} onChange={(e) => updateService(index, "price", e.target.value)} placeholder="Sub service price" className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                                        <input type="number" min="0" step="0.01" value={service.price} disabled={submitting || !service.serviceId} onChange={(e) => updateService(index, "price", e.target.value)} placeholder="Sub service price" className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-[#9c1018] focus:outline-none" />
                                         {(errors[`service_category_${index}`] || errors[`service_${index}`] || errors[`price_${index}`]) && <p className="mt-1 text-xs text-red-500">{errors[`service_category_${index}`] || errors[`service_${index}`] || errors[`price_${index}`]}</p>}
                                     </div>
                                 );
@@ -282,7 +283,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 GST Registered?
                             </label>
                             <select
@@ -290,7 +291,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                                 disabled={submitting}
                                 value={form.gst_registered}
                                 onChange={handleChange}
-                                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                className="w-full rounded-lg border border-gray-200 bg-[#fbfbfc] px-3 py-2.5 text-sm focus:border-[#9c1018] focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15"
                             >
                                 <option value="no">No</option>
                                 <option value="yes">Yes</option>
@@ -299,7 +300,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
 
                         {form.gst_registered === "yes" && (
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                     GST Number <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
@@ -323,7 +324,7 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                         )}
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                                 Vendor Address
                             </label>
                             <div className="relative">
@@ -337,19 +338,19 @@ export default function CreateVendor({ open, onClose, onCreated }) {
                                     value={form.vendor_address}
                                     onChange={handleChange}
                                     placeholder="Street, City, Pincode"
-                                    className="w-full resize-none rounded-lg border border-gray-200 bg-white pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                                    className="w-full resize-none rounded-lg border border-gray-200 bg-[#fbfbfc] pl-9 pr-4 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9c1018]/15 focus:border-[#9c1018] transition"
                                 />
                             </div>
                         </div>
                     </form>
                 </div>
 
-                <div className="shrink-0 border-t bg-white px-6 py-4">
+                <div className="shrink-0 border-t border-slate-100 bg-white px-5 py-3.5 sm:px-6">
                     <button
                         type="submit"
                         form="create-vendor-form"
                         disabled={submitting}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold uppercase tracking-wider text-white shadow-md shadow-blue-500/30 hover:bg-blue-700 active:scale-[0.98] transition disabled:opacity-60"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#8f1018] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#780c13] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         {submitting && <Loader2 size={16} className="animate-spin" />}
                         {submitting ? "Saving…" : "Save Vendor"}

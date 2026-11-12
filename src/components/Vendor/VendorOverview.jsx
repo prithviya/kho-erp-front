@@ -9,6 +9,8 @@ import EditVendor from "./EditVendor";
 import ViewVendor from "./ViewVendor";
 import { getCategoryName, getServiceName, getServicePrice, getVendorServices } from "./vendorServices";
 import { canDeleteRecords } from "../../utils/auth";
+import SortableHeader from "../common/SortableHeader";
+import { sortRows } from "../../utils/tableSorting";
 
 export default function VendorOverview() {
     const [vendors, setVendors] = useState([]);
@@ -18,6 +20,7 @@ export default function VendorOverview() {
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [gstStatusFilter, setGstStatusFilter] = useState("");
+    const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
 
     const [createOpen, setCreateOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
@@ -80,6 +83,18 @@ export default function VendorOverview() {
         const matchesGstStatus = gstStatusFilter ? v.gst_registered === gstStatusFilter : true;
         return matchesSearch && matchesStatus && matchesGstStatus;
     });
+    const sortedVendors = sortRows(filteredVendors, sortConfig.key, sortConfig.direction, (vendor) => {
+        if (sortConfig.key === "vendor") return vendor.vendor_name;
+        if (sortConfig.key === "contact") return vendor.vendor_email || vendor.vendor_contact;
+        if (sortConfig.key === "gst") return vendor.gst_registered;
+        if (sortConfig.key === "category") return getVendorServices(vendor).map(getServiceName).join(" ");
+        if (sortConfig.key === "status") return vendor.status;
+        return "";
+    });
+    const toggleSort = (key) => setSortConfig((current) => ({
+        key,
+        direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
 
     const totalVendors = vendors.length;
     const activeVendors = vendors.filter((v) => v.status === "active").length;
@@ -154,15 +169,15 @@ export default function VendorOverview() {
 
                 {/* Table */}
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <table className="erp-list-table min-w-full text-sm">
                         <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
                             <tr>
                                 <th className="px-4 py-3 text-center">#</th>
-                                <th className="px-4 py-3 text-left">Vendor & Company</th>
-                                <th className="px-4 py-3 text-left">Contact Info</th>
-                                <th className="px-4 py-3 text-left">GST Status</th>
-                                <th className="px-4 py-3 text-left">Category / Sub service</th>
-                                <th className="px-4 py-3 text-left">Status</th>
+                                <th className="px-4 py-3 text-left"><SortableHeader label="Vendor & Company" sortKey="vendor" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                                <th className="px-4 py-3 text-left"><SortableHeader label="Contact Info" sortKey="contact" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                                <th className="px-4 py-3 text-left"><SortableHeader label="GST Status" sortKey="gst" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                                <th className="px-4 py-3 text-left"><SortableHeader label="Category / Sub service" sortKey="category" sortConfig={sortConfig} onSort={toggleSort} /></th>
+                                <th className="px-4 py-3 text-left"><SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={toggleSort} /></th>
                                 <th className="px-4 py-3 text-center">Action</th>
                             
                             </tr>
@@ -183,7 +198,7 @@ export default function VendorOverview() {
                                     <td colSpan={8} className="py-10 text-center text-sm text-gray-400">No vendors found.</td>
                                 </tr>
                             )}
-                            {!loading && !error && filteredVendors.map((vendor, idx) => (
+                            {!loading && !error && sortedVendors.map((vendor, idx) => (
                                 <tr key={vendor.vendorId} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-4 py-3 text-center text-gray-500">{idx + 1}</td>
                                    
@@ -229,24 +244,30 @@ export default function VendorOverview() {
                                     <td className="px-4 py-3">
                                         <div className="flex items-center justify-center gap-1.5">
                                             <button
+                                                type="button"
                                                 title="View"
+                                                aria-label="View vendor"
                                                 onClick={() => { setSelectedVendor(vendor); setViewOpen(true); }}
-                                                className="rounded-md p-1.5 bg-blue-100 text-blue-500 hover:bg-blue-50 transition"
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
                                             >
                                                 <Eye size={16} />
                                             </button>
                                             <button
+                                                type="button"
                                                 title="Edit"
+                                                aria-label="Edit vendor"
                                                 onClick={() => { setSelectedVendor(vendor); setEditOpen(true); }}
-                                                className="rounded-md p-1.5 bg-green-100 text-green-500 hover:bg-green-50 transition"
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                                             >
                                                 <Pencil size={16} />
                                             </button>
                                             {canDelete && (
                                                 <button
+                                                    type="button"
                                                     title="Delete"
+                                                    aria-label="Delete vendor"
                                                     onClick={() => handleDelete(vendor.vendorId)}
-                                                    className="rounded-md p-1.5 bg-red-100 text-red-500 hover:bg-red-50 transition"
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-700 transition-colors hover:bg-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
@@ -257,10 +278,10 @@ export default function VendorOverview() {
                                             aria-label={`Set vendor ${vendor.status === "active" ? "inactive" : "active"}`}
                                             onClick={() => handleStatusToggle(vendor)}
                                             disabled={updatingStatusId === vendor.vendorId}
-                                            className={`rounded-md p-1.5 transition disabled:cursor-wait bg-gray-100 disabled:opacity-50 ${
+                                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-wait disabled:opacity-45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 ${
                                                 vendor.status === "active"
-                                                    ? "text-emerald-600 hover:bg-emerald-50"
-                                                    : "text-gray-500 hover:bg-gray-50"
+                                                    ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                                    : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                                             }`}
                                         >
                                             <Power size={16} />

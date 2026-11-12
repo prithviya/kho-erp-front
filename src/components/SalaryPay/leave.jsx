@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import SortableHeader from "../common/SortableHeader";
+import { sortRows } from "../../utils/tableSorting";
 import { Check, ChevronLeft, ChevronRight, Eye, X, Trash2 } from "lucide-react";
 import leaveService from "../../services/leave.service";
 import { getCanonicalRoles, getCurrentUser, canDeleteRecords } from "../../utils/auth";
@@ -174,6 +176,8 @@ export default function LeaveManagement() {
   const [summary, setSummary] = useState({ categories: [], totals: {} });
   const [categories, setCategories] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [requestSortConfig, setRequestSortConfig] = useState({ key: "", direction: "asc" });
+  const [reportSortConfig, setReportSortConfig] = useState({ key: "", direction: "asc" });
   const [leaveReports, setLeaveReports] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState("");
@@ -402,6 +406,34 @@ export default function LeaveManagement() {
     const matchesTo = !reportFilters.toDate || toCalendarDateKey(item.fromDate) <= reportFilters.toDate;
     return matchesEmployee && matchesDepartment && matchesLeaveType && matchesStatus && matchesFrom && matchesTo;
   }), [leaveReports, reportFilters]);
+  const sortedRequests = sortRows(requests, requestSortConfig.key, requestSortConfig.direction, (item) => {
+    if (requestSortConfig.key === "employee") return `${item.employeeCode || ""} ${item.employeeName || ""}`;
+    if (requestSortConfig.key === "category") return item.category?.name;
+    if (requestSortConfig.key === "period") return item.fromDate;
+    if (requestSortConfig.key === "amount") return item.category?.unit === "HOUR" ? item.requestedHours : item.requestedDays;
+    if (requestSortConfig.key === "status") return item.status;
+    if (requestSortConfig.key === "approver") {
+      const approver = item.approver || item.designatedApprover;
+      return `${approver?.firstName || ""} ${approver?.lastName || ""}` || approver?.email;
+    }
+    if (requestSortConfig.key === "requestedOn") return item.createdAt;
+    return "";
+  });
+  const sortedLeaveReports = sortRows(filteredLeaveReports, reportSortConfig.key, reportSortConfig.direction, (item) => {
+    if (reportSortConfig.key === "employee") return item.employeeName;
+    if (reportSortConfig.key === "employeeId") return item.employeeId;
+    if (reportSortConfig.key === "department") return item.departmentName;
+    if (reportSortConfig.key === "leaveType") return item.leaveType;
+    if (reportSortConfig.key === "dates") return item.fromDate;
+    if (reportSortConfig.key === "amount") return item.unit === "HOUR" ? item.requestedHours : item.requestedDays;
+    if (reportSortConfig.key === "status") return item.status;
+    if (reportSortConfig.key === "approver") return item.approverName;
+    return "";
+  });
+  const toggleSort = (setConfig) => (key) => setConfig((current) => ({
+    key,
+    direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+  }));
 
   const reportEmployees = useMemo(
     () => [...new Map(leaveReports.map((item) => [item.userId, item])).values()],
@@ -788,16 +820,16 @@ export default function LeaveManagement() {
         {activeTab === "requests" && (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="erp-list-table min-w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days/Hours</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approver</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested On</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Employee" sortKey="employee" sortConfig={requestSortConfig} onSort={toggleSort(setRequestSortConfig)} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Category" sortKey="category" sortConfig={requestSortConfig} onSort={toggleSort(setRequestSortConfig)} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Period" sortKey="period" sortConfig={requestSortConfig} onSort={toggleSort(setRequestSortConfig)} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Days/Hours" sortKey="amount" sortConfig={requestSortConfig} onSort={toggleSort(setRequestSortConfig)} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Status" sortKey="status" sortConfig={requestSortConfig} onSort={toggleSort(setRequestSortConfig)} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Approver" sortKey="approver" sortConfig={requestSortConfig} onSort={toggleSort(setRequestSortConfig)} /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><SortableHeader label="Requested On" sortKey="requestedOn" sortConfig={requestSortConfig} onSort={toggleSort(setRequestSortConfig)} /></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                   </tr>
                 </thead>
@@ -807,7 +839,7 @@ export default function LeaveManagement() {
                       <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">No leave requests found.</td>
                     </tr>
                   )}
-                  {requests.map((item) => {
+                  {sortedRequests.map((item) => {
                     const isPending = String(item.status || "").toUpperCase() === "PENDING";
                     const isDesignatedApprover = Number(item.designatedApproverId) === Number(currentUser?.id);
                     const canApprove = isDesignatedApprover
@@ -933,23 +965,23 @@ export default function LeaveManagement() {
             ) : reportError ? (
               <p role="alert" className="py-8 text-center text-sm text-red-600">{reportError}</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="min-w-[1100px] divide-y divide-gray-200 text-sm">
+              <div className="overflow-x-auto rounded-lg shadow border border-gray-200">
+                <table className="w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     <tr>
-                      <th className="px-3 py-3">Employee</th>
-                      <th className="px-3 py-3">Employee ID</th>
-                      <th className="px-3 py-3">Department</th>
-                      <th className="px-3 py-3">Leave type</th>
-                      <th className="px-3 py-3">Leave dates</th>
-                      <th className="px-3 py-3">Days / hours</th>
+                      <th className="px-3 py-3"><SortableHeader label="Employee" sortKey="employee" sortConfig={reportSortConfig} onSort={toggleSort(setReportSortConfig)} /></th>
+                      <th className="px-3 py-3"><SortableHeader label="Employee ID" sortKey="employeeId" sortConfig={reportSortConfig} onSort={toggleSort(setReportSortConfig)} /></th>
+                      <th className="px-3 py-3"><SortableHeader label="Department" sortKey="department" sortConfig={reportSortConfig} onSort={toggleSort(setReportSortConfig)} /></th>
+                      <th className="px-3 py-3"><SortableHeader label="Leave type" sortKey="leaveType" sortConfig={reportSortConfig} onSort={toggleSort(setReportSortConfig)} /></th>
+                      <th className="px-3 py-3"><SortableHeader label="Leave dates" sortKey="dates" sortConfig={reportSortConfig} onSort={toggleSort(setReportSortConfig)} /></th>
+                      <th className="px-3 py-3"><SortableHeader label="Days / hours" sortKey="amount" sortConfig={reportSortConfig} onSort={toggleSort(setReportSortConfig)} /></th>
                       <th className="px-3 py-3">Reason</th>
-                      <th className="px-3 py-3">Status</th>
-                      <th className="px-3 py-3">Approver</th>
+                      <th className="px-3 py-3"><SortableHeader label="Status" sortKey="status" sortConfig={reportSortConfig} onSort={toggleSort(setReportSortConfig)} /></th>
+                      <th className="px-3 py-3"><SortableHeader label="Approver" sortKey="approver" sortConfig={reportSortConfig} onSort={toggleSort(setReportSortConfig)} /></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredLeaveReports.map((item) => (
+                    {sortedLeaveReports.map((item) => (
                       <tr key={item.id}>
                         <td className="px-3 py-3 font-medium text-gray-800">{item.employeeName}</td>
                         <td className="px-3 py-3 text-gray-600">{item.employeeId || "-"}</td>

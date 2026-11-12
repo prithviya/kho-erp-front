@@ -1,17 +1,17 @@
 import {
-  Users,
-  UserRound,
-  Trophy,
-  Activity,
-
+  BadgeCheck,
   BriefcaseBusiness,
-  
-  RefreshCw
+  RefreshCw,
+  UserRound,
+  UserRoundCheck,
+  Users
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import dashboardService from "../../services/dashboard.service";
+import SortableHeader from "../common/SortableHeader";
+import { sortRows } from "../../utils/tableSorting";
 
 const STATUS_STYLES = {
   active: "bg-emerald-100 text-emerald-700",
@@ -40,9 +40,16 @@ const getStatusClass = (value = "") => {
   return STATUS_STYLES[normalized] || "bg-slate-100 text-slate-700";
 };
 
+const formatCount = (value) => {
+  const count = Number(value || 0);
+  return Number.isFinite(count) ? String(count).padStart(2, "0") : value;
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [userSortConfig, setUserSortConfig] = useState({ key: "", direction: "asc" });
+  const [leadSortConfig, setLeadSortConfig] = useState({ key: "", direction: "asc" });
   const [dashboard, setDashboard] = useState({
     stats: {
       totalLeads: 0,
@@ -82,224 +89,256 @@ export default function Dashboard() {
     loadDashboard();
   }, [loadDashboard]);
 
+  const sortedUsers = sortRows(dashboard.activeUsers, userSortConfig.key, userSortConfig.direction, (user) => {
+    if (userSortConfig.key === "user") return user.name;
+    if (userSortConfig.key === "role") return user.role;
+    if (userSortConfig.key === "status") return user.status;
+    return "";
+  });
+  const sortedLeads = sortRows(dashboard.recentLeads, leadSortConfig.key, leadSortConfig.direction, (lead) => {
+    if (leadSortConfig.key === "company") return lead.company;
+    if (leadSortConfig.key === "amount") return lead.budget;
+    if (leadSortConfig.key === "status") return lead.status;
+    return "";
+  });
+  const toggleSort = (setConfig) => (key) => setConfig((current) => ({
+    key,
+    direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+  }));
+
   const stats = useMemo(
     () => [
       {
         title: "Total Leads",
         value: dashboard.stats.totalLeads,
-        icon: <Users size={20} className="text-blue-700" />,
-        panel: "bg-gradient-to-br from-blue-50 to-white",
-        iconBg: "bg-blue-100"
+        icon: <Users size={20} className="text-emerald-600" />,
+        iconBg: "bg-emerald-50"
       },
       {
         title: "Recent Leads",
         value: dashboard.stats.recentLeads,
-        icon: <UserRound size={20} className="text-cyan-700" />,
-        panel: "bg-gradient-to-br from-cyan-50 to-white",
-        iconBg: "bg-cyan-100"
+        icon: <UserRound size={20} className="text-orange-500" />,
+        iconBg: "bg-orange-50"
       },
       {
-        title: "Converted Deals",
+        title: "Converted Leads",
         value: dashboard.stats.convertedDeals,
-        icon: <Trophy size={20} className="text-emerald-700" />,
-        panel: "bg-gradient-to-br from-emerald-50 to-white",
-        iconBg: "bg-emerald-100"
+        icon: <BadgeCheck size={20} className="text-amber-500" />,
+        iconBg: "bg-amber-50"
       },
       {
         title: "Active Users",
         value: dashboard.stats.activeUsers,
-        icon: <Activity size={20} className="text-amber-700" />,
-        panel: "bg-gradient-to-br from-amber-50 to-white",
-        iconBg: "bg-amber-100"
+        icon: <UserRoundCheck size={20} className="text-violet-500" />,
+        iconBg: "bg-violet-50"
       }
     ],
     [dashboard.stats]
   );
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-100 via-slate-50 to-white p-4 sm:p-6">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-r from-blue-100/60 via-cyan-100/40 to-emerald-100/60" />
-
-      <div className="relative mb-4 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-white/60 bg-white/80 px-5 py-4 shadow-sm backdrop-blur">
+    <div className="min-h-full bg-[#f4f5f9] p-3 sm:p-4 lg:p-6">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Performance Snapshot</p>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-900">Dashboard Overview</h1>
-          <p className="mt-1 text-sm text-slate-500">We Innovate Lead and Leverage</p>
+          <span className="inline-flex rounded-full bg-[#9c1018] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white">
+            Performance Snapshot
+          </span>
+          <h1 className="mt-2 text-xl font-semibold text-[#171317] sm:text-2xl">Dashboard Overview</h1>
         </div>
         <button
           type="button"
           onClick={loadDashboard}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
         >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
 
-      <div className="relative mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((item) => (
-          <div
-            key={item.title}
-            className={`rounded-2xl border border-slate-200/90 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${item.panel}`}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{item.title}</p>
-                <p className="mt-1 text-3xl font-bold text-slate-900">{loading ? "..." : item.value}</p>
-              </div>
-              <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${item.iconBg}`}>
-                {item.icon}
-              </span>
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+        <div className="space-y-4">
+          <section aria-label="Dashboard summary" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {stats.map((item) => (
+              <article
+                key={item.title}
+                className="flex min-h-[92px] items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-[0_3px_15px_rgba(15,23,42,0.025)] sm:px-5"
+              >
+                <div>
+                  <p className="text-xs font-medium text-slate-500">{item.title}</p>
+                  <p className="mt-1 text-2xl font-semibold leading-none text-[#201d20]">
+                    {loading ? "--" : formatCount(item.value)}
+                  </p>
+                </div>
+                <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${item.iconBg}`}>
+                  {item.icon}
+                </span>
+              </article>
+            ))}
+          </section>
+
+          <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_3px_15px_rgba(15,23,42,0.025)] sm:p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-[#201d20]">Recent User Activity</h2>
+              <button
+                type="button"
+                className="shrink-0 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-200"
+                onClick={() => navigate("/user-management")}
+              >
+                View All
+              </button>
             </div>
-            
-          </div>
-        ))}
-      </div>
 
-      <div className="relative grid grid-cols-1 gap-4 2xl:grid-cols-12">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm 2xl:col-span-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Recent User Activity</h2>
-            <button
-              className="rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
-              onClick={() => navigate("/user-management")}
-            >
-              View All
-            </button>
-          </div>
-
-          <div className="max-h-[460px] overflow-y-auto rounded-xl border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">User</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Status</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Role</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {loading ? (
+            <div className="overflow-x-auto rounded-xl border border-slate-100">
+              <table className="erp-list-table w-full min-w-full text-left">
+                <thead className="bg-[#10070a] text-white">
                   <tr>
-                    <td colSpan={3} className="p-6 text-center text-sm text-slate-500">Loading users...</td>
+                    <th className="rounded-tl-xl px-4 py-3 text-[11px] font-medium"><SortableHeader label="User" sortKey="user" sortConfig={userSortConfig} onSort={toggleSort(setUserSortConfig)} className="text-white hover:text-white" /></th>
+                    <th className="px-4 py-3 text-[11px] font-medium"><SortableHeader label="Role" sortKey="role" sortConfig={userSortConfig} onSort={toggleSort(setUserSortConfig)} className="text-white hover:text-white" /></th>
+                    <th className="rounded-tr-xl px-4 py-3 text-[11px] font-medium"><SortableHeader label="Status" sortKey="status" sortConfig={userSortConfig} onSort={toggleSort(setUserSortConfig)} className="text-white hover:text-white" /></th>
                   </tr>
-                ) : dashboard.activeUsers.length ? (
-                  dashboard.activeUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 text-sm text-slate-900">
-                        <div className="flex items-center gap-3">
-                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
-                            {getInitials(user.name)}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-slate-900">{user.name || "-"}</p>
-                            <p className="truncate text-xs text-slate-500">{user.email || "-"}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusClass(user.status)}`}>
-                          {user.status || "Unknown"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                          {user.role || "-"}
-                        </span>
-                      </td>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={3} className="p-6 text-center text-sm text-slate-500">Loading users...</td>
                     </tr>
-                  ))
-                ) : (
+                  ) : dashboard.activeUsers.length ? (
+                    sortedUsers.map((user) => (
+                      <tr key={user.id} className="transition-colors hover:bg-slate-50">
+                        <td className="px-4 py-3 text-sm text-slate-900">
+                          <div className="flex items-center gap-2.5">
+                            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-500">
+                              {getInitials(user.name)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold text-slate-800">{user.name || "-"}</p>
+                              <p className="truncate text-[10px] text-slate-400">{user.email || "-"}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-700">{user.role || "-"}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-semibold ${getStatusClass(user.status)}`}>
+                            {user.status || "Unknown"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="p-6 text-center text-sm text-slate-500">No active users found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div className="space-y-4">
+          <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_3px_15px_rgba(15,23,42,0.025)] sm:p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-[#201d20]">Recent Leads</h2>
+              <button
+                type="button"
+                className="shrink-0 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-200"
+                onClick={() => navigate("/lead-overview")}
+              >
+                View Pipeline
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-100">
+              <table className="erp-list-table w-full min-w-full text-left">
+                <thead className="bg-[#10070a] text-white">
                   <tr>
-                    <td colSpan={3} className="p-6 text-center text-sm text-slate-500">No active users found.</td>
+                    <th className="rounded-tl-xl px-4 py-3 text-[11px] font-medium"><SortableHeader label="Project Name" sortKey="company" sortConfig={leadSortConfig} onSort={toggleSort(setLeadSortConfig)} className="text-white hover:text-white" /></th>
+                    <th className="px-4 py-3 text-[11px] font-medium"><SortableHeader label="Amount" sortKey="amount" sortConfig={leadSortConfig} onSort={toggleSort(setLeadSortConfig)} className="text-white hover:text-white" /></th>
+                    <th className="rounded-tr-xl px-4 py-3 text-[11px] font-medium"><SortableHeader label="Status" sortKey="status" sortConfig={leadSortConfig} onSort={toggleSort(setLeadSortConfig)} className="text-white hover:text-white" /></th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={3} className="p-6 text-center text-sm text-slate-500">Loading leads...</td>
+                    </tr>
+                  ) : dashboard.recentLeads.length ? (
+                    sortedLeads.map((lead) => (
+                      <tr key={lead.id} className="transition-colors hover:bg-slate-50">
+                        <td className="px-4 py-3">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-500">
+                              {getInitials(lead.company)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold text-slate-800">{lead.company || "-"}</p>
+                              <p className="truncate text-[10px] text-slate-400">{lead.client || "No client name"}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-xs font-medium text-slate-800">
+                          {formatInr(lead.budget)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {lead.status ? (
+                            <span
+                              className="inline-flex rounded-full px-3 py-1 text-[10px] font-semibold"
+                              style={{
+                                backgroundColor: lead.statusColor ? `${lead.statusColor}22` : "#DBEAFE",
+                                color: lead.statusColor || "#1D4ED8"
+                              }}
+                            >
+                              {lead.status}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400">Not available</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="p-6 text-center text-sm text-slate-500">No recent leads found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm 2xl:col-span-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Recent Leads</h2>
-            <button
-              className="rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
-              onClick={() => navigate("/lead-overview")}
-            >
-              View Pipeline
-            </button>
-          </div>
+          <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_3px_15px_rgba(15,23,42,0.025)] sm:p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-[#201d20]">Hiring</h2>
+              <BriefcaseBusiness size={17} className="text-slate-400" />
+            </div>
 
-          <div className="max-h-[460px] overflow-y-auto space-y-2 pr-1">
             {loading ? (
-              <div className="rounded-xl border border-slate-200 p-4 text-center text-sm text-slate-500">Loading leads...</div>
-            ) : dashboard.recentLeads.length ? (
-              dashboard.recentLeads.map((lead) => (
-                <div key={lead.id} className="rounded-xl border border-slate-200 p-4 transition-colors hover:border-slate-300 hover:bg-slate-50/60">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">{lead.company || "-"}</p>
-                      <p className="truncate text-xs text-slate-500">{lead.client || "No client name"}</p>
-                    </div>
-                    <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-                      {formatInr(lead.budget)}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs text-slate-500">Status</span>
-                    {lead.status ? (
-                      <span
-                        className="rounded-full px-3 py-1 text-xs font-semibold"
-                        style={{
-                          backgroundColor: lead.statusColor ? `${lead.statusColor}22` : "#DBEAFE",
-                          color: lead.statusColor || "#1D4ED8"
-                        }}
-                      >
-                        {lead.status}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-400">Not available</span>
-                    )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-xl border border-slate-200 p-4 text-center text-sm text-slate-500">No recent leads found.</div>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm 2xl:col-span-3">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Hiring</h2>
-            <BriefcaseBusiness size={18} className="text-slate-400" />
-          </div>
-
-          <div className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
-            {loading ? (
-              <div className="rounded-xl border border-slate-200 p-4 text-center text-sm text-slate-500">Loading openings...</div>
+              <div className="rounded-xl border border-slate-100 p-4 text-center text-sm text-slate-500">Loading openings...</div>
             ) : dashboard.hiring.length ? (
-              dashboard.hiring.map((job) => (
-                <div key={job.id} className="rounded-xl border border-slate-200 p-4 hover:bg-slate-50/70">
-                  <p className="text-sm font-semibold text-slate-900">{job.jobTitle || "Untitled role"}</p>
-                  <p className="mt-1 line-clamp-2 text-xs text-slate-500">{job.experience || "Experience not specified"}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-slate-100 px-2 py-1.5 text-center">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Min Exp</p>
-                      <p className="text-sm font-bold text-slate-800">{job.minExp ?? "-"}</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {dashboard.hiring.map((job) => (
+                  <article key={job.id} className="rounded-xl border border-slate-100 bg-white p-3 transition hover:border-slate-200 hover:bg-slate-50/50">
+                    <p className="flex min-h-8 items-start gap-2 text-xs font-medium text-slate-700">
+                      <BriefcaseBusiness size={14} className="mt-0.5 shrink-0 text-slate-500" />
+                      <span className="line-clamp-2">{job.jobTitle || "Untitled role"}</span>
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 divide-x divide-slate-100 rounded-lg bg-slate-50 px-2 py-2">
+                      <div className="pr-2">
+                        <p className="text-sm font-semibold text-slate-800">{job.minExp ?? "--"}</p>
+                        <p className="text-[10px] text-slate-400">Min Exp</p>
+                      </div>
+                      <div className="pl-2">
+                        <p className="text-sm font-semibold text-slate-800">{job.openingCount ?? "--"}</p>
+                        <p className="text-[10px] text-slate-400">Vacancy</p>
+                      </div>
                     </div>
-                    <div className="rounded-lg bg-blue-100 px-2 py-1.5 text-center">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Vacancy</p>
-                      <p className="text-sm font-bold text-blue-800">{job.openingCount ?? "-"}</p>
-                    </div>
-                  </div>
-                </div>
-              ))
+                  </article>
+                ))}
+              </div>
             ) : (
-              <div className="rounded-xl border border-slate-200 p-4 text-center text-sm text-slate-500">No openings found.</div>
+              <div className="rounded-xl border border-slate-100 p-4 text-center text-sm text-slate-500">No openings found.</div>
             )}
-          </div>
+          </section>
         </div>
       </div>
     </div>

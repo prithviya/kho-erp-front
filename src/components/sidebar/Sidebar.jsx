@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Menu } from "lucide-react";
 import SidebarHeader from "./SidebarHeader";
 import SidebarFooter from "./SidebarFooter";
 import SidebarItem from "./SidebarItem";
@@ -7,19 +6,12 @@ import menu from "./menu";
 import { getMenuIcon } from "./menuIcons";
 import userManagementService from "../../services/userManagement.service";
 import { hasAnyRole, hasModulePermission, setLivePermissionKeys } from "../../utils/auth";
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen, setMobileOpen }) {
     const [collapsed, setCollapsed] = useState(false);
-    const [mobileOpen, setMobileOpen] = useState(false);
     // Responsive
     useEffect(() => {
         const resize = () => {
-            if (window.innerWidth < 768) {
-                setCollapsed(false);
-            }
-            else if (window.innerWidth < 1024) {
-                setCollapsed(true);
-            }
-            else {
+            if (window.innerWidth < 1024) {
                 setCollapsed(false);
             }
         };
@@ -104,15 +96,6 @@ export default function Sidebar() {
 
     return (
         <>
-            {/* Mobile Hamburger */}
-            <button
-                onClick={() => setMobileOpen(true)}
-                aria-label="Open navigation"
-                title="Open navigation"
-                className="fixed left-4 top-4 z-50 rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-lg lg:hidden"
-            >
-                <Menu size={22} />
-            </button>
             {/* Overlay */}
             {
                 mobileOpen && (
@@ -126,13 +109,14 @@ export default function Sidebar() {
                 className={`
                 fixed
                 lg:relative
-                z-50
+                z-20
                 top-0
                 left-0
                 h-screen
-                bg-white
+                overflow-hidden
+                bg-[#10070a]
                 border-r
-                border-slate-200
+                border-[#24171a]
                 flex
                 flex-col
                 transition-all
@@ -140,16 +124,16 @@ export default function Sidebar() {
                 ${
                     mobileOpen
                         ?
-                        "translate-x-0"
+                        "translate-x-0 lg:ml-[14px] lg:my-[10px] lg:h-[calc(100vh-20px)] lg:rounded-2xl"
                         :
-                        "-translate-x-full lg:translate-x-0"
+                        "-translate-x-full lg:translate-x-0 lg:ml-[14px] lg:my-[10px] lg:h-[calc(100vh-20px)] lg:rounded-2xl"
                 }
                 ${
                     collapsed
                         ?
                         "lg:w-20"
                         :
-                        "w-64"
+                        "w-64 lg:w-[214px]"
                 }
                 `}
             >
@@ -165,22 +149,21 @@ export default function Sidebar() {
                         visibleMenu.map(section => (
                             <div
                                 key={section.title}
-                                className="mb-5"
+                                className="mb-4"
                             >
                                 {
                                     !collapsed && (
                                         <h4
                                             className="
                                             text-[11px]
-                                            uppercase
-                                            tracking-[0.18em]
-                                            text-slate-400
+                                            tracking-[0.02em]
+                                            text-[#887b7e]
                                             font-semibold
                                             px-3
                                             mb-2
                                             "
                                         >
-                                            {section.title}
+                                            {section.title === "MAIN" ? "Main Menu" : section.title.charAt(0) + section.title.slice(1).toLowerCase()}
                                         </h4>
                                     )
                                 }

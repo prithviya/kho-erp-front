@@ -168,7 +168,7 @@ const Employee = () => {
     userAccount: false,
     phone: employee.phone,
     city: employee.city,
-    salary: formatSalary(Number(onboardingData.currentSalary) * 12),
+    salary: formatSalary(Number(onboardingData.currentSalary)),
     salaryValue: onboardingData.currentSalary || '',
     joiningDate: onboardingData.dateOfJoining || '',
     designation: onboardingData.designation || '',
@@ -403,6 +403,11 @@ const Employee = () => {
         || String(a.dobValue || '').localeCompare(String(b.dobValue || ''));
     } else if (sortConfig.key === 'cta') {
       comparison = (Number(a.salaryValue) || 0) - (Number(b.salaryValue) || 0);
+    } else if (sortConfig.key === 'position') {
+      comparison = String(a.department || '').localeCompare(String(b.department || ''), undefined, { numeric: true, sensitivity: 'base' })
+        || String(a.group || '').localeCompare(String(b.group || ''), undefined, { numeric: true, sensitivity: 'base' });
+    } else if (sortConfig.key === 'status') {
+      comparison = String(a.status || '').localeCompare(String(b.status || ''), undefined, { numeric: true, sensitivity: 'base' });
     }
     return sortConfig.direction === 'asc' ? comparison : -comparison;
   });
@@ -478,15 +483,15 @@ const Employee = () => {
         {/* Table */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="erp-list-table min-w-full">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{sortHeader('Emp ID', 'employeeId')}</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{sortHeader('Employee Details', 'employeeDetails')}</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position & Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{sortHeader('Position & Location', 'position')}</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{sortHeader('Dates', 'dates')}</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{sortHeader('CTA', 'cta')}</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{sortHeader('Status', 'status')}</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
@@ -543,29 +548,36 @@ const Employee = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                           <button
+                            type="button"
                             title="View employee"
+                            aria-label="View employee"
                             onClick={() => handleView(employee)}
-                            className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium hover:bg-purple-200 transition-colors"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
                           >
                             <Eye size={16} />
                           </button>
                           {canEdit && <button
+                            type="button"
                             title="Edit employee"
+                            aria-label="Edit employee"
                             onClick={() => handleEdit(employee)}
-                            className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700 transition-colors hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                           >
                             <Edit size={16} />
                           </button>}
                           {canDelete && (
                             <button
+                              type="button"
                               title="Delete employee"
+                              aria-label="Delete employee"
                               onClick={() => handleDelete(employee)}
                               disabled={deletingId === employee.id}
-                              className="px-3 py-1 bg-red-100 text-red-700 text-xs rounded-md hover:bg-red-200 transition-colors disabled:opacity-50"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
                             >
-                              <Trash size={16} />                            </button>
+                              <Trash size={16} />
+                            </button>
                           )}
                         </div>
                       </td>

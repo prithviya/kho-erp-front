@@ -49,6 +49,13 @@ const menu = [
                 path: "/report",
                 permissionKey: "reports.view",
                 roles: ["SUPER_ADMIN"]
+            },
+            {
+                name: "Task Report",
+                title: "Project task due-date report",
+                icon: ClipboardCheck,
+                path: "/project-task-report",
+                roles: ["SUPER_ADMIN", "MANAGER"]
             }
         ]
     },
@@ -87,7 +94,7 @@ const menu = [
             // },
             {
                 name: "Assign board",
-                title: "My Tasks Assign board",
+                title: "My Task Assign Board",
                 icon: ClipboardCheck,
                 path: "/assign-board",
                 permissionKey: "assign_board.view",
@@ -128,8 +135,7 @@ const menu = [
                 title: "Onboarding",
                 icon: BadgeCheck,
                 path: "/onboarding",
-                permissionKey: "onboarding.view",
-                roles: ["SUPER_ADMIN", "HR"]
+                roles: ["SUPER_ADMIN", "MANAGER", "CEO", "HR"]
             },
             {
                 name: "Employee",
@@ -188,11 +194,18 @@ const menu = [
                 roles: ["SUPER_ADMIN"]
             },
             {
+                name: "Document library",
+                title: "Document Library",
+                icon: ListTree,
+                path: "/document-library",
+                roles: ["SUPER_ADMIN", "HR", "MANAGER"]
+            },
+            {
                 name: "History Log",
                 title: "Activity History Log",
                 icon: History,
                 path: "/history-log",
-                roles: ["SUPER_ADMIN", "MANAGER"]
+                roles: ["SUPER_ADMIN"]
             },
             {
                 name: "Master",

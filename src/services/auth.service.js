@@ -40,6 +40,14 @@ const authService = {
             body: JSON.stringify(data)
         });
     },
+    uploadProfileImage(image) {
+        const formData = new FormData();
+        formData.append("image", image);
+        return request("/auth/profile/image", {
+            method: "POST",
+            body: formData
+        });
+    },
     getSessions() {
         return request("/auth/sessions");
     },
