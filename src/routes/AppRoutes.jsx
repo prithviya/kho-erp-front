@@ -17,6 +17,7 @@ import Applied from "../components/Career/applied";
 import JobOpening from "../components/Career/JobOpenings";
 import RecruitmentProcess from "../components/Career/recruitmentProcess";
 import Onboarding from "../components/Career/onBoarding";
+import DocumentLibrary from "../components/Career/doclibrary";
 import Assignedprojectboard from "../components/project/Assignedprojectboard";
 import Employee from "../components/Career/employee";
 import Salary from "../components/SalaryPay/Salary";
@@ -79,6 +80,7 @@ export default function AppRoutes() {
                 <Route path="/assign-board" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]} permissionKey="assign_board.view"><Assignedprojectboard /></RoleRoute>} />
                 <Route path="/recruitment-process" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]} permissionKey="recruitment.view"><RecruitmentProcess /></RoleRoute>} />
                 <Route path="/onboarding" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER", "CEO"]}><Onboarding /></RoleRoute>} />
+                <Route path="/document-library" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER"]}><DocumentLibrary /></RoleRoute>} />
                 <Route path="/employee" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER"]} permissionKey="employee.view"><Employee /></RoleRoute>} />
                 <Route path="/payroll" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER"]} permissionKey="payroll_management.view"><Salary /></RoleRoute>} />
                 <Route path="/leave" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER", "CRM_EXECUTIVE", "CEO", "TEAM_MEMBER"]} permissionKey="leave.view"><Leave /></RoleRoute>} />

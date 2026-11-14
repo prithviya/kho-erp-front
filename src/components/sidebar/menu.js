@@ -107,7 +107,7 @@ const menu = [
         title: "HRM",
         items: [
             {
-                name: "Opening",
+            name: "Openings",
                 title: "Job Opening",
                 icon: Briefcase,
                 path: "/job",

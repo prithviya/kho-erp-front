@@ -60,7 +60,7 @@ export default function SidebarItem({
             {
                 !collapsed &&
                 <>
-                    <span className="text-sm font-medium flex-1 text-left">
+                    <span className="text-sm font-normal flex-1 text-left">
                         {item.name}
                     </span>
                     {

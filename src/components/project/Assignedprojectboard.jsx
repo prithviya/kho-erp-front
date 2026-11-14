@@ -45,6 +45,7 @@ import ProjectFileLibrary from './ProjectFileLibrary';
 import { subscribe } from '../../services/realtime.service';
 import { getCanonicalRoles, getCurrentUser, isSuperAdmin } from '../../utils/auth';
 import { getProfileImageUrl } from '../../utils/profileImage';
+import { getTaskArchiveAt, isTaskArchived } from '../../utils/taskArchive';
 
 const formatTime12 = (value) => {
   const [hour, minute] = String(value || '').split(':').map(Number);
@@ -209,6 +210,7 @@ function Assignedprojectboard() {
   const [allTasks, setAllTasks] = useState([]);
   const [myTasksFilter, setMyTasksFilter] = useState('all');
   const [myTasksLoading, setMyTasksLoading] = useState(false);
+  const [archiveNow, setArchiveNow] = useState(() => Date.now());
 
   // Columns & Tasks State
   const [columns, setColumns] = useState([]);
@@ -529,6 +531,20 @@ function Assignedprojectboard() {
       };
     });
   }), []);
+
+  useEffect(() => {
+    const nextArchiveAt = allTasks
+      .map(getTaskArchiveAt)
+      .filter((archiveAt) => archiveAt !== null && archiveAt > archiveNow)
+      .reduce((earliest, archiveAt) => Math.min(earliest, archiveAt), Infinity);
+    if (!Number.isFinite(nextArchiveAt)) return undefined;
+
+    const timeoutId = window.setTimeout(
+      () => setArchiveNow(Date.now()),
+      Math.max(0, nextArchiveAt - archiveNow)
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [allTasks, archiveNow]);
 
   useEffect(() => subscribe('task-reordered', (payload) => {
     if (!payload?.projectOnboardId || !Array.isArray(payload?.taskOrders)) return;
@@ -1008,6 +1024,7 @@ function Assignedprojectboard() {
       setIsModalOpen(false);
       const response = await taskService.getTasks();
       const records = response?.data || [];
+      setAllTasks(records.map(normalizeTask));
       setColumns((previous) => previous.map((column) => ({ ...column, tasks: records.filter((task) => (!selectedProjectId || Number(task.projectOnboardId) === Number(selectedProjectId)) && Number(task.serviceId) === Number(column.id)).map(normalizeTask) })));
     } catch (error) {
       toast.error(error.message || 'Failed to create task.');
@@ -1207,9 +1224,20 @@ function Assignedprojectboard() {
     const updatedTask = { ...taskToUpdate, status: newStatus };
     setActiveTask((current) => current?.id === updatedTask.id ? updatedTask : current);
     try {
-      await taskService.updateStatus(taskToUpdate.id, newStatus);
+      const response = await taskService.updateStatus(taskToUpdate.id, newStatus);
+      const savedTask = normalizeTask({
+        ...taskToUpdate,
+        ...(response?.data || {}),
+        status: newStatus,
+        completedAt: newStatus === 'COMPLETED'
+          ? response?.data?.completedAt || new Date().toISOString()
+          : null,
+        columnId: taskToUpdate.columnId
+      });
+      setActiveTask((current) => current?.id === savedTask.id ? savedTask : current);
+      setAllTasks((current) => current.map((task) => Number(task.id) === Number(savedTask.id) ? savedTask : task));
       setColumns((previous) => previous.map((col) => col.id === taskToUpdate.columnId
-        ? { ...col, tasks: col.tasks.map((task) => task.id === updatedTask.id ? updatedTask : task) }
+        ? { ...col, tasks: col.tasks.map((task) => task.id === savedTask.id ? savedTask : task) }
         : col));
     } catch (error) {
       setActiveTask((current) => current?.id === taskToUpdate.id
@@ -1417,22 +1445,37 @@ function Assignedprojectboard() {
     if (dueDateKey === todayKey) return 'today';
     return 'upcoming';
   };
-  const myTaskBuckets = allTasks.map((task) => ({ ...task, bucket: taskBucket(task) }));
+  const myTaskBuckets = allTasks.map((task) => ({
+    ...task,
+    isArchived: isTaskArchived(task, archiveNow),
+    bucket: taskBucket(task)
+  }));
   const myTaskFilters = [
     { key: 'all', label: 'All' },
     { key: 'overdue', label: 'Overdue' },
     { key: 'today', label: 'Today' },
     { key: 'upcoming', label: 'Upcoming' },
-    { key: 'completed', label: 'Completed' }
+    { key: 'completed', label: 'Completed' },
+    { key: 'archived', label: 'Archived' }
   ];
   const myTaskCounts = myTaskBuckets.reduce((counts, task) => {
+    if (task.isArchived) {
+      counts.archived += 1;
+      return counts;
+    }
     counts.all += 1;
     if (counts[task.bucket] !== undefined) counts[task.bucket] += 1;
     return counts;
-  }, { all: 0, overdue: 0, today: 0, upcoming: 0, completed: 0 });
+  }, { all: 0, overdue: 0, today: 0, upcoming: 0, completed: 0, archived: 0 });
   const visibleMyTasks = myTaskBuckets
-    .filter((task) => myTasksFilter === 'all' || task.bucket === myTasksFilter)
+    .filter((task) => myTasksFilter === 'archived'
+      ? task.isArchived
+      : !task.isArchived && (myTasksFilter === 'all' || task.bucket === myTasksFilter))
     .sort((left, right) => {
+      if (myTasksFilter === 'archived') {
+        return String(right.completedAt || '').localeCompare(String(left.completedAt || ''))
+          || String(left.title || '').localeCompare(String(right.title || ''));
+      }
       const leftDate = left.dueDate ? String(left.dueDate).slice(0, 10) : '9999-12-31';
       const rightDate = right.dueDate ? String(right.dueDate).slice(0, 10) : '9999-12-31';
       return leftDate.localeCompare(rightDate) || String(left.title || '').localeCompare(String(right.title || ''));
@@ -1444,6 +1487,16 @@ function Assignedprojectboard() {
       ? 'No due date'
       : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
+  const formatCompletedDate = (value) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? 'Unknown date'
+      : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+  const visibleColumns = columns.map((column) => ({
+    ...column,
+    tasks: column.tasks.filter((task) => !isTaskArchived(task, archiveNow))
+  }));
 
   const activeTaskMessages = activeTask
     ? taskChatMessages[activeTask.id] ?? activeTask.commentsList
@@ -1596,18 +1649,49 @@ function Assignedprojectboard() {
             <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 shadow-sm">
               <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-[#18090c] text-xs uppercase tracking-wide text-white">
-                  <tr>
-                    <th className="px-5 py-4 font-semibold">Task</th>
-                    <th className="px-5 py-4 font-semibold">Project</th>
-                    <th className="px-5 py-4 font-semibold">Due date</th>
-                    <th className="px-5 py-4 font-semibold">Status</th>
-                  </tr>
+                  {myTasksFilter === 'archived' ? (
+                    <tr>
+                      <th className="px-5 py-4 font-semibold">Completed date</th>
+                      <th className="px-5 py-4 font-semibold">Task</th>
+                      <th className="px-5 py-4 font-semibold">Project / Client</th>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <th className="px-5 py-4 font-semibold">Task</th>
+                      <th className="px-5 py-4 font-semibold">Project</th>
+                      <th className="px-5 py-4 font-semibold">Due date</th>
+                      <th className="px-5 py-4 font-semibold">Status</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {myTasksLoading && !allTasks.length ? (
-                    <tr><td colSpan="4" className="px-4 py-12 text-center text-slate-500">Loading tasks…</td></tr>
+                    <tr><td colSpan={myTasksFilter === 'archived' ? 3 : 4} className="px-4 py-12 text-center text-slate-500">Loading tasks…</td></tr>
                   ) : visibleMyTasks.length ? visibleMyTasks.map((task) => {
                     const project = task.project || projects.find((item) => Number(item.id) === Number(task.projectOnboardId));
+                    if (myTasksFilter === 'archived') {
+                      return (
+                        <tr
+                          key={task.id}
+                          onClick={() => handleOpenTaskDetails(task, String(task.serviceId || ''))}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              handleOpenTaskDetails(task, String(task.serviceId || ''));
+                            }
+                          }}
+                          tabIndex={0}
+                          className="cursor-pointer border-b border-slate-100 transition hover:bg-rose-50/30 focus-within:bg-rose-50/30"
+                        >
+                          <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatCompletedDate(task.completedAt)}</td>
+                          <td className="px-5 py-4 font-semibold text-slate-500 line-through">{task.title || 'Untitled task'}</td>
+                          <td className="px-5 py-4 text-slate-600">
+                            <span className="block font-medium text-slate-700">{project?.projectName || 'Unknown project'}</span>
+                            <span className="mt-0.5 block text-xs text-slate-400">{project?.companyName || 'Unknown client'}</span>
+                          </td>
+                        </tr>
+                      );
+                    }
                     const statusStyle = {
                       TODO: 'bg-slate-100 text-slate-700',
                       IN_PROGRESS: 'bg-rose-50 text-[#b4232f]',
@@ -1641,7 +1725,7 @@ function Assignedprojectboard() {
                       </tr>
                     );
                   }) : (
-                    <tr><td colSpan="4" className="px-4 py-12 text-center text-slate-500">No tasks in this view.</td></tr>
+                    <tr><td colSpan={myTasksFilter === 'archived' ? 3 : 4} className="px-4 py-12 text-center text-slate-500">No tasks in this view.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -1694,7 +1778,7 @@ function Assignedprojectboard() {
         )}
         <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-3">
         <div className="assign-board-columns grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {columns.map((col) => (
+          {visibleColumns.map((col) => (
             <div key={col.id} data-tone={col.headerColor.replace('bg-', '').replace(/-\d+$/, '')} className="assign-board-column flex min-w-0 max-h-[calc(100vh-12rem)] w-full flex-col rounded-2xl border border-slate-200 bg-slate-100/80 shadow-sm" >
               
               {/* Column Header */}

@@ -51,10 +51,10 @@ const API_MODULES = [
     delete: ["tasks", "task_board", "task_schedule", "assign_board", "project_details", "project_onboard"],
   }],
   ["/project-chat", {
-    view: ["project_details", "project_onboard"],
-    create: ["project_details", "project_onboard"],
-    edit: ["project_details", "project_onboard"],
-    delete: ["project_details", "project_onboard"],
+    view: ["project_details", "project_onboard", "assign_board", "tasks"],
+    create: ["project_details", "project_onboard", "assign_board", "tasks"],
+    edit: ["project_details", "project_onboard", "assign_board", "tasks"],
+    delete: ["project_details", "project_onboard", "assign_board", "tasks"],
   }],
   ["/notifications", {
     view: ["tasks", "task_board", "task_schedule", "assign_board", "project_details", "project_onboard"],
