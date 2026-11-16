@@ -5,6 +5,7 @@ import employeeService from '../../services/employee.service';
 import authService from '../../services/auth.service';
 import { getCanonicalRoles, getCurrentUser } from '../../utils/auth';
 import { getProfileImageUrl } from '../../utils/profileImage';
+import { getSession, setSession } from '../../utils/session';
 
 const API_ROOT_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
@@ -180,7 +181,11 @@ function Profile() {
     event.target.value = '';
     if (!image) return;
 
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(image.type)) {
+    const fileType = String(image.type || '').toLowerCase();
+    const validMimes = ['image/jpeg', 'image/jpg', 'image/pjpeg', 'image/png', 'image/x-png', 'image/webp'];
+    const validExtensions = /\.(jpe?g|png|webp)$/i;
+
+    if (!validMimes.includes(fileType) && !validExtensions.test(image.name)) {
       toast.error('Choose a JPEG, PNG, or WebP image.');
       return;
     }
@@ -202,6 +207,13 @@ function Profile() {
 
       setProfileImage(uploadedImage);
       setSelectedImage(null);
+
+      const currentSession = getSession();
+      if (currentSession && currentSession.user) {
+        currentSession.user.profileImage = uploadedImage;
+        setSession(currentSession);
+      }
+
       window.dispatchEvent(new CustomEvent('profile-image-updated', { detail: uploadedImage }));
       toast.success(response?.message || 'Profile photo updated successfully.');
     } catch (error) {
@@ -700,8 +712,9 @@ function Profile() {
                 alt="Profile"
                 className="h-16 w-16 rounded-full object-cover"
                 onError={() => {
-                  setSelectedImage(null);
-                  setProfileImage('');
+                  if (profileImage && !imagePreviewUrl) {
+                    setProfileImage('');
+                  }
                 }}
               />
             ) : (
