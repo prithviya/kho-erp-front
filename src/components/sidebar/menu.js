@@ -15,7 +15,9 @@ import {
     RotateCwSquare,
     ShieldCheck,
     ListTree,
-    History
+    History,
+    MessageCircle,
+    Megaphone
 } from "lucide-react";
 const menu = [
     {
@@ -100,6 +102,25 @@ const menu = [
                 permissionKey: "assign_board.view",
                 roles: ["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]
             },
+        ]
+    },
+    {
+        title: "COMMUNICATION",
+        items: [
+            {
+                name: "Group chat",
+                title: "Group chat and member mentions",
+                icon: MessageCircle,
+                path: "/group-chat",
+                roles: ["SUPER_ADMIN", "MANAGER", "TEAM_MEMBER"]
+            },
+            {
+                name: "Common Wall",
+                title: "Announcements, alerts, and team highlights",
+                icon: Megaphone,
+                path: "/common-wall",
+                roles: ["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]
+            }
         ]
     },
     

@@ -33,6 +33,7 @@ const JobOpenings = () => {
     const [formData, setFormData] = useState({
         jobTitle: "",
         departmentId: "",
+        employmentType: "",
         openingCount: "",
         openingCode: "",
         minExp: "",
@@ -131,6 +132,7 @@ const JobOpenings = () => {
         setFormData({
             jobTitle: job.jobTitle,
             departmentId: job.departmentId,
+            employmentType: job.employmentType || "",
             openingCount: job.openingCount,
             openingCode: job.code,
             minExp: job.minExperience,
@@ -165,6 +167,7 @@ const JobOpenings = () => {
                 code: code,
                 jobTitle: formData.jobTitle.trim(),
                 departmentId: departmentId,
+                employmentType: formData.employmentType || null,
                 openingCount: Number(formData.openingCount),
                 requiredSkills: formData.requiredSkills.trim(),
                 minExperience: Number(formData.minExp),
@@ -186,7 +189,7 @@ const JobOpenings = () => {
                 await fetchOpenings();
                 setFormData({
                     jobTitle: "", departmentId: "", openingCount: "", openingCode: "",
-                    minExp: "", requiredSkills: "", jobDetails: "", status: "Active",
+                    employmentType: "", minExp: "", requiredSkills: "", jobDetails: "", status: "Active",
                 });
             } else {
                 toast.error(response?.message || "Operation failed.");
@@ -234,7 +237,7 @@ const JobOpenings = () => {
                         <h1 className="text-2xl font-bold text-gray-900"> Current Openings </h1>
                         <p className="text-sm text-gray-500"> Manage job postings and requirements </p>
                     </div>
-                    <button onClick={() => { setIsEditing(false); setFormData({jobTitle: "", departmentId: "", openingCount: "", openingCode: "", minExp: "", requiredSkills: "", jobDetails: "", status: "Active"}); setShowAddModal(true); }} className="px-3 py-2 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors duration-200 flex items-center gap-2"><PlusSquare size={'20'}/> Add</button>
+                    <button onClick={() => { setIsEditing(false); setFormData({jobTitle: "", departmentId: "", employmentType: "", openingCount: "", openingCode: "", minExp: "", requiredSkills: "", jobDetails: "", status: "Active"}); setShowAddModal(true); }} className="px-3 py-2 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors duration-200 flex items-center gap-2"><PlusSquare size={'20'}/> Add</button>
                 </div>
 
                 <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -396,6 +399,17 @@ const JobOpenings = () => {
                                                 ))}
                                             </select>
                                             </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type</label>
+                                            <select name="employmentType" value={formData.employmentType} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white">
+                                                <option value="">Select Employment Type</option>
+                                                <option value="Permanent">Permanent</option>
+                                                <option value="Contract">Contract</option>
+                                                <option value="Intern">Intern</option>
+                                                <option value="Probation">Probation</option>
+                                            </select>
+                                        </div>
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Requirement Count <span className="text-red-500">*</span></label>

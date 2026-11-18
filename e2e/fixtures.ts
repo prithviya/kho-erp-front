@@ -66,6 +66,7 @@ export const ROUTES: { path: string; roles: RoleKey[] }[] = [
     path: "/assign-board",
     roles: ["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"],
   },
+  { path: "/group-chat", roles: ["SUPER_ADMIN", "MANAGER", "TEAM_MEMBER"] },
   { path: "/recruitment-process", roles: ["SUPER_ADMIN", "HR"] },
   { path: "/onboarding", roles: ["SUPER_ADMIN", "HR"] },
   { path: "/employee", roles: ["SUPER_ADMIN", "HR"] },

@@ -9,28 +9,7 @@ import { subscribe } from "../../services/realtime.service";
 import { toast } from "react-toastify";
 import authService from "../../services/auth.service";
 import { getProfileImageUrl } from "../../utils/profileImage";
-
-function playNotificationSound() {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-
-    const context = new AudioContextClass();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    const now = context.currentTime;
-
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(660, now);
-    oscillator.frequency.setValueAtTime(880, now + 0.1);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start(now);
-    oscillator.stop(now + 0.3);
-    oscillator.addEventListener("ended", () => context.close(), { once: true });
-}
+import { playNotificationSound } from "../../utils/notificationSound";
 
 function parseNotificationMetadata(value) {
     if (typeof value === "string") {
@@ -176,6 +155,7 @@ export default function AppHeader({
             setUnreadCount((current) => current + 1);
             setNotificationOpen(true);
             setOpen(false);
+            playNotificationSound();
             startNotificationTimer();
         });
         const unsubscribeMessage = subscribe("project-message", (payload) => {
@@ -191,13 +171,34 @@ export default function AppHeader({
                 autoClose: 5000
             });
         });
+        const unsubscribeGroupMention = subscribe("group-chat-mention", (payload) => {
+            const notification = payload?.notification;
+            const groupId = payload?.groupId || notification?.metadata?.groupId;
+            if (!notification || !groupId) return;
+            setNotifications((current) => [notification, ...current].slice(0, 50));
+            setUnreadCount((current) => current + 1);
+            playNotificationSound();
+            toast(
+                <div className="min-w-0">
+                    <p className="font-semibold text-slate-900">{payload.senderName || "A teammate"} mentioned you in {payload.groupName || "a group chat"}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-slate-600">{payload.snippet || payload.message || ""}</p>
+                    <p className="mt-2 text-xs font-semibold text-[#9c1018]">Open group chat</p>
+                </div>,
+                {
+                    toastId: `group-chat-mention-${notification.id}`,
+                    autoClose: 7000,
+                    onClick: () => navigate(`/group-chat?groupId=${groupId}`),
+                }
+            );
+        });
 
         return () => {
             mounted = false;
             unsubscribe();
             unsubscribeMessage();
+            unsubscribeGroupMention();
         };
-    }, []);
+    }, [navigate, session?.user?.id]);
 
     const markNotificationRead = async (notification) => {
         const metadata = parseNotificationMetadata(notification.metadata);

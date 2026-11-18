@@ -57,6 +57,11 @@ export default function SidebarItem({
                 strokeWidth={2}
                 className={`shrink-0 ${active ? "text-[#f4d184]" : ""}`}
             />
+            {collapsed && item.badge && (
+                <span className="absolute right-1 top-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                    {item.badge}
+                </span>
+            )}
             {
                 !collapsed &&
                 <>

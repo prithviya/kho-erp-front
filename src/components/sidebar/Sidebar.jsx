@@ -5,9 +5,32 @@ import SidebarItem from "./SidebarItem";
 import menu from "./menu";
 import { getMenuIcon } from "./menuIcons";
 import userManagementService from "../../services/userManagement.service";
+import commonWallService from "../../services/commonWall.service";
 import { hasAnyRole, hasModulePermission, setLivePermissionKeys } from "../../utils/auth";
+import { COMMON_WALL_COUNT_EVENT } from "../../utils/commonWallEvents";
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
     const [collapsed, setCollapsed] = useState(false);
+    const [announcementCount, setAnnouncementCount] = useState(0);
+
+    useEffect(() => {
+        let active = true;
+        const updateAnnouncementCount = (event) => {
+            const count = Number(event.detail);
+            if (Number.isInteger(count) && count >= 0) setAnnouncementCount(count);
+        };
+        window.addEventListener(COMMON_WALL_COUNT_EVENT, updateAnnouncementCount);
+        commonWallService.getAnnouncementCount()
+            .then((response) => {
+                if (!active) return;
+                updateAnnouncementCount({ detail: response?.data?.count });
+            })
+            .catch((error) => console.error("Unable to load the Common Wall announcement count.", error));
+        return () => {
+            active = false;
+            window.removeEventListener(COMMON_WALL_COUNT_EVENT, updateAnnouncementCount);
+        };
+    }, []);
+
     // Responsive
     useEffect(() => {
         const resize = () => {
@@ -84,13 +107,17 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     const visibleMenu = applyDynamicMenus()
         .map((section) => ({
             ...section,
-            items: (section.items || []).filter(
-                (item) => Array.isArray(item.roles)
+            items: (section.items || [])
+                .map((item) => item.path === "/common-wall"
+                    ? { ...item, badge: announcementCount > 0 ? (announcementCount > 99 ? "99+" : String(announcementCount)) : null }
+                    : item)
+                .filter(
+                    (item) => Array.isArray(item.roles)
                     && item.roles.length > 0
                     && (item.permissionKey
                         ? hasModulePermission(item.permissionKey)
                         : hasAnyRole(item.roles))
-            ),
+                ),
         }))
         .filter((section) => section.items.length > 0);
 
@@ -109,7 +136,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
                 className={`
                 fixed
                 lg:relative
-                z-20
+                z-50
                 top-0
                 left-0
                 h-screen

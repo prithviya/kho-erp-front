@@ -26,6 +26,8 @@ import Cif from "../components/cifForm/ciform";
 import Profile from "../components/cifForm/profile";
 import TaskScheduleList from "../components/project/TaskScheduleList";
 import ProjectTaskReport from "../components/project/ProjectTaskReport";
+import GroupChat from "../components/GroupChat";
+import CommonWall from "../components/CommonWall";
 import MainLayout from "../layouts/MainLayout";
 import PrivateRoute from "./PrivateRoute";
 import PublicRoute from "./PublicRoute";
@@ -78,6 +80,8 @@ export default function AppRoutes() {
                 <Route path="/applied" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]} permissionKey="applied.view"><Applied /></RoleRoute>} />
                 <Route path="/job" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]} permissionKey="opening.view"><JobOpening /></RoleRoute>} />
                 <Route path="/assign-board" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]} permissionKey="assign_board.view"><Assignedprojectboard /></RoleRoute>} />
+                <Route path="/group-chat" element={<RoleRoute roles={["SUPER_ADMIN", "MANAGER", "TEAM_MEMBER"]}><GroupChat /></RoleRoute>} />
+                <Route path="/common-wall" element={<CommonWall />} />
                 <Route path="/recruitment-process" element={<RoleRoute roles={["SUPER_ADMIN", "HR"]} permissionKey="recruitment.view"><RecruitmentProcess /></RoleRoute>} />
                 <Route path="/onboarding" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER", "CEO"]}><Onboarding /></RoleRoute>} />
                 <Route path="/document-library" element={<RoleRoute roles={["SUPER_ADMIN", "HR", "MANAGER"]}><DocumentLibrary /></RoleRoute>} />

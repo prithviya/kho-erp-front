@@ -90,6 +90,8 @@ function enforceFrontendApiPermission(url, method) {
   if (
     normalizedMethod === "OPTIONS"
     || path.startsWith("/auth/")
+    || path === "/group-chat"
+    || path.startsWith("/group-chat/")
     || (normalizedMethod === "GET" && /^\/openings\/public(?:\/|$)/.test(path))
     || (normalizedMethod === "GET" && path === "/employees/me/profile")
     || (normalizedMethod === "POST" && path === "/cif-submissions")

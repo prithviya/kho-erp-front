@@ -21,7 +21,7 @@ const ROLE_ALIASES = {
     [ROLE_CODES.MANAGER]: ["manager"],
     [ROLE_CODES.CEO]: ["ceo"],
     [ROLE_CODES.HR]: ["hr"],
-    [ROLE_CODES.TEAM_MEMBER]: ["teammember"],
+    [ROLE_CODES.TEAM_MEMBER]: ["teammember", "employee"],
 };
 
 const resolveCanonicalRole = (value = "") => {
