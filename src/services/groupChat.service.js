@@ -22,10 +22,11 @@ const groupChatService = {
   messages(groupId) {
     return request(`/group-chat/${groupId}/messages`);
   },
-  sendMessage(groupId, { message, mentionedUserIds, attachments }) {
+  sendMessage(groupId, { message, mentionedUserIds, attachments, replyToMessageId }) {
     const body = new FormData();
     body.append("message", message || "");
     body.append("mentionedUserIds", JSON.stringify(mentionedUserIds || []));
+    if (replyToMessageId) body.append("replyToMessageId", String(replyToMessageId));
     (attachments || []).forEach((file) => body.append("attachments", file));
     return request(`/group-chat/${groupId}/messages`, { method: "POST", body });
   },

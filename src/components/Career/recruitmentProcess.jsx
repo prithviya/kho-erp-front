@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { request } from '../../services/apiClient';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
-import { Rocket, Eye, X, Trash2 } from 'lucide-react';
+import { Rocket, Eye, X, Trash2, User, MessageSquare, FileCheck, History, Calendar, ChevronDown } from 'lucide-react';
 import { canDeleteRecords } from '../../utils/auth';
 import SortableHeader from '../common/SortableHeader';
 import { sortRows } from '../../utils/tableSorting';
@@ -84,6 +84,7 @@ const RecruitmentPipeline = () => {
   const navigate = useNavigate();
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedCandidateId, setSelectedCandidateId] = useState(null);
+  const [activeModalTab, setActiveModalTab] = useState('interview');
 
   const resolveCandidateId = (candidate) => (
     candidate?.id ?? candidate?.cifid ?? candidate?.candidateId
@@ -214,6 +215,7 @@ const RecruitmentPipeline = () => {
       history: candidate.history || candidate.recruitment?.history || [],
     });
     setSelectedCandidateId(candidateId);
+    setActiveModalTab('interview');
     setShowDetailsModal(true);
   };
 
@@ -458,256 +460,373 @@ const RecruitmentPipeline = () => {
 
       {showDetailsModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="fixed inset-0 bg-black/50 bg-opacity-50 transition-opacity" onClick={() => setShowDetailsModal(false)} />
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" onClick={() => setShowDetailsModal(false)} />
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg z-10">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-800">Manage Recruitment Process</h2>
-                    <p className="text-sm text-gray-500">Update interview schedules, internal reviews, and candidate status.</p>
-                  </div>
-                  <button title="Close" aria-label="Close" onClick={() => setShowDetailsModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                    <X size={20} />
-                  </button>
+            <div className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto border border-gray-100">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white/95 backdrop-blur-xs border-b border-gray-100 px-7 py-5 rounded-t-3xl z-10 flex justify-between items-start">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 tracking-tight">Manage Recruitment Process</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Update interview schedules, internal reviews, and candidate status.</p>
                 </div>
+                <button
+                  type="button"
+                  title="Close"
+                  aria-label="Close"
+                  onClick={() => setShowDetailsModal(false)}
+                  className="rounded-full p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                >
+                  <X size={18} />
+                </button>
               </div>
 
-              <div className="px-6 py-6">
-                <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">{selectedCandidateDetails.name || '-'}</h3>
-                  <p className="text-gray-600">
-                    {selectedCandidateDetails.email || '-'} {' • '} {selectedCandidateDetails.phone || '-'}
+              <div className="p-7">
+                {/* Candidate Black Info Banner */}
+                <div className="bg-[#111111] text-white rounded-2xl p-5 mb-7 shadow-xs">
+                  <h3 className="text-base font-bold text-white tracking-tight">{selectedCandidateDetails.name || '-'}</h3>
+                  <p className="text-xs text-gray-300 mt-0.5 font-medium">
+                    {selectedCandidateDetails.email || '-'} &bull; {selectedCandidateDetails.phone || '-'}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">{selectedCandidateDetails.jobTitle || '-'}</p>
+                  <p className="text-xs text-gray-400 mt-1 font-normal">{selectedCandidateDetails.jobTitle || '-'}</p>
                 </div>
 
-                {/* 1. INTERVIEW DETAILS (12-Hour Format & Mandatory) */}
-                <div className="border-b border-gray-200 pb-6 mb-6">
-                  <h4 className="text-md font-semibold text-gray-800 mb-4">1. Interview Details</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Interview Date & Time <span className="text-red-500">*</span>
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="date"
-                          value={selectedCandidateDetails.interviewDateOnly}
-                          onChange={(e) => handleInputChange(e, 'interviewDateOnly')}
-                          className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <select
-                          value={selectedCandidateDetails.interviewTime12.split(':')[0] || ''}
-                          onChange={(e) => handleInterviewTimeChange('hour', e.target.value)}
-                          className="w-1/6 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                          aria-label="Interview hour"
-                        >
-                          <option value="">HH</option>
-                          {hourOptions.map((hour) => <option key={hour} value={hour}>{hour}</option>)}
-                        </select>
-                        <select
-                          value={selectedCandidateDetails.interviewTime12.split(':')[1] || ''}
-                          onChange={(e) => handleInterviewTimeChange('minute', e.target.value)}
-                          className="w-1/6 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                          aria-label="Interview minute"
-                        >
-                          <option value="">MM</option>
-                          {minuteOptions.map((minute) => <option key={minute} value={minute}>{minute}</option>)}
-                        </select>
-                        <select
-                          value={selectedCandidateDetails.interviewPeriod}
-                          onChange={(e) => handleInputChange(e, 'interviewPeriod')}
-                          className="w-1/4 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        >
-                          <option value="AM">AM</option>
-                          <option value="PM">PM</option>
-                        </select>
-                      </div>
-                    </div>
+                {/* 2-Column Layout: Left Tab Menu, Right Step Form */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-7 items-start">
+                  {/* Left Tabs */}
+                  <div className="md:col-span-4 space-y-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModalTab('interview')}
+                      className={`flex w-full items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
+                        activeModalTab === 'interview'
+                          ? 'bg-blue-50/80 border border-blue-200 text-blue-700 shadow-xs'
+                          : 'bg-white border border-gray-200/80 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <User size={15} className={activeModalTab === 'interview' ? 'text-blue-600' : 'text-gray-400'} />
+                      <span>Interview Details</span>
+                    </button>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Interview Mode <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={selectedCandidateDetails.interviewMode}
-                        onChange={(e) => handleInputChange(e, 'interviewMode')}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      >
-                        <option value="">Select Interview Mode</option>
-                        <option value="Offline">Offline (In-Person)</option>
-                        <option value="Online">Online (Video Call)</option>
-                        <option value="Phone">Phone Interview</option>
-                      </select>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModalTab('feedback')}
+                      className={`flex w-full items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
+                        activeModalTab === 'feedback'
+                          ? 'bg-blue-50/80 border border-blue-200 text-blue-700 shadow-xs'
+                          : 'bg-white border border-gray-200/80 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <MessageSquare size={15} className={activeModalTab === 'feedback' ? 'text-blue-600' : 'text-gray-400'} />
+                      <span>Internal Feedback & Review</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveModalTab('decision')}
+                      className={`flex w-full items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
+                        activeModalTab === 'decision'
+                          ? 'bg-blue-50/80 border border-blue-200 text-blue-700 shadow-xs'
+                          : 'bg-white border border-gray-200/80 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <FileCheck size={15} className={activeModalTab === 'decision' ? 'text-blue-600' : 'text-gray-400'} />
+                      <span>Final Decision</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveModalTab('history')}
+                      className={`flex w-full items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
+                        activeModalTab === 'history'
+                          ? 'bg-blue-50/80 border border-blue-200 text-blue-700 shadow-xs'
+                          : 'bg-white border border-gray-200/80 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <History size={15} className={activeModalTab === 'history' ? 'text-blue-600' : 'text-gray-400'} />
+                      <span>Interview History</span>
+                    </button>
                   </div>
-                </div>
 
-                {/* 2. INTERNAL FEEDBACK */}
-                <div className="border-b border-gray-200 pb-6 mb-6">
-                  <h4 className="text-md font-semibold text-gray-800 mb-4">2. Internal Feedback & Review Process</h4>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Step 1 - HR</label>
-                      <textarea
-                        value={selectedCandidateDetails.hrFeedback}
-                        onChange={(e) => handleInputChange(e, 'hrFeedback')}
-                        rows="2"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="HR screening feedback..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Step 2 - Technical Interview Feedback</label>
-                      <textarea
-                        value={selectedCandidateDetails.technicalFeedback}
-                        onChange={(e) => handleInputChange(e, 'technicalFeedback')}
-                        rows="2"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Technical assessment feedback..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Step 3 - MD Feedback</label>
-                      <textarea
-                        value={selectedCandidateDetails.mdFeedback}
-                        onChange={(e) => handleInputChange(e, 'mdFeedback')}
-                        rows="2"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Final management review feedback..."
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. FINAL DECISION */}
-                <div className="border-b border-gray-200 pb-6 mb-6">
-                  <h4 className="text-md font-semibold text-gray-800 mb-4">3. Final Decision</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Recruitment Status</label>
-                      <select
-                        value={selectedCandidateDetails.status}
-                        onChange={handleStatusChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      >
-                        <option value="Shortlist">Shortlisted</option>
-                        <option value="Interviewing">Interviewing</option>
-                        <option value="Selected">Selected</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Reject">Rejected</option>
-                        <option value="Hold">Hold</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status Change Note (Optional)</label>
-                      <input
-                        type="text"
-                        value={selectedCandidateDetails.statusNote}
-                        onChange={(e) => handleInputChange(e, 'statusNote')}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g. Cleared round 1"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. INTERVIEW HISTORY */}
-                <div className="pb-6">
-                  <h4 className="text-md font-semibold text-gray-800 mb-4">4. Interview History</h4>
-                  <div className="space-y-4 max-h-[30vh] overflow-y-auto">
-                    {selectedCandidateDetails.history && selectedCandidateDetails.history.length > 0 ? (
-                      [...selectedCandidateDetails.history]
-                        .sort((secondItem, firstItem) => {
-                          // Sort mathematically descending: largest (newest) number to the top
-                          const firstDate = getSortableTime(getHistoryModifiedDateTime(firstItem));
-                          const secondDate = getSortableTime(getHistoryModifiedDateTime(secondItem));
-                          return secondDate - firstDate;
-                        })
-                        .map((item, index) => {
-                        // Parse the interview date specifically saved for this history record
-                        const historyInterviewParts = getInterviewParts(item.interviewDateTime || item.interviewDate);
+                  {/* Right Form Content */}
+                  <div className="md:col-span-8 bg-white border border-gray-200/80 rounded-2xl p-6 shadow-xs min-h-[380px] flex flex-col justify-between">
+                    {/* TAB 1: Interview Details */}
+                    {activeModalTab === 'interview' && (
+                      <div className="space-y-5">
+                        <h4 className="text-sm font-bold text-gray-900 tracking-tight">Interview Details</h4>
                         
-                        // Parse the last modified/edit date for this record
-                        const modifiedParts = getInterviewParts(getHistoryModifiedDateTime(item));
-                        
-                        return (
-                          <div key={index} className="bg-white border border-gray-200 shadow-sm rounded-lg p-4 transition-all hover:shadow-md">
-                            {/* Header: Interview Info & Modified Date */}
-                            <div className="flex justify-between items-start border-b border-gray-100 pb-3 mb-3">
-                              <div>
-                                <h5 className="text-sm font-bold text-gray-700 mb-1">Interview Schedule</h5>
-                                <p className="text-sm text-gray-600">
-                                  {historyInterviewParts ? (
-                                    <span className="font-medium text-blue-600">
-                                      {historyInterviewParts.date} {historyInterviewParts.time} {historyInterviewParts.period}
-                                    </span>
-                                  ) : (
-                                    <span className="text-gray-400">Not scheduled</span>
-                                  )}
-                                  <span className="mx-2 text-gray-300">|</span>
-                                  <span className="text-sm text-gray-600">Mode: <span className="font-medium">{getInterviewModeFromHistory(item)}</span></span>
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Last Modified</span>
-                                {modifiedParts ? (
-                                  <span className="block text-xs font-medium text-gray-600">
-                                    {modifiedParts.date} {modifiedParts.time} {modifiedParts.period}
-                                  </span>
-                                ) : (
-                                  <span className="block text-xs text-gray-400">-</span>
-                                )}
-                                <span className="block text-xs text-gray-400 mt-1">{item.user || 'System User'} {item.action ? `(${item.action})` : ''}</span>
-                              </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-2">
+                            Interview Date & Time <span className="text-red-500">*</span>
+                          </label>
+                          <div className="grid grid-cols-12 gap-2">
+                            <div className="col-span-12 sm:col-span-6 relative">
+                              <input
+                                type="date"
+                                value={selectedCandidateDetails.interviewDateOnly}
+                                onChange={(e) => handleInputChange(e, 'interviewDateOnly')}
+                                className="w-full px-3.5 py-2.5 text-xs bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7a0c16]/20 focus:border-[#7a0c16] transition-all"
+                              />
                             </div>
-
-                            {/* Body: Feedbacks */}
-                            <div className="space-y-2 mb-3">
-                              <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
-                                <span className="font-semibold text-gray-700 block mb-1">Step 1 (HR Feedback):</span> 
-                                {item.hrFeedback || item.hrScreeningFeedback || '-'}
-                              </p>
-                              <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
-                                <span className="font-semibold text-gray-700 block mb-1">Step 2 (Technical Feedback):</span> 
-                                {item.technicalFeedback || item.technicalInterviewFeedback || '-'}
-                              </p>
-                              <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
-                                <span className="font-semibold text-gray-700 block mb-1">Step 3 (MD Feedback):</span> 
-                                {item.mdFeedback || '-'}
-                              </p>
+                            <div className="col-span-4 sm:col-span-2">
+                              <select
+                                value={selectedCandidateDetails.interviewTime12.split(':')[0] || ''}
+                                onChange={(e) => handleInterviewTimeChange('hour', e.target.value)}
+                                className="w-full px-2.5 py-2.5 text-xs bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7a0c16]/20 focus:border-[#7a0c16] transition-all"
+                                aria-label="Interview hour"
+                              >
+                                <option value="">HH</option>
+                                {hourOptions.map((hour) => <option key={hour} value={hour}>{hour}</option>)}
+                              </select>
+                            </div>
+                            <div className="col-span-4 sm:col-span-2">
+                              <select
+                                value={selectedCandidateDetails.interviewTime12.split(':')[1] || ''}
+                                onChange={(e) => handleInterviewTimeChange('minute', e.target.value)}
+                                className="w-full px-2.5 py-2.5 text-xs bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7a0c16]/20 focus:border-[#7a0c16] transition-all"
+                                aria-label="Interview minute"
+                              >
+                                <option value="">MM</option>
+                                {minuteOptions.map((minute) => <option key={minute} value={minute}>{minute}</option>)}
+                              </select>
+                            </div>
+                            <div className="col-span-4 sm:col-span-2">
+                              <select
+                                value={selectedCandidateDetails.interviewPeriod}
+                                onChange={(e) => handleInputChange(e, 'interviewPeriod')}
+                                className="w-full px-2.5 py-2.5 text-xs bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7a0c16]/20 focus:border-[#7a0c16] transition-all"
+                              >
+                                <option value="AM">AM</option>
+                                <option value="PM">PM</option>
+                              </select>
                             </div>
                           </div>
-                        );
-                        })
-                    ) : (
-                      <div className="bg-gray-50 rounded-lg p-6 text-sm text-gray-500 text-center border border-dashed border-gray-300">
-                        No interview history available yet.
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-2">
+                            Interview Mode <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            value={selectedCandidateDetails.interviewMode}
+                            onChange={(e) => handleInputChange(e, 'interviewMode')}
+                            className="w-full px-3.5 py-2.5 text-xs bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7a0c16]/20 focus:border-[#7a0c16] transition-all"
+                          >
+                            <option value="">Select Interview Mode</option>
+                            <option value="Offline">Offline (In-Person)</option>
+                            <option value="Online">Online (Video Call)</option>
+                            <option value="Phone">Phone Interview</option>
+                          </select>
+                        </div>
                       </div>
                     )}
-                  </div>
-                </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 justify-end pt-6 mt-6 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setShowDetailsModal(false)}
-                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors duration-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveRecruitment}
-                    disabled={saving}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  >
-                    {saving ? 'Saving...' : 'Save Recruitment Details'}
-                  </button>
+                    {/* TAB 2: Internal Feedback & Review Process */}
+                    {activeModalTab === 'feedback' && (
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-bold text-gray-900 tracking-tight">Internal Feedback & Review Process</h4>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Step 1 - HR</label>
+                          <textarea
+                            value={selectedCandidateDetails.hrFeedback}
+                            onChange={(e) => handleInputChange(e, 'hrFeedback')}
+                            rows={2}
+                            className="w-full px-3.5 py-2.5 text-xs bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7a0c16]/20 focus:border-[#7a0c16] transition-all placeholder:text-gray-400"
+                            placeholder="HR screening feedback.."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Step 2 - Technical Interview Feedback</label>
+                          <textarea
+                            value={selectedCandidateDetails.technicalFeedback}
+                            onChange={(e) => handleInputChange(e, 'technicalFeedback')}
+                            rows={2}
+                            className="w-full px-3.5 py-2.5 text-xs bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7a0c16]/20 focus:border-[#7a0c16] transition-all placeholder:text-gray-400"
+                            placeholder="Technical assessment feedback.."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Step 3 - MD Feedback</label>
+                          <textarea
+                            value={selectedCandidateDetails.mdFeedback}
+                            onChange={(e) => handleInputChange(e, 'mdFeedback')}
+                            rows={2}
+                            className="w-full px-3.5 py-2.5 text-xs bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7a0c16]/20 focus:border-[#7a0c16] transition-all placeholder:text-gray-400"
+                            placeholder="Final management review feedback.."
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 3: Final Decision */}
+                    {activeModalTab === 'decision' && (
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-bold text-gray-900 tracking-tight">Final Decision</h4>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Recruitment Status</label>
+                          <select
+                            value={selectedCandidateDetails.status}
+                            onChange={handleStatusChange}
+                            className="w-full px-3.5 py-2.5 text-xs bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7a0c16]/20 focus:border-[#7a0c16] transition-all"
+                          >
+                            <option value="Shortlist">Shortlisted</option>
+                            <option value="Interviewing">Interviewing</option>
+                            <option value="Selected">Selected</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Reject">Rejected</option>
+                            <option value="Hold">Hold</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Status Change Note (Optional)</label>
+                          <textarea
+                            rows={3}
+                            value={selectedCandidateDetails.statusNote}
+                            onChange={(e) => handleInputChange(e, 'statusNote')}
+                            className="w-full px-3.5 py-2.5 text-xs bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7a0c16]/20 focus:border-[#7a0c16] transition-all placeholder:text-gray-400"
+                            placeholder="eg. Cleared round 1"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 4: Interview History */}
+                    {activeModalTab === 'history' && (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-sm font-bold text-gray-900 tracking-tight">Interview History</h4>
+                          <span className="text-xs font-semibold text-gray-500">
+                            Current Status: <span className="text-gray-900">{selectedCandidateDetails.status || 'Shortlisted'}</span>
+                          </span>
+                        </div>
+
+                        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                          {selectedCandidateDetails.history && selectedCandidateDetails.history.length > 0 ? (
+                            [...selectedCandidateDetails.history]
+                              .sort((secondItem, firstItem) => {
+                                const firstDate = getSortableTime(getHistoryModifiedDateTime(firstItem));
+                                const secondDate = getSortableTime(getHistoryModifiedDateTime(secondItem));
+                                return secondDate - firstDate;
+                              })
+                              .map((item, index) => {
+                                const historyInterviewParts = getInterviewParts(item.interviewDateTime || item.interviewDate);
+                                const modifiedParts = getInterviewParts(getHistoryModifiedDateTime(item));
+                                return (
+                                  <div key={index} className="bg-gray-50/60 border border-gray-200/80 rounded-xl p-3.5 text-xs transition-all">
+                                    <div className="flex justify-between items-start border-b border-gray-200/50 pb-2 mb-2">
+                                      <div>
+                                        <p className="font-semibold text-gray-800">
+                                          {historyInterviewParts ? (
+                                            <span className="text-blue-600 font-bold">
+                                              {historyInterviewParts.date} {historyInterviewParts.time} {historyInterviewParts.period}
+                                            </span>
+                                          ) : (
+                                            <span className="text-gray-400">Not scheduled</span>
+                                          )}
+                                          <span className="mx-2 text-gray-300">|</span>
+                                          <span className="text-gray-600">Mode: {getInterviewModeFromHistory(item)}</span>
+                                        </p>
+                                      </div>
+                                      <div className="text-right text-[11px] text-gray-400">
+                                        {modifiedParts ? `${modifiedParts.date} ${modifiedParts.time} ${modifiedParts.period}` : '-'}
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1 text-gray-600 text-[11px]">
+                                      {(item.hrFeedback || item.hrScreeningFeedback) && (
+                                        <p><span className="font-medium text-gray-700">HR:</span> {item.hrFeedback || item.hrScreeningFeedback}</p>
+                                      )}
+                                      {(item.technicalFeedback || item.technicalInterviewFeedback) && (
+                                        <p><span className="font-medium text-gray-700">Tech:</span> {item.technicalFeedback || item.technicalInterviewFeedback}</p>
+                                      )}
+                                      {item.mdFeedback && (
+                                        <p><span className="font-medium text-gray-700">MD:</span> {item.mdFeedback}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                          ) : (
+                            <div className="bg-gray-50/50 rounded-2xl p-10 text-xs text-gray-400 text-center border border-dashed border-gray-200 flex flex-col items-center justify-center min-h-[180px]">
+                              No interview history available yet.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step Action Buttons */}
+                    <div className="flex justify-end items-center gap-2.5 pt-5 mt-4 border-t border-gray-100">
+                      {activeModalTab === 'interview' && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveModalTab('feedback')}
+                          className="px-6 py-2 text-xs font-semibold bg-[#7a0c16] text-white rounded-xl shadow-xs hover:bg-[#630911] transition-all"
+                        >
+                          Next
+                        </button>
+                      )}
+
+                      {activeModalTab === 'feedback' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setShowDetailsModal(false)}
+                            className="px-5 py-2 text-xs font-semibold border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveModalTab('decision')}
+                            className="px-6 py-2 text-xs font-semibold bg-[#7a0c16] text-white rounded-xl shadow-xs hover:bg-[#630911] transition-all"
+                          >
+                            Next
+                          </button>
+                        </>
+                      )}
+
+                      {activeModalTab === 'decision' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setShowDetailsModal(false)}
+                            className="px-5 py-2 text-xs font-semibold border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveModalTab('history')}
+                            className="px-6 py-2 text-xs font-semibold bg-[#7a0c16] text-white rounded-xl shadow-xs hover:bg-[#630911] transition-all"
+                          >
+                            Next
+                          </button>
+                        </>
+                      )}
+
+                      {activeModalTab === 'history' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setShowDetailsModal(false)}
+                            className="px-5 py-2 text-xs font-semibold border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveRecruitment}
+                            disabled={saving}
+                            className="px-6 py-2 text-xs font-semibold bg-[#7a0c16] text-white rounded-xl shadow-xs hover:bg-[#630911] disabled:opacity-50 transition-all"
+                          >
+                            {saving ? 'Saving...' : 'Save Recruitment Details'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

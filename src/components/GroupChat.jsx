@@ -10,6 +10,7 @@ import {
   ImagePlus,
   MessageCircle,
   Paperclip,
+  CornerUpLeft,
   Plus,
   Search,
   Send,
@@ -97,6 +98,10 @@ const normalizeApiMessage = (message = {}) => ({
     },
     url: attachment.url ? getProfileImageUrl(attachment.url) : "",
   })),
+  replyToMessageId: message.replyToMessageId == null ? null : String(message.replyToMessageId),
+  replyTo: message.replyTo ? {
+    ...normalizeApiMessage(message.replyTo),
+  } : null,
 });
 const normalizeApiGroup = (group = {}) => {
   const members = (group.members || []).map(normalizeApiUser);
@@ -136,7 +141,7 @@ function Avatar({ person, className = "h-10 w-10" }) {
   }
 
   return (
-    <span className={`${className} ${person?.color || "bg-slate-500"} inline-flex shrink-0 items-center justify-center rounded-full text-xs font-bold text-white`}>
+    <span className={`${className} ${person?.color || "bg-[#7a0c16]"} inline-flex shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-xs`}>
       {initials(person?.fullName || person?.name)}
     </span>
   );
@@ -176,6 +181,7 @@ function GroupChat() {
   const [showGroupSettings, setShowGroupSettings] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null);
   const [isSending, setIsSending] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState([]);
   const [previewAttachment, setPreviewAttachment] = useState(null);
@@ -440,6 +446,7 @@ function GroupChat() {
         message,
         mentionedUserIds: mentionedMembers.map((member) => member.id),
         attachments: pendingAttachments.map((attachment) => attachment.file),
+        replyToMessageId: replyingTo?.id,
       });
       const savedMessage = normalizeApiMessage(response?.data);
       setGroups((current) => current.map((group) => (
@@ -448,6 +455,7 @@ function GroupChat() {
           : group
       )));
       setMessageText("");
+      setReplyingTo(null);
       pendingAttachments.forEach(({ url }) => {
         URL.revokeObjectURL(url);
         objectUrls.current.delete(url);
@@ -490,41 +498,41 @@ function GroupChat() {
   };
 
   return (
-    <div className="flex h-full min-h-[calc(100dvh-5rem)] flex-col p-3 sm:p-5">
+    <div className="flex h-full min-h-[calc(100dvh-5rem)] flex-col p-3 sm:p-5 bg-white">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#9c1018]">Team communication</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#7a0c16]">TEAM COMMUNICATION</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">Group chat</h1>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <aside className={`${mobileChatOpen ? "hidden" : "flex"} w-full shrink-0 flex-col border-r border-slate-200 md:flex md:w-80`}>
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+        <aside className={`${mobileChatOpen ? "hidden" : "flex"} w-full shrink-0 flex-col border-r border-slate-200/80 md:flex md:w-80`}>
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
             <div>
-              <h2 className="font-bold text-slate-900">Your groups</h2>
+              <h2 className="font-bold text-slate-900 text-sm">Your groups</h2>
               <p className="mt-0.5 text-xs text-slate-500">{visibleGroups.length} conversations</p>
             </div>
             {canCreateGroup && (
               <button
                 type="button"
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#9c1018] px-3 py-2 text-xs font-semibold text-white hover:bg-[#7d0d15]"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#7a0c16] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#630911] transition-colors"
               >
                 <Plus size={15} /> Create Group
               </button>
             )}
           </div>
-          <label className="relative mx-3 my-3 block">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <label className="relative mx-3.5 my-3 block">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={groupSearch}
               onChange={(event) => setGroupSearch(event.target.value)}
               placeholder="Search groups"
-              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs outline-none focus:border-[#7a0c16] focus:ring-2 focus:ring-[#7a0c16]/10"
             />
           </label>
-          <div className="flex-1 overflow-y-auto px-2 pb-3">
+          <div className="flex-1 overflow-y-auto px-2.5 pb-3 space-y-1.5">
             {visibleGroups.map((group) => {
               const lastMessage = group.messages.at(-1);
               const lastSender = lastMessage?.sender || getPersonById(lastMessage?.senderId);
@@ -534,15 +542,19 @@ function GroupChat() {
                   type="button"
                   key={group.id}
                   onClick={() => selectGroup(group.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition ${selected ? "bg-rose-50 ring-1 ring-rose-100" : "hover:bg-slate-50"}`}
+                  className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-all ${
+                    selected
+                      ? "bg-blue-50/40 border border-blue-200/80 shadow-xs"
+                      : "bg-white border border-slate-200/70 hover:bg-slate-50"
+                  }`}
                 >
-                  <Avatar person={{ fullName: group.name, avatar: group.avatar, color: "bg-[#9c1018]" }} className="h-11 w-11" />
+                  <Avatar person={{ fullName: group.name, avatar: group.avatar, color: "bg-[#7a0c16]" }} className="h-10 w-10" />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-semibold text-slate-900">{group.name}</span>
-                      <span className="shrink-0 text-[10px] text-slate-400">{lastMessage ? formatTime(lastMessage.createdAt) : ""}</span>
+                      <span className="truncate text-xs font-bold text-slate-900">{group.name}</span>
+                      <span className="shrink-0 text-[10px] text-slate-400 font-medium">{lastMessage ? formatTime(lastMessage.createdAt) : ""}</span>
                     </span>
-                    <span className="mt-1 block truncate text-xs text-slate-500">
+                    <span className="mt-1 block truncate text-[11px] text-slate-500">
                       {lastMessage?.system ? lastMessage.text : `${lastSender ? `${lastSender.fullName}: ` : ""}${lastMessage?.text || "No messages yet"}`}
                     </span>
                     <span className="mt-1 flex items-center gap-1 text-[10px] text-slate-400"><Users size={11} /> {group.memberIds.length} members</span>
@@ -550,14 +562,14 @@ function GroupChat() {
                 </button>
               );
             })}
-            {isLoadingGroups && <p className="px-4 py-10 text-center text-sm text-slate-500">Loading group chats…</p>}
+            {isLoadingGroups && <p className="px-4 py-10 text-center text-xs text-slate-500">Loading group chats…</p>}
             {!visibleGroups.length && !isLoadingGroups && (
-              <div className="px-4 py-10 text-center text-sm text-slate-500">
+              <div className="px-4 py-10 text-center text-xs text-slate-500">
                 No groups yet. You’ll see groups here when you’re added as a member.
               </div>
             )}
           </div>
-          <div className="border-t border-slate-100 px-4 py-3 text-[11px] leading-5 text-slate-500">
+          <div className="border-t border-slate-100 px-4 py-3 text-[10px] text-slate-400">
             Group chats and messages are stored on the server.
           </div>
         </aside>
@@ -602,15 +614,41 @@ function GroupChat() {
                   const ownMessage = String(message.senderId) === String(activeUser.id);
                   const attachments = parseApiAttachments(message.attachments);
                   return (
-                    <div key={message.id} className={`flex items-end gap-2 ${ownMessage ? "justify-end" : "justify-start"}`}>
+                    <div id={`group-message-${message.id}`} key={message.id} className={`flex items-end gap-2 ${ownMessage ? "justify-end" : "justify-start"}`}>
                       {!ownMessage && <Avatar person={sender} className="h-8 w-8" />}
-                      <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-sm sm:max-w-[75%] ${ownMessage ? "rounded-br-md bg-[#9c1018] text-white" : "rounded-bl-md border border-slate-200 bg-white text-slate-800"}`}>
-                        <div className={`mb-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] ${ownMessage ? "text-rose-100" : "text-slate-500"}`}>
-                          <span className={`font-semibold ${ownMessage ? "text-white" : "text-slate-800"}`}>{ownMessage ? "You" : fullName(sender)}</span>
+                      <div className={`max-w-[85%] rounded-2xl px-4 py-3 sm:max-w-[70%] transition-all ${ownMessage ? "bg-[#7a0c16] text-[#FFFFFF] shadow-xs" : "bg-[#F4F5F9] text-slate-800"}`}>
+                        <div className={`mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] ${ownMessage ? "text-white/80" : "text-slate-500"}`}>
+                          <span className={`font-semibold ${ownMessage ? "text-white" : "text-slate-900"}`}>{ownMessage ? "You" : fullName(sender)}</span>
                           {!ownMessage && <span>{sender?.role}</span>}
-                          <time>{formatTime(message.createdAt)}</time>
+                          <time className="text-[10px] font-medium">{formatTime(message.createdAt)}</time>
+                          <button
+                            type="button"
+                            onClick={() => setReplyingTo(message)}
+                            className={`ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${ownMessage ? "hover:bg-white/10 text-white/90" : "hover:bg-black/5 text-slate-600"}`}
+                            aria-label={`Reply to ${ownMessage ? "your" : fullName(sender)} message`}
+                            title="Reply"
+                          >
+                            <CornerUpLeft size={11} /> Reply
+                          </button>
                         </div>
-                        {!!message.text && <p className="whitespace-pre-wrap break-words text-sm leading-6"><MessageBody text={message.text} members={groupMembers} /></p>}
+                        {message.replyTo && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const target = document.getElementById(`group-message-${message.replyTo.id}`);
+                              target?.scrollIntoView({ behavior: "smooth", block: "center" });
+                            }}
+                            className={`mb-2 w-full rounded-xl px-3 py-2 text-left border-l-4 transition-all ${ownMessage ? "bg-[#FFFFFF] border-l-[#F4BB00] text-slate-800 shadow-xs" : "bg-white border-l-[#7a0c16] text-slate-800"}`}
+                          >
+                            <span className={`block text-[11px] font-bold ${ownMessage ? "text-slate-900" : "text-[#7a0c16]"}`}>
+                              {String(message.replyTo.senderId) === String(activeUser.id) ? "You" : fullName(message.replyTo.sender || getPersonById(message.replyTo.senderId))}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-slate-600 font-normal">
+                              {message.replyTo.text || "Attachment"}
+                            </span>
+                          </button>
+                        )}
+                        {!!message.text && <p className={`whitespace-pre-wrap break-words text-xs leading-relaxed font-normal ${ownMessage ? "text-[#FFFFFF]" : "text-slate-800"}`}><MessageBody text={message.text} members={groupMembers} /></p>}
                         {!!attachments.length && (
                           <div className={`mt-2 space-y-2 ${message.text ? "" : "mt-0"}`}>
                             {attachments.map((attachment) => (
@@ -633,6 +671,19 @@ function GroupChat() {
               </div>
 
               <div className="relative border-t border-slate-200 bg-white p-3 sm:p-4">
+                {replyingTo && (
+                  <div className="mb-2 flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <div className="min-w-0 border-l-2 border-[#9c1018] pl-2.5">
+                      <p className="text-[11px] font-bold text-[#9c1018]">
+                        Replying to {String(replyingTo.senderId) === String(activeUser.id) ? "yourself" : fullName(replyingTo.sender || getPersonById(replyingTo.senderId))}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-slate-500">{replyingTo.text || "Attachment"}</p>
+                    </div>
+                    <button type="button" onClick={() => setReplyingTo(null)} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700" aria-label="Cancel reply">
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
                 {mentionQuery !== null && mentionOptions.length > 0 && (
                   <div className="absolute bottom-full left-3 right-3 z-10 mb-2 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl sm:left-4 sm:right-4">
                     {mentionOptions.map((member, index) => (
@@ -670,7 +721,7 @@ function GroupChat() {
                     ))}
                   </div>
                 )}
-                <div className="flex items-end gap-2 rounded-xl border border-slate-200 bg-white p-2 focus-within:border-rose-400 focus-within:ring-2 focus-within:ring-rose-100">
+                <div className="flex items-end gap-2 rounded-2xl border border-slate-200/90 bg-white p-2.5 focus-within:border-[#7a0c16] focus-within:ring-2 focus-within:ring-[#7a0c16]/10 transition-all">
                   <input
                     ref={attachmentInput}
                     type="file"
@@ -679,8 +730,8 @@ function GroupChat() {
                     onChange={handleAttachmentChange}
                     className="hidden"
                   />
-                  <button type="button" onClick={() => attachmentInput.current?.click()} aria-label="Attach files" title="Attach images, DOC, DOCX, or PDF" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-[#9c1018]">
-                    <Paperclip size={18} />
+                  <button type="button" onClick={() => attachmentInput.current?.click()} aria-label="Attach files" title="Attach images, DOC, DOCX, or PDF" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                    <Paperclip size={17} />
                   </button>
                   <textarea
                     rows={2}
@@ -692,18 +743,19 @@ function GroupChat() {
                     onKeyDown={handleComposerKeyDown}
                     placeholder={`Message ${activeGroup.name}...`}
                     aria-label="Message"
-                    className="max-h-32 min-h-12 flex-1 resize-y bg-transparent px-2 py-1.5 text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                    className="max-h-32 min-h-12 flex-1 resize-y bg-transparent px-2 py-1 text-xs text-slate-800 outline-none placeholder:text-slate-400"
                   />
                   <button
                     type="button"
                     onClick={sendMessage}
                     disabled={isSending || (!messageText.trim() && !pendingAttachments.length)}
-                    className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[#9c1018] px-3 text-sm font-semibold text-white hover:bg-[#7d0d15] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[#7a0c16] px-4 text-xs font-semibold text-white hover:bg-[#630911] disabled:cursor-not-allowed disabled:opacity-40 transition-all"
                   >
-                    <Send size={15} /><span className="hidden sm:inline">Send</span>
+                    <Send size={13} />
+                    <span>Send</span>
                   </button>
                 </div>
-                <p className="mt-2 flex items-center gap-1 px-1 text-[11px] text-slate-400"><AtSign size={12} /> Type @ to mention a group member · Enter to send · Shift+Enter for a new line</p>
+                <p className="mt-2 flex items-center gap-1 px-1 text-[10px] text-slate-400"><AtSign size={11} /> Type @ to mention a group member · Enter to send · Shift+Enter for a new line</p>
               </div>
             </>
           ) : (

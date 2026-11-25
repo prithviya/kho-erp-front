@@ -205,6 +205,23 @@ const JobOpenings = () => {
         return isActive ? "bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium": "bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs font-medium";
     };
 
+    const getJobOpeningApplyUrl = (job) => {
+        if (!job) return "";
+        // Dynamically resolve application URL for the current deployed domain/environment
+        if (job.jobid) {
+            return `${window.location.origin}/cif-form?jobid=${job.jobid}`;
+        }
+        if (job.jobOpeningUrl) {
+            try {
+                const parsed = new URL(job.jobOpeningUrl);
+                return `${window.location.origin}${parsed.pathname}${parsed.search}`;
+            } catch {
+                return job.jobOpeningUrl;
+            }
+        }
+        return "";
+    };
+
     const copyJobOpeningUrl = async (url) => {
         try {
             await navigator.clipboard.writeText(url);
@@ -306,9 +323,9 @@ const JobOpenings = () => {
                                 
                                             {/* APPLY LINK COLUMN */}
                                             <td className={`px-4 py-3 text-sm ${job.isActive ? "text-blue-600" : "text-gray-400"}`}>
-                                            {job.jobOpeningUrl || job.jobid ? (
+                                            {job.jobid || job.jobOpeningUrl ? (
                                                 (() => {
-                                                const url = job.jobOpeningUrl || `${window.location.origin}/cif-form?jobid=${job.jobid}`;
+                                                const url = getJobOpeningApplyUrl(job);
                                                 const displayUrl = url.length > 20 ? `${url.slice(0, 20)}...` : url;
                                                 return (
                                                     <button

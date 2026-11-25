@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, FileSpreadsheet, Loader2, Printer, RefreshCw } from "lucide-react";
+import { Calendar, CheckSquare, Download, FileSpreadsheet, FileText, Loader2, Printer, RefreshCw } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSearchParams } from "react-router-dom";
 import leadService from "../../services/lead.service";
@@ -72,6 +72,11 @@ function getLocalDateKey(date) {
 
 function csvCell(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function formatCount(num) {
+  if (num === null || num === undefined) return "00";
+  return String(num).padStart(2, "0");
 }
 
 function ProjectTaskReport() {
@@ -200,10 +205,11 @@ function ProjectTaskReport() {
   }), { planned: 0, created: 0, completed: 0, overdue: 0, upcoming: 0, remaining: 0, extra: 0 });
 
   const exportCsv = () => {
-    const headers = ["Project", "Service", "Configured sub-services", "Planned total", "Tasks due in range", "Completed", "Overdue", "Upcoming", "Remaining", "Extra"];
+    const headers = ["S.no", "Project", "Service", "Configured sub-services", "Planned total", "Tasks due in range", "Completed", "Overdue", "Upcoming", "Remaining", "Extra"];
     const lines = [
       headers.map(csvCell).join(","),
-      ...reportRows.map((row) => [
+      ...reportRows.map((row, index) => [
+        index + 1,
         row.projectName,
         row.serviceName,
         row.subservices.map((item) => `${item.name}: ${item.count}`).join("; "),
@@ -228,121 +234,255 @@ function ProjectTaskReport() {
   const dateRangeInvalid = Boolean(fromDate && toDate && fromDate > toDate);
 
   return (
-    <main className="min-h-full bg-slate-50 p-4 sm:p-6 bg-[#f4f5f9]">
+    <main className="min-h-full bg-[#f8f9fa] p-4 sm:p-6 text-slate-800">
       <style>{`
         @media print {
-          body * { visibility: hidden !important; background: #f4f5f9 !important; }
+          body * { visibility: hidden !important; background: #ffffff !important; }
           .project-task-report-print, .project-task-report-print * { visibility: visible !important; }
           .project-task-report-print { position: absolute; inset: 0; width: 100%; padding: 16px; background: white !important; }
           .project-task-report-print .print-hidden { display: none !important; }
           .project-task-report-print table { border-collapse: collapse; width: 100%; }
-          .project-task-report-print th, .project-task-report-print td { border: 1px solid #cbd5e1; padding: 8px; color: #0f172a !important; }
-          .project-task-report-print th { background: #e2e8f0 !important; }
+          .project-task-report-print th, .project-task-report-print td { border: 1px solid #e2e8f0; padding: 8px; color: #0f172a !important; }
+          .project-task-report-print th { background: #111111 !important; color: white !important; }
         }
       `}</style>
       <section className="project-task-report-print mx-auto flex max-w-7xl flex-col gap-5">
-        <header className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {/* Header */}
+        <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
           <div>
-            <p className="inline-flex rounded-full bg-rose-700 px-3 py-1.5 text-[10px] font-bold tracking-[0.18em] text-white">PROJECT REPORT</p>
-            <h1 className="mt-3 text-2xl font-bold text-slate-900">Task Report</h1>
-            <p className="mt-1 text-sm text-slate-500">Project task status and configured service quantities.</p>
+            <span className="inline-flex items-center rounded-full bg-[#7a0c16] px-3.5 py-1 text-[11px] font-bold tracking-wider text-white uppercase">
+              PROJECT REPORT
+            </span>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Task Report</h1>
           </div>
-          <div className="print-hidden flex flex-wrap gap-2">
-            <button type="button" onClick={loadReportData} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
-              <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
+          <div className="print-hidden flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={loadReportData}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 disabled:opacity-50 transition"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
             </button>
-            <button type="button" onClick={exportCsv} disabled={!reportRows.length || dateRangeInvalid} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
-              <FileSpreadsheet size={15} /> Export Excel (CSV)
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={!reportRows.length || dateRangeInvalid}
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-2.5 text-xs font-semibold text-emerald-700 shadow-xs hover:bg-emerald-100/70 disabled:opacity-50 transition"
+            >
+              <FileSpreadsheet size={15} className="text-emerald-600" /> Export Excel (CSV)
             </button>
-            <button type="button" onClick={() => window.print()} disabled={!reportRows.length || dateRangeInvalid} className="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50">
-              <Printer size={15} /> Export PDF
+            <button
+              type="button"
+              onClick={() => window.print()}
+              disabled={!reportRows.length || dateRangeInvalid}
+              className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/80 px-4 py-2.5 text-xs font-semibold text-blue-700 shadow-xs hover:bg-blue-100/70 disabled:opacity-50 transition"
+            >
+              <Printer size={15} className="text-blue-600" /> Export PDF
             </button>
           </div>
         </header>
 
-        <section className="print-hidden grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-3">
-          <label className="text-xs font-semibold text-slate-600">
-            Project
-            <select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-800">
-              <option value="">All accessible projects</option>
-              {projects.map((project) => <option key={project.id} value={project.id}>{project.projectName}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-slate-600">
-            From
-            <input type="date" value={fromDate} max={toDate || undefined} onChange={(event) => setFromDate(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal text-slate-800" />
-          </label>
-          <label className="text-xs font-semibold text-slate-600">
-            To
-            <input type="date" value={toDate} min={fromDate || undefined} max={todayKey} onChange={(event) => setToDate(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal text-slate-800" />
-          </label>
-        </section>
-
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ["Planned total", totals.planned, "bg-violet-50 text-violet-700"],
-            // ["Tasks due in range", totals.created, "bg-sky-50 text-sky-700"],
-            ["Completed", totals.completed, "bg-emerald-50 text-emerald-700"],
-            ["Remaining", totals.remaining, "bg-slate-100 text-slate-700"],
-            // ["Overdue", totals.overdue, "bg-red-50 text-red-700"],
-            // ["Upcoming", totals.upcoming, "bg-amber-50 text-amber-700"],
-            ["Extra beyond plan", totals.extra, "bg-rose-50 text-rose-700"]
-          ].map(([label, count, style]) => (
-            <article key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-              <p className={`mt-2 inline-flex rounded-lg px-3 py-1.5 text-xl font-bold ${style}`}>{count}</p>
-            </article>
-          ))}
-        </section>
-
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
+        {/* Filters */}
+        <section className="print-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <h2 className="font-bold text-slate-900">Service summary</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Due dates: {fromDate || "Any"} to {toDate || "Any"}
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                SPOC
+              </label>
+              <select
+                value={projectId}
+                onChange={(event) => setProjectId(event.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-normal text-slate-800 shadow-xs focus:border-[#7a0c16] focus:outline-none focus:ring-1 focus:ring-[#7a0c16]"
+              >
+                <option value="">All Accessible Projects</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>{project.projectName}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                From
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={fromDate}
+                  max={toDate || undefined}
+                  onChange={(event) => setFromDate(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-normal text-slate-800 shadow-xs focus:border-[#7a0c16] focus:outline-none focus:ring-1 focus:ring-[#7a0c16]"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                To
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={toDate}
+                  min={fromDate || undefined}
+                  max={todayKey}
+                  onChange={(event) => setToDate(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-normal text-slate-800 shadow-xs focus:border-[#7a0c16] focus:outline-none focus:ring-1 focus:ring-[#7a0c16]"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 4 Metric Summary Cards */}
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Planned Total */}
+          <article className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+            <div>
+              <p className="text-xs font-medium text-slate-500">Planned Total</p>
+              <p className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+                {formatCount(totals.planned)}
               </p>
             </div>
-            <Download size={18} className="print-hidden text-slate-400" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+              <FileText size={20} />
+            </div>
+          </article>
+
+          {/* Completed */}
+          <article className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+            <div>
+              <p className="text-xs font-medium text-slate-500">Completed</p>
+              <p className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+                {formatCount(totals.completed)}
+              </p>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <CheckSquare size={20} />
+            </div>
+          </article>
+
+          {/* Remaining */}
+          <article className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+            <div>
+              <p className="text-xs font-medium text-slate-500">Remaining</p>
+              <p className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+                {formatCount(totals.remaining)}
+              </p>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+              <FileText size={20} />
+            </div>
+          </article>
+
+          {/* Extra Beyond Plan */}
+          <article className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+            <div>
+              <p className="text-xs font-medium text-slate-500">Extra Beyond Plan</p>
+              <p className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+                {formatCount(totals.extra)}
+              </p>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-500">
+              <FileText size={20} />
+            </div>
+          </article>
+        </section>
+
+        {/* Service Summary Table */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Service Summary</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Due Dates: {fromDate ? fromDate.split("-").reverse().join("-") : "Any"} to {toDate ? toDate.split("-").reverse().join("-") : "Any"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={!reportRows.length || dateRangeInvalid}
+              className="print-hidden inline-flex items-center gap-1.5 rounded-xl bg-[#7a0c16] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#630911] disabled:opacity-50 transition"
+            >
+              <Download size={14} /> Download
+            </button>
           </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-sm">
-              <thead className="bg-slate-900 text-xs uppercase tracking-wide text-white">
+            <table className="w-full min-w-[980px] text-left text-xs">
+              <thead className="bg-[#111111] text-white">
                 <tr>
-                  {["Project", "Service / sub-services", "Planned", "Tasks due", "Completed", "Overdue", "Upcoming", "Remaining", "Extra"].map((heading) => (
-                    <th key={heading} className="px-4 py-3 font-semibold">{heading}</th>
-                  ))}
+                  <th className="px-4 py-3.5 font-medium w-14">S.no</th>
+                  <th className="px-4 py-3.5 font-medium">Project</th>
+                  <th className="px-4 py-3.5 font-medium">Service/Sub-Service</th>
+                  <th className="px-4 py-3.5 font-medium text-center">Planned</th>
+                  <th className="px-4 py-3.5 font-medium text-center">Task Due</th>
+                  <th className="px-4 py-3.5 font-medium text-center">Completed</th>
+                  <th className="px-4 py-3.5 font-medium text-center">Over Due</th>
+                  <th className="px-4 py-3.5 font-medium text-center">Upcoming</th>
+                  <th className="px-4 py-3.5 font-medium text-center">Remaining</th>
+                  <th className="px-4 py-3.5 font-medium text-center">Extra</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan="9" className="px-4 py-12 text-center text-slate-500"><Loader2 className="mx-auto animate-spin" /></td></tr>
-                ) : dateRangeInvalid ? (
-                  <tr><td colSpan="9" className="px-4 py-12 text-center text-red-600">Start date must be on or before end date.</td></tr>
-                ) : reportRows.length ? reportRows.map((row) => (
-                  <tr key={`${row.projectId}-${row.serviceName}`} className="align-top hover:bg-slate-50">
-                    <td className="px-4 py-3 font-semibold text-slate-800">{row.projectName}</td>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-slate-800">{row.serviceName}</p>
-                      {row.subservices.length > 0 && <p className="mt-1 text-xs text-slate-500">{row.subservices.map((item) => `${item.name}: ${item.count}`).join(" · ")}</p>}
+                  <tr>
+                    <td colSpan="10" className="px-4 py-12 text-center text-slate-500">
+                      <Loader2 className="mx-auto animate-spin" size={24} />
+                      <p className="mt-2 text-xs text-slate-400">Loading task report...</p>
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-700">{row.planned}</td>
-                    <td className="px-4 py-3 font-semibold text-slate-700">{row.created}</td>
-                    <td className="px-4 py-3 text-emerald-700">{row.completed}</td>
-                    <td className="px-4 py-3 text-red-700">{row.overdue}</td>
-                    <td className="px-4 py-3 text-amber-700">{row.upcoming}</td>
-                    <td className="px-4 py-3 text-slate-700">{row.remaining}</td>
-                    <td className="px-4 py-3 text-rose-700">{row.extra}</td>
                   </tr>
-                )) : (
-                  <tr><td colSpan="9" className="px-4 py-12 text-center text-slate-500">{projects.length ? "No project tasks found for this due-date range." : "No accessible projects found."}</td></tr>
+                ) : dateRangeInvalid ? (
+                  <tr>
+                    <td colSpan="10" className="px-4 py-12 text-center text-red-600 font-medium">
+                      Start date must be on or before end date.
+                    </td>
+                  </tr>
+                ) : reportRows.length ? (
+                  reportRows.map((row, index) => (
+                    <tr key={`${row.projectId}-${row.serviceName}-${index}`} className="align-middle hover:bg-slate-50/70 transition-colors">
+                      <td className="px-4 py-3.5 text-slate-500 font-medium">{index + 1}</td>
+                      <td className="px-4 py-3.5 font-bold text-slate-900">{row.projectName}</td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="font-semibold text-slate-800">{row.serviceName}</span>
+                          {row.subservices && row.subservices.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-0.5">
+                              {row.subservices.map((sub, sIdx) => (
+                                <span
+                                  key={sIdx}
+                                  className="inline-flex items-center rounded-full bg-rose-50 border border-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-600"
+                                >
+                                  {sub.name}: {sub.count}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center font-bold text-slate-800">{row.planned}</td>
+                      <td className="px-4 py-3.5 text-center font-bold text-slate-800">{row.created}</td>
+                      <td className="px-4 py-3.5 text-center font-bold text-emerald-600">{row.completed}</td>
+                      <td className="px-4 py-3.5 text-center font-bold text-rose-600">{row.overdue}</td>
+                      <td className="px-4 py-3.5 text-center font-bold text-amber-500">{row.upcoming}</td>
+                      <td className="px-4 py-3.5 text-center font-bold text-slate-700">{row.remaining}</td>
+                      <td className="px-4 py-3.5 text-center font-bold text-purple-600">{row.extra}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="10" className="px-4 py-12 text-center text-slate-500">
+                      {projects.length ? "No project tasks found for this due-date range." : "No accessible projects found."}
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
-          <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
-            Remaining = planned total minus created tasks, with a minimum of zero. Overdue and upcoming are subsets of created tasks. Extra counts created tasks beyond the configured plan.
-          </p>
+          <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-3">
+            <p className="text-[11px] leading-relaxed text-slate-400">
+              Remaining = Planned total minus created tasks, with a minimum of zero. Overdue and upcoming are subsets of created tasks. Extra counts created tasks beyond the configured plan.
+            </p>
+          </div>
         </section>
       </section>
     </main>
@@ -350,3 +490,4 @@ function ProjectTaskReport() {
 }
 
 export default ProjectTaskReport;
+

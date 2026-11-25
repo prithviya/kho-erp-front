@@ -58,6 +58,52 @@ function fileTypeLabel(file) {
   return "FILE";
 }
 
+function ImageThumbnail({ file, projectId, fallbackIcon: FallbackIcon }) {
+  const [thumbUrl, setThumbUrl] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const isImage = fileKind(file) === "image";
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl = null;
+
+    if (isImage) {
+      projectLibraryService
+        .content(projectId, file, false)
+        .then((blob) => {
+          if (!active) return;
+          objectUrl = URL.createObjectURL(blob);
+          setThumbUrl(objectUrl);
+        })
+        .catch(() => {
+          if (active) setFailed(true);
+        });
+    }
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [file.id, projectId, isImage]);
+
+  if (isImage && thumbUrl && !failed) {
+    return (
+      <img
+        src={thumbUrl}
+        alt={file.name}
+        className="h-10 w-10 shrink-0 rounded-lg object-cover border border-slate-200 shadow-2xs"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-emerald-700">
+      <FallbackIcon size={20} />
+    </span>
+  );
+}
+
 function createDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -355,7 +401,7 @@ export default function ProjectFileLibrary({ projectId, projectName }) {
               <article key={file.id} className={`flex min-w-0 items-center gap-3 rounded-xl border p-3 ${selected ? "border-emerald-400 bg-emerald-50/50" : "border-slate-200 bg-white"}`}>
                 <input type="checkbox" checked={selected} onChange={() => toggleFile(file)} aria-label={`Select ${file.name}`} className="h-4 w-4 accent-emerald-600" />
                 <button type="button" onClick={() => openFile(file)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-emerald-700"><Icon size={20} /></span>
+                  <ImageThumbnail file={file} projectId={projectId} fallbackIcon={Icon} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-slate-800">{file.name}</span>
                     <span className="mt-1 inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-slate-600">{fileTypeLabel(file)}</span>

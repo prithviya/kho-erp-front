@@ -108,6 +108,13 @@ const menu = [
         title: "COMMUNICATION",
         items: [
             {
+                name: "Direct chat",
+                title: "Private one-to-one employee chat",
+                icon: MessageCircle,
+                path: "/direct-chat",
+                roles: ["SUPER_ADMIN", "MANAGER", "CRM_EXECUTIVE", "HR", "CEO", "TEAM_MEMBER"]
+            },
+            {
                 name: "Group chat",
                 title: "Group chat and member mentions",
                 icon: MessageCircle,
